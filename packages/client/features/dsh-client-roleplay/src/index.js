@@ -1,6 +1,6 @@
 import { apply as applyBridge } from './host/agent-preset-bridge.mjs'
 import { RequestPreviewStore } from './host/request-preview.mjs'
-import { conversationActivityProjection, conversationPreviewProjection } from './host/conversation-preview.mjs'
+import { conversationActivityProjection, conversationPreviewProjection, rebuildConversationPreviewCache } from './host/conversation-preview.mjs'
 import { retireRequestContextCache } from './host/request-cache-retirement.mjs'
 import { illustrationProjection } from './host/illustration-projection.mjs'
 
@@ -37,5 +37,13 @@ export async function apply(ctx) {
   await ctx.sessionProjections.register(conversationActivityProjection)
   await ctx.sessionProjections.register(illustrationProjection)
   ctx.inject(['sessionProjectionCache', 'storageDomain'], retireRequestContextCache)
+  ctx.inject(['sessionProjectionCache', 'storageDomain'], scope => {
+    scope.effect(() => {
+      const controller = new AbortController()
+      void rebuildConversationPreviewCache(scope, controller.signal).catch(error =>
+        scope.logger.warn(`更新角色对话摘要缓存失败：${String(error)}`))
+      return () => controller.abort()
+    })
+  })
   return applyBridge(ctx)
 }

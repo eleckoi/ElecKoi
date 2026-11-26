@@ -7,9 +7,30 @@ import { AgentToolsDialog } from '../../src/modules/chat/components/AgentToolsDi
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { agentToolGroups } from '../../../../packages/host/product-data/src/domain/agentTools/agentToolGroups';
+import { ROLEPLAY_REPLY_GROUP_ID } from '@shared/contracts/agent/tools';
 import { withPluginTools } from '../../../../packages/client/features/dsh-client-roleplay/src/host/tool-policy.mjs';
 
 const groups = [['builtin:setting-library', 4, 'eleckoi_read_setting_files'], ['builtin:variables', 4, 'eleckoi_read_variables'], ['builtin:creator', 3, 'eleckoi_call_capability']];
+
+it.each(['preset', 'conversation'])('requires confirmation before disabling roleplay reply from the %s tool list', async surface => {
+  const preset = withPluginTools({ id: 'synthetic-roleplay', purpose: 'roleplay', toolGroups: agentToolGroups() }, []);
+  const change = vi.fn(async next => next);
+  const catalog = { refresh: async () => ({ activePresetIds: { roleplay: preset.id } }), read: async () => preset, save: change };
+  await act(async () => root.render(surface === 'preset' ? <PresetToolsEditor preset={preset} onChange={change} />
+    : <AgentToolsDialog presetCatalog={catalog} onClose={() => {}} />));
+  const selector = surface === 'preset' ? '.preset-tool-row' : '.agent-tool-row';
+  const toggle = [...document.querySelectorAll(selector)].find(row => row.textContent.includes('角色扮演回复')).querySelector('[role=switch]');
+  const button = name => [...document.querySelectorAll('button')].find(item => item.textContent.trim() === name);
+  await act(async () => toggle.click());
+  expect(document.body.textContent).toContain('关闭后，AI 的角色扮演正文将不可见。');
+  expect(change).not.toHaveBeenCalled();
+  await act(async () => button('取消').click());
+  expect(change).not.toHaveBeenCalled();
+  await act(async () => toggle.click());
+  await act(async () => button('关闭工具').click());
+  expect(change).toHaveBeenCalledTimes(1);
+  expect(change.mock.calls[0][0].toolGroups.find(group => group.id === ROLEPLAY_REPLY_GROUP_ID)).toMatchObject({ included: true, enabled: false });
+});
 
 it.each([false, true].flatMap(mobile => ['roleplay', 'creator'].map(purpose => ({ mobile, purpose }))))('shows native basic readers and purpose-appropriate choices mobile=$mobile purpose=$purpose', async ({ mobile, purpose }) => {
   const change = vi.fn();

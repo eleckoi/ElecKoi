@@ -11,6 +11,7 @@ export {
 } from "./preferences/sidebarCharacterArtwork.js";
 export {
   chatDisplayCssVariables,
+  roleplayFloorNumbers,
   resolveRoleplayStyle,
   roleplayStyleCssVariables,
   roleplayStyleDefaultTint,

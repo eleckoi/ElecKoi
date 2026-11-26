@@ -60,6 +60,23 @@ describe('readable creator tool calls', () => {
     expect(keyword.parts[0].value).toBe('选读 · 关键词匹配');
   });
 
+  it('shows confirmed cast edits and structured openings in the existing tool receipts', () => {
+    const role = { id: 'role-a', name: '领航员' };
+    const created = call('character.create_cast_member', { name: role.name }, role);
+    expect(created).toMatchObject({ icon: 'add', title: '已新建登场角色', summary: role.name });
+    expect(created.browser.entries[0].source).toEqual(role);
+    const renamed = call('character.update_cast_member', { id: role.id, changes: { name: '机长' } }, { ...role, name: '机长' });
+    expect(renamed).toMatchObject({ title: '已修改登场角色', summary: '机长' });
+    expect(call('character.remove_cast_member', { id: role.id }, { removedId: role.id, name: '机长' }))
+      .toMatchObject({ icon: 'remove', summary: '机长' });
+    const opening = { id: 'opening-a', title: '首场', content: '「起飞。」',
+      segments: [{ id: 'line-a', kind: 'speech', speakerId: role.id, text: '「起飞。」' }] };
+    const read = creatorToolPresentation('eleckoi_call_capability', block({ capability_id: 'character.read_openings' },
+      { value: { openingMessages: [opening], defaultOpeningMessageId: opening.id } }), 'result');
+    expect(content(read)).toContain(opening.id);
+    expect(read.browser.entries[0].fields).toContainEqual({ label: '开场白段落', value: opening.segments, code: false });
+  });
+
   it('uses create, move, delete, check, test and version icons with small recorded receipts', () => {
     expect(call('scripts.create', { name: '新脚本', content: '' }, { revision: 1, item: { id: 'new', name: '新脚本', enabled: false, content: '' } })).toMatchObject({ icon: 'add', summary: '新脚本' });
     expect(call('regex.create', { rule: { name: '新规则' } }, { revision: 1, rule: { id: 'new', name: '新规则' } }).browser.entries[0].title).toBe('新规则');

@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import { Button, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
-import { ArrowDown, ArrowUp, ChatCircleDots, Copy, DotsThree, Plus, Trash } from '../../../ui/icons/interfaceIcons.jsx';
+import { ArrowDown, ArrowUp, ChatCircleDots, Copy, GearSix, Plus, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { EditorLibraryWorkspace } from '../../../ui/ui/EditorLibraryWorkspace.jsx';
 import { EditorSidebarLayout } from '../../../ui/ui/EditorSidebarLayout.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
@@ -11,12 +11,12 @@ import { EditorField } from '../../../ui/ui/EditorLibraryFields.jsx';
 import { OptionalEditorVersionField } from '../../../ui/ui/EditorVersionPicker.jsx';
 import { EditorContextMenu, useEditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
-import { EditorWritingBoard } from '../../settingLibraries/index.js';
-import { createBackupOpening, duplicateOpening, moveBackupOpening, primaryFirstOpeningMessages, updateOpening } from '../model/openingEditing.js';
+import { OpeningBodyEditor } from './OpeningBodyEditor.jsx';
+import { createBackupOpening, duplicateOpening, moveBackupOpening, primaryFirstOpeningMessages, updateOpening, updateOpeningSegments } from '../model/openingEditing.js';
 import '../../settingLibraries/styles/setting-workspace.css';
 import '../styles/opening-workspace.css';
 
-export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, query, onQueryChange, variableVersions, variableVersionsError, onChange, onRequestDelete, busy, dirty, save }, ref) {
+export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, character, query, onQueryChange, variableVersions, variableVersionsError, onChange, onRequestDelete, busy, dirty, save }, ref) {
   const tUi = useProductTranslation(), context = useEditorContextMenu();
   const { compact } = useEditorPresentation();
   const messages = useMemo(() => primaryFirstOpeningMessages(entry), [entry]);
@@ -67,7 +67,7 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
     <header className="setting-entry-heading opening-entry-heading"><div className="setting-document-heading">
       <div className="setting-document-title"><ChatCircleDots size={21} /><h2>{selected.title || tUi('未命名开场白')}</h2></div>
       <Menu portal dense open={more} onClose={() => setMore(false)}
-        anchor={<Button disabled={busy} data-dsh-control variant="outline" className="setting-folder-more" aria-label={tUi('开场白操作')} icon={<DotsThree size={18} />} aria-haspopup="menu" aria-expanded={more} onClick={() => setMore(!more)} />}
+        anchor={<Button disabled={busy} data-dsh-control variant="outline" className="setting-folder-more" aria-label={tUi('开场白操作')} icon={<GearSix size={18} />} aria-haspopup="menu" aria-expanded={more} onClick={() => setMore(!more)} />}
         items={currentActions.map(({ id, label, icon: Icon, disabled, danger }) => ({ id, label, icon: <Icon size={15} />, disabled, danger }))}
         onSelect={id => { setMore(false); currentActions.find(action => action.id === id)?.run(); }} />
     </div></header>
@@ -81,12 +81,8 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
           <FailureAlert failure={variableVersionsError} />
         </EditorField>
       </div>
-      <div className="opening-body-field">
-        <h3 className="opening-body-label">{tUi('开场白正文')}</h3>
-        <EditorWritingBoard key={selected.id} disabled={busy} label={tUi('开场白正文')} showHeading={false} code={false} value={selected.content}
-          placeholder={tUi('作为聊天记录中的第一条 Assistant 开场白使用。')} onChange={content => onChange(updateOpening(entry, selected.id, { content }))}
-          className="opening-writing" status={dirty ? tUi('未保存') : tUi('已保存')} />
-      </div>
+      <OpeningBodyEditor key={selected.id} message={selected} character={character} busy={busy} dirty={dirty}
+        onChange={segments => onChange(updateOpeningSegments(entry, selected.id, segments))} />
     </div>
   </>;
   const Layout = compact ? EditorSidebarLayout : EditorLibraryWorkspace;
@@ -102,7 +98,11 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, qu
           className={`opening-list-item${selectedId === message.id ? ' is-selected' : ''}`} onClick={() => setSelectedId(message.id)} onKeyDown={event => listKeys(event, message)}
           onContextMenu={event => context.open(event, message.id)}>
           <button type="button" className="opening-list-main" disabled={busy} aria-current={selectedId === message.id ? 'true' : undefined} title={message.title || tUi('未命名开场白')}>
-            <ChatCircleDots size={17} /><span className="opening-list-name">{message.title || tUi('未命名开场白')}</span>{message.id === messages[0].id && <span className="opening-primary-label">{tUi('主开场白')}</span>}
+            <ChatCircleDots size={17} />
+            <span className="opening-card-copy"><span className="opening-list-name">{message.title || tUi('未命名开场白')}</span>
+              {!compact && <span className="opening-card-excerpt">{message.content.trim() || tUi('暂无正文')}</span>}
+            </span>
+            {message.id === messages[0].id && <span className="opening-primary-label">{tUi('主开场白')}</span>}
           </button>
           {!compact && <div className="opening-list-tools" onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}>
             {actions(message).map(({ id, label, icon: Icon, disabled, run }) => <Button key={id} type="button" data-dsh-control variant="outline" className="opening-row-action" disabled={disabled} title={label} aria-label={label} icon={<Icon size={14} />} onClick={run} />)}

@@ -170,15 +170,15 @@ describe('official ChatView with roleplay presentation', () => {
       await view.render([message], { ...snapshot, session: { ...view.fixture.state.session, running: true } })
       expect(view.scroller.querySelectorAll('.message-flow-row')).toHaveLength(2)
       expect(view.scroller.textContent.match(/Synthetic retained input/g)).toHaveLength(1)
-      expect(view.scroller.querySelectorAll('[aria-label="查看处理过程：正在自动压缩"]')).toHaveLength(1)
+      expect(view.scroller.querySelectorAll('[aria-label="查看处理过程：正在自动压缩"]')).toHaveLength(layoutMode === 'agent' ? 1 : 0)
       const oldControl = [...snapshot.nodes.values()].find(node => node.kind === 'turn-process' && node.data.turn === 1)
       expect(view.scroller.querySelector(`[data-chat-node-key="${oldControl.key}"] .message-flow-row`)).toBeNull()
     } finally { await view.close() }
   })
 
-  it.each(['roleplay', 'agent'])('opens the live process owner and keeps compaction status in the main row (%s)', async layoutMode => {
+  it('opens the live process owner from the Agent message row during compaction', async () => {
     const view = mountChat()
-    view.rowProps.layoutMode = layoutMode
+    view.rowProps.layoutMode = 'agent'
     let selectedMessage
     view.rowProps.onOpenProcess = message => { selectedMessage = message }
     const control = turnNode('synthetic-process', 2)

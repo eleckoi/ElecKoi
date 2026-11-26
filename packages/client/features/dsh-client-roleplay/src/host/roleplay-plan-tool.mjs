@@ -13,7 +13,7 @@ export function apply(ctx, config = {}) {
     description: steps.length ? [
       '更新本轮角色扮演计划。必须复述完整任务列表并填写状态；任务文字和顺序由作者固定。',
       ...steps.map((step, index) => `${index + 1}. ${step}`),
-      '最后一项由应用在检测到 FINAL 正文后完成，模型不要主动将其标记为 completed。'
+      '最后一项由应用在正文输出后完成，模型不要主动将其标记为 completed。'
     ].join('\n') : '读取当前空的角色扮演计划。',
     parameters: {
       explanation: { type: 'string', description: '可选的简短进度说明。' },
@@ -57,8 +57,8 @@ function canonicalizePlan(args, steps) {
   return {
     status: 'ok',
     message: precedingTasksCompleted
-      ? '现在只剩最终输出项。直接输出 <FINAL> 正文，不要再次调用 update_roleplay_plan；应用检测到正文后会自动完成最终项。'
-      : `角色扮演计划已更新：${counts.completed} 已完成，${counts.inProgress} 进行中，${counts.pending} 待处理。最终输出项由应用在检测到 <FINAL> 正文后自动完成。`,
+      ? '若 eleckoi_roleplay_reply 可用，先调用它选择发言角色。下一步必须用 <角色名>对应的角色扮演内容</角色名> 把正文直接发给玩家。'
+      : `角色扮演计划已更新：${counts.completed} 已完成，${counts.inProgress} 进行中，${counts.pending} 待处理。正文输出后完成最终项。`,
     ...(typeof args.explanation === 'string' && args.explanation.trim() ? { explanation: args.explanation.trim() } : {}),
     plan: steps.map((step, index) => ({ step, status: statuses[index] }))
   }

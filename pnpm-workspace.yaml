@@ -37,6 +37,7 @@ patchedDependencies:
   # RETIRE WHEN: upstream exposes the product flow, pending input, running seat, logical turn navigation and user-message action seat; remove the matching sections and declarations together.
   '@deepseek-ai/dsh-client-ui-chat@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-chat@0.2.2-rc.5.patch
   # RETIRE WHEN: official composer exposes accessory/Enter controls, occurrence-selected composer presentation and width persistence, keeps CSS anchors stable through long history/streaming, preserves measured clearance with native wheel/text-selection association outside the history scroll chain, and binds retained mobile selections and opens the mobile command menu without requesting IME; remove matching patch sections, registration and hash together.
+  # RETIRE WHEN: bundled Lexical allows ordinary Chromium Android Backspace without canceling the native input. Remove that hunk and the Android composer deletion regression.
   '@deepseek-ai/dsh-client-ui-conversation@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-conversation@0.2.2-rc.5.patch
   # RETIRE WHEN: the published layout bundle accepts the application title at runtime or ElecKoi builds it with DSH_CLIENT_TITLE; remove the title hunks.
   # RETIRE WHEN: upstream exposes an application-owned always-drawer sidebar mode; remove setSidebarDrawer, its frame/store branches and the product Android opt-in.
@@ -44,6 +45,7 @@ patchedDependencies:
   # RETIRE WHEN: official model selection exposes provider-heading labels and a root-menu parameter slot with keyboard-safe fields and a guarded leave action; switch to them and remove this patch, registration and lock entry.
   '@deepseek-ai/dsh-client-ui-model-selection@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-model-selection@0.2.2-rc.5.patch
   # RETIRE WHEN: upstream supports shipped product groups with featured entries and More navigation, displays product bundle declarations and developer interface metadata, and provides a header-leading slot with transform-safe, outward-rounded toolbar measurements; remove this patch, registration and lock entry together.
+  # RETIRE WHEN: upstream supports an Android file picker for local plugin packages; remove the install-dialog additions and their regression once the picker uses the upstream entry.
   '@deepseek-ai/dsh-client-ui-plugin-manager@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-plugin-manager@0.2.2-rc.5.patch
   # RETIRE WHEN: official settings exposes reusable, reopenable sidebar updates with portal tooltips and a language-only section sharing its LocaleRuntime.
   '@deepseek-ai/dsh-client-ui-settings-general@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-settings-general@0.2.2-rc.5.patch

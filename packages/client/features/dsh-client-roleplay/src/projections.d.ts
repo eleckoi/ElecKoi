@@ -1,4 +1,4 @@
-import type {} from '@deepseek-ai/dsh-session'
+import type {} from '@deepseek-ai/dsh-session/types'
 import type {} from '@deepseek-ai/dsh-session-projection/types'
 
 export interface RoleplayRequestContextItem {
@@ -27,12 +27,14 @@ export interface RoleplayInputContinuationsState extends RoleplayInputContinuati
   currentTurn: number
 }
 
-declare module '@deepseek-ai/dsh-session' {
+declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
+    'eleckoi/roleplay-output': { turn: number; replySeq?: number; fallback?: true; toolBacked?: true; nativeText?: true; editedText?: string; editedBlocks?: Array<{ id: string; text: string }> }
     'eleckoi/illustration': {
       batchId: string
       turn: number
       step: number
+      replyCallId?: string
       status: 'generating' | 'complete' | 'partial' | 'failed'
       frames: Array<{ id: number; width: number; height: number; status: 'generating' | 'ready' | 'failed';
         attachment?: import('@eleckoi/dsh-product-data').ChatUserImageAttachment; seed?: number; error?: string }>
@@ -42,11 +44,6 @@ declare module '@deepseek-ai/dsh-session' {
       requestSeq: number
       context: RoleplayRequestContextItem[]
     }
-  }
-}
-
-declare module '@deepseek-ai/dsh-session/types' {
-  interface SessionEventMap {
     'eleckoi/history-restored': { messageIds: string[] }
   }
 }

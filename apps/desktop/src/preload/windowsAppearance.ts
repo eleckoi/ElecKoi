@@ -21,7 +21,8 @@ export function installWindowsAppearance(): () => void {
     ? 'var(--character-manager-canvas,var(--chat,var(--dsw-alias-bg-base)))'
     : 'var(--dsw-specific-sidebar-fill,var(--list))'
   const probe = document.createElement('span')
-  probe.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;background-color:${background};color:var(--dsw-alias-label-primary,var(--title-fg))`
+  // A full-window surface can let its own CSS paint behind the native controls.
+  probe.style.cssText = `position:fixed;visibility:hidden;pointer-events:none;background-color:var(--eleckoi-native-caption-fill,${background});color:var(--dsw-alias-label-primary,var(--title-fg))`
   document.body.append(probe)
   const nativeColor = (color: string, translucentFallback?: string): string => {
     context.clearRect(0, 0, 1, 1)

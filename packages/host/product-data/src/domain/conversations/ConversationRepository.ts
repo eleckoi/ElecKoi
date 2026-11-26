@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { and, desc, eq } from 'drizzle-orm'
 import type { Conversation, ConversationMetadata, OpeningMessageOption } from '@shared/contracts/entities/chat'
 import { parseJsonObject } from '@shared/foundation/json'
+import { openingSegmentText } from '@shared/foundation/characterOpenings'
 import { requireCharacter } from '@product-data/domain/personas'
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import {
@@ -99,23 +100,40 @@ export class ConversationRepository {
   }
 
   openingText(conversationId: string): string {
-    const opening = this.store.native.prepare(`SELECT o.content FROM agent_openings o
+    const opening = this.store.native.prepare(`SELECT o.content,o.payloadJson FROM agent_openings o
       JOIN agent_conversations c ON c.id=o.conversationId
       JOIN agent_branch_turns p ON p.branchId=c.activeBranchId AND p.turnId=o.turnId
-      WHERE o.conversationId=?`).get(conversationId) as { content: string } | undefined
-    return opening?.content ?? ''
+      WHERE o.conversationId=?`).get(conversationId) as { content: string; payloadJson: string } | undefined
+    if (!opening) return ''
+    const payload = JSON.parse(opening.payloadJson || '{}') as { options?: OpeningMessageOption[]; selectedId?: string }
+    const segments = payload.options?.find(option => option.id === payload.selectedId)?.segments
+    return segments ? openingSegmentText(segments.map(segment => segment.kind === 'speech' && segment.speakerName && segment.text.trim()
+      ? { text: `${segment.speakerName}：${segment.text}` } : segment)) : opening.content
   }
 
-  restoreImportedOpening(conversationId: string, opening?: { content: string; variableStateJson?: string }): void {
+  restoreImportedOpening(conversationId: string, opening?: {
+    content: string
+    variableStateJson?: string
+    options?: OpeningMessageOption[]
+    selectedId?: string
+  }): void {
     this.store.withWriteTx(database => {
       const binding = database.select().from(agentConversations).where(eq(agentConversations.id, conversationId)).get()!
       const card = database.select().from(chatSessions).where(eq(chatSessions.id, conversationId)).get()!
       this.store.native.prepare("DELETE FROM agent_turns WHERE conversationId=? AND kind='opening'").run(conversationId)
       database.update(chatSessions).set({ historyMessageCount: 0 }).where(eq(chatSessions.id, conversationId)).run()
-      if (opening) this.insertOpening(database, { conversationId, branchId: binding.activeBranchId,
+      if (!opening) return
+      const selected = opening.options?.find(option => option.id === opening.selectedId)
+      const variableStateJson = selected?.initialVariableStateJson ?? opening.variableStateJson ?? '{}'
+      if (selected) {
+        database.update(agentConversations).set({ variableVersionId: selected.variableVersionId ?? '' })
+          .where(eq(agentConversations.id, conversationId)).run()
+        seedConversationVariableStates(conversationId, variableStateJson, database, selected.initialVariableIdentityJson)
+      }
+      this.insertOpening(database, { conversationId, branchId: binding.activeBranchId,
         sourceSpeakerId: card.characterId || 'assistant', speakerName: card.characterName, speakerAvatar: card.characterAvatar,
-        content: opening.content, openingOptions: [], selectedOpeningId: '',
-        variableStateJson: opening.variableStateJson ?? '{}', createdAt: new Date().toISOString() })
+        content: opening.content, openingOptions: opening.options ?? [], selectedOpeningId: opening.selectedId ?? '',
+        variableStateJson, createdAt: new Date().toISOString() })
     })
   }
 
@@ -280,7 +298,7 @@ export class ConversationRepository {
     })
   }
 
-  updateOpening(conversationId: string, content: string): void {
+  updateOpening(conversationId: string, content: string, replaceScene = false): void {
     const nextContent = content.trim()
     if (!nextContent) throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '开场白不能为空。', { field: 'content' })
     this.store.withWriteTx((database) => {
@@ -295,7 +313,14 @@ export class ConversationRepository {
       const options = Array.isArray(payload.options) ? payload.options.map((option) => ({ ...option })) : []
       const selectedId = payload.selectedId || options[0]?.id || ''
       const selected = options.find((option) => option.id === selectedId)
-      if (selected) selected.content = nextContent
+      if (selected) {
+        if (!replaceScene && (selected.segments?.length ?? 0) > 1) {
+          throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '这条开场白有多个段落，请在角色卡编辑器里修改开场白模板。', { field: 'content' })
+        }
+        selected.content = nextContent
+        if (!replaceScene && selected.segments?.length === 1) selected.segments = [{ ...selected.segments[0]!, text: nextContent }]
+        else delete selected.segments
+      }
       this.writeOpeningText(conversationId, row.ownerId, nextContent, JSON.stringify({ options, selectedId }))
       const now = new Date().toISOString()
       database.update(agentTurns).set({ variableStateJson: selected?.initialVariableStateJson || '{}' }).where(eq(agentTurns.id, row.ownerId)).run()

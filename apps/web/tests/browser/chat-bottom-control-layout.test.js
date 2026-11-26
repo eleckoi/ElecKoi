@@ -41,20 +41,32 @@ it('keeps official chat controls and extension content on their shared layout tr
     });
     const htmlPath = resolve(directory, 'fixture.html'), reportPath = resolve(directory, 'report.json');
     await writeFile(htmlPath, `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="fixture.css">
-      <style>html,body,#root{height:100%;margin:0}*{box-sizing:border-box}.chat-panel{height:100%;--chat-window-resize-edge-inset:0px;--dsh-chat-content-width:900px;--dsh-composer-side-clearance:16px}
+      <style>html,body,#root{height:100%;margin:0}*{box-sizing:border-box}.chat-panel{height:100%;--chat-window-resize-edge-inset:0px}
       .chat-conversation-body{flex:1;min-height:0;display:flex}.synthetic-message{height:96px;padding:12px}
-      .chat-composer-region{height:152px;padding:16px;background:white}.chat-composer-region textarea{width:100%;height:120px}</style>
+      [data-conversation-frame]{display:grid;grid-template:minmax(0,1fr) / minmax(0,1fr);flex:1;min-height:0;
+      --dsh-chat-content-width:var(--dsh-chat-user-width,900px);--dsh-composer-card-max-width:calc(var(--dsh-chat-content-width) + 32px);--dsh-composer-side-clearance:16px}
+      [data-conversation-scroll],[data-composer-seat]{grid-area:1 / 1}
+      [data-conversation-scroll]{display:flex;flex-direction:column;overflow-y:auto}
+      [data-composer-seat]{align-self:end;z-index:9}
+      [data-composer-clearance]{height:var(--dsh-composer-height);flex:none;pointer-events:none}
+      .chat-composer-region textarea{width:100%;height:152px}</style>
       </head><body><div id="root"></div><script src="fixture.js"></script></body></html>`);
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/chat-bottom-control.probe.cjs'), htmlPath, reportPath],
       { env, timeout: 45000, windowsHide: true });
     const { scroll: reports, alignment } = JSON.parse(await readFile(reportPath, 'utf8'));
-    expect(reports).toHaveLength(2);
+    expect(reports).toHaveLength(4);
+    const expectedGap = reports[0].long.composerTop - reports[0].long.buttonBottom;
+    expect(expectedGap).toBe(16);
     for (const report of reports) {
       const evidence = JSON.stringify(report);
       for (const state of [report.long, report.shortened, report.restored]) {
-        expect(state.buttonBottom, evidence).toBeGreaterThan(state.composerTop - 24);
-        expect(state.buttonBottom, evidence).toBeLessThanOrEqual(state.composerTop - 8);
+        expect(state.composerTop - state.buttonBottom, evidence).toBe(expectedGap);
+        expect(state.buttonHit, evidence).toBe(true);
+        if (report.query.includes('running')) {
+          expect(state.statusBottom, evidence).toBe(state.composerTop);
+          expect(state.statusHit, evidence).toBe(true);
+        }
       }
       expect(report.shortened.floor, evidence).toBe(0);
       expect(report.restored.following, evidence).toBe(false);

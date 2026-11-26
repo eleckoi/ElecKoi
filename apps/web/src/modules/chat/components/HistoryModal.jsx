@@ -1,21 +1,15 @@
-import { productLocaleTag } from '../../../app/i18n/productCopy.js';
-import { sourceText } from "../../../app/i18n/productCopy.js";
+import { productLocaleTag, sourceText } from '../../../app/i18n/productCopy.js';
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
-import { Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
 import { ConfirmationDialog } from '../../../ui/ui/ConfirmationDialog.jsx';
 import '../../../ui/styles/product-dialogs.css';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useDshDisplayPreferences } from "../../settings/index.js";
-import { HistoryExportIcon, HistoryImportIcon, TrashIcon } from "../../../ui/icons/index.jsx";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { HistoryExportIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 import { Avatar } from "../../../ui/ui/Avatar.jsx";
 import { DshSearchField } from "../../../ui/ui/DshSearchField.jsx";
-import { applyChatHistoryPolicy, exportChatHistory, importChatHistory } from "../api/chatApi.js";
+import { exportChatHistory, importChatHistory } from "../api/chatApi.js";
 import { MobileConversationOverlay, isMobilePresentation } from '../../../mobile/MobileConversationOverlay.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
-
-const EMPTY_SNAPSHOT = Object.freeze({ status: "loading", ui: Object.freeze({}) });
-const EMPTY_SUBSCRIBE = () => () => {};
-const GET_EMPTY_SNAPSHOT = () => EMPTY_SNAPSHOT;
 
 function dateTitle(value, tUi = sourceText) {
   if (!value) return tUi("未知日期");
@@ -31,17 +25,11 @@ function timeTitle(value, tUi = sourceText) {
   return date.toLocaleTimeString(productLocaleTag(tUi), { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-export function HistoryModal({ open, sessions, sessionId, chatCharacter, conversationModel, onClose, onLoadChat, onDeleteChat, onHistoryPolicyChange }) {
+export function HistoryModal({ open, sessions, sessionId, chatCharacter, conversationModel, onClose, onLoadChat, onDeleteChat, onHistoryImported }) {
   const tUi = useProductTranslation();
   const mobile = isMobilePresentation();
-  const preferences = useDshDisplayPreferences();
-  const preferenceSnapshot = useSyncExternalStore(
-    preferences?.subscribe || EMPTY_SUBSCRIBE,
-    preferences?.getSnapshot || GET_EMPTY_SNAPSHOT,
-  );
   const [keyword, setKeyword] = useState("");
-  const [saveMode, setSaveMode] = useState("all");
-  const [confirmAction, setConfirmAction] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [transferError, setTransferError] = useState(null);
   const [transferring, setTransferring] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -58,13 +46,6 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
     else if (!historyScope && selectedCharacterId) setHistoryScope({ id: selectedCharacterId, name: selectedCharacterName });
   }, [open, historyScope, selectedCharacterId, selectedCharacterName]);
 
-  useEffect(() => {
-    if (!open || preferenceSnapshot.status !== "ready") return;
-    setSaveMode(preferenceSnapshot.ui?.history_save_mode === "recent10" ? "recent10" : "all");
-  }, [open, preferenceSnapshot.status, preferenceSnapshot.ui]);
-
-
-
   const filteredGroups = useMemo(() => {
     const key = keyword.trim().toLowerCase();
     const filtered = (sessions || [])
@@ -78,40 +59,14 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
         if (b.id === sessionId) return 1;
         return String(b.updated_at || "").localeCompare(String(a.updated_at || ""));
       });
-    const visible = saveMode === "recent10" ? filtered.slice(0, 10) : filtered;
     const groups = new Map();
-    for (const item of visible) {
+    for (const item of filtered) {
       const date = dateTitle(item.updated_at, tUi);
       if (!groups.has(date)) groups.set(date, []);
       groups.get(date).push(item);
     }
     return [...groups.entries()];
-  }, [currentCharacterId, sessions, keyword, sessionId, saveMode, tUi]);
-
-  async function chooseSaveMode(mode) {
-    if (mode === saveMode) return;
-    if (mode === "recent10") {
-      const relatedCount = (sessions || []).filter((item) => item.character_id && item.character_id === currentCharacterId).length;
-      if (relatedCount > 10) {
-        setConfirmAction({ type: "policy", mode });
-        return;
-      }
-    }
-    await applySaveMode(mode);
-  }
-
-  async function applySaveMode(mode) {
-    setSaveMode(mode);
-    await preferences?.updateUi({ history_save_mode: mode });
-    if (mode === "recent10" && currentCharacterId) {
-      await applyChatHistoryPolicy(currentCharacterId);
-      await onHistoryPolicyChange?.();
-    }
-  }
-
-  function requestDeleteChat(item) {
-    setConfirmAction({ type: "delete", item });
-  }
+  }, [currentCharacterId, sessions, keyword, sessionId, tUi]);
 
   async function exportHistory(item) {
     if (transferring) return;
@@ -146,7 +101,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
     setTransferring(true);
     try {
       const { conversationId } = await importChatHistory(currentCharacterId, await file.text(), { model: conversationModel });
-      await onHistoryPolicyChange?.();
+      await onHistoryImported?.();
       await onLoadChat?.(conversationId);
       onClose?.();
     } catch (error) {
@@ -156,66 +111,31 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
     }
   }
 
-  async function confirmPendingAction() {
-    const action = confirmAction;
-    if (!action) return;
-    setConfirmAction(null);
-    if (action.type === "policy") {
-      await applySaveMode(action.mode);
-      return;
-    }
-    if (action.type === "delete" && action.item?.id) {
-      setDeleting(true);
-      setTransferError(null);
-      try { await onDeleteChat?.(action.item.id); }
-      catch (error) { setTransferError(error); }
-      finally { setDeleting(false); }
-    }
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleteTarget(null);
+    setDeleting(true);
+    setTransferError(null);
+    try { await onDeleteChat?.(deleteTarget.id); }
+    catch (error) { setTransferError(error); }
+    finally { setDeleting(false); }
   }
 
   if (!open) return null;
 
   const body = <>
-        <DshSearchField
-          className="history-search"
-          value={keyword}
-          onValueChange={setKeyword}
-          placeholder={tUi("搜索历史对话…")}
-          ariaLabel={tUi("搜索历史对话")}
-          autoFocus={!mobile}
-        />
-
         <div className="history-toolbar">
-          <div className="history-retention" role="radiogroup" aria-label={tUi("当前策略")}>
-            {!mobile && <b>{tUi("当前策略")}</b>}
-            <button
-              className={saveMode === "all" ? "active" : ""}
-              type="button"
-              role="radio"
-              aria-checked={saveMode === "all"}
-              onClick={() => chooseSaveMode("all")}
-            >
-              <span />
-              {mobile ? tUi("保留全部") : tUi("保留全部记录")}
-            </button>
-            <button
-              className={saveMode === "recent10" ? "active" : ""}
-              type="button"
-              role="radio"
-              aria-checked={saveMode === "recent10"}
-              onClick={() => chooseSaveMode("recent10")}
-            >
-              <span />
-              {mobile ? tUi("最新10条") : tUi("仅保留最新10条")}
-            </button>
-          </div>
-          <div className="history-actions" aria-label={tUi("历史对话操作")}>
-            <input ref={importInput} type="file" accept=".json,.jsonl,application/json" hidden onChange={importHistory} />
-            <button type="button" title={tUi("导入聊天记录")} aria-label={tUi("导入聊天记录")} disabled={transferring} onClick={() => importInput.current?.click()}>
-              <HistoryImportIcon />
-              {mobile && <span>{tUi("导入记录")}</span>}
-            </button>
-          </div>
+          <DshSearchField
+            className="history-search"
+            value={keyword}
+            onValueChange={setKeyword}
+            placeholder={tUi("搜索历史对话…")}
+            ariaLabel={tUi("搜索历史对话")}
+            autoFocus={!mobile}
+          />
+          <input ref={importInput} type="file" accept=".json,.jsonl,application/json" hidden onChange={importHistory} />
+          <Button data-dsh-control variant="outline" className="history-import" aria-label={tUi("导入聊天记录")}
+            disabled={transferring} onClick={() => importInput.current?.click()}>{tUi("导入")}</Button>
         </div>
 
         <FailureAlert failure={transferError} className="history-transfer-error" />
@@ -256,7 +176,7 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
                     <button className="history-item-export" type="button" title={tUi("导出这条记录")} aria-label={tUi("导出这条记录")} disabled={transferring} onClick={() => exportHistory(item)}>
                       <HistoryExportIcon />
                     </button>
-                    <button className="history-item-delete" type="button" title={tUi("删除这条记录")} aria-label={tUi("删除这条记录")} disabled={deleting} onClick={() => requestDeleteChat(item)}>
+                    <button className="history-item-delete" type="button" title={tUi("删除这条记录")} aria-label={tUi("删除这条记录")} disabled={deleting} onClick={() => setDeleteTarget(item)}>
                       <TrashIcon />
                     </button>
                   </div>
@@ -266,12 +186,12 @@ export function HistoryModal({ open, sessions, sessionId, chatCharacter, convers
           ))}
         </div>
 
-        <ConfirmationDialog open={Boolean(confirmAction)} title={confirmAction?.type === 'policy' ? tUi('切换保留策略') : tUi('删除历史对话')}
-          description={confirmAction?.type === 'policy' ? tUi('仅保留最新 10 条会删除更早的历史记录，删除后无法恢复。') : tUi('这条历史记录会被删除，删除后无法恢复。')}
-          confirmLabel={confirmAction?.type === 'policy' ? tUi('确认切换') : tUi('确认删除')} destructive onCancel={() => setConfirmAction(null)} onConfirm={confirmPendingAction} />
+        <ConfirmationDialog open={Boolean(deleteTarget)} title={tUi('删除历史对话')}
+          description={tUi('这条历史记录会被删除，删除后无法恢复。')}
+          confirmLabel={tUi('确认删除')} destructive onCancel={() => setDeleteTarget(null)} onConfirm={confirmDelete} />
   </>;
   if (mobile) return <MobileConversationOverlay title={characterName || tUi("聊天记录")} subtitle={characterName ? tUi("聊天记录") : undefined} className="mobile-history"
-    onClose={onClose} onBack={confirmAction ? () => setConfirmAction(null) : undefined} beforeClose={() => { if (confirmAction) { setConfirmAction(null); return false; } return true; }}>{body}</MobileConversationOverlay>;
+    onClose={onClose} onBack={deleteTarget ? () => setDeleteTarget(null) : undefined} beforeClose={() => { if (deleteTarget) { setDeleteTarget(null); return false; } return true; }}>{body}</MobileConversationOverlay>;
   return <Modal open title={tUi('聊天记录')} description={characterName || undefined} closeLabel={tUi('关闭')} onClose={onClose}
     className="product-dialog history-modal" contentClassName="product-dialog-content">{body}</Modal>;
 }

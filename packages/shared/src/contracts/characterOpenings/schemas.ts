@@ -1,8 +1,28 @@
 import { z } from 'zod'
+import { characterCastCropSchema } from '../characters/cast'
+
+const segmentFields = { id: z.string().min(1), text: z.string() }
+const openingSegmentSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ ...segmentFields, kind: z.literal('cover') }),
+  z.strictObject({ ...segmentFields, kind: z.literal('speech'), speakerId: z.string().min(1) })
+])
+
+export const openingSceneSegmentSchema = z.object({
+  ...segmentFields,
+  kind: z.enum(['cover', 'speech']),
+  speakerId: z.string().optional(),
+  speakerName: z.string().optional(),
+  speakerAvatar: z.string().optional(),
+  speakerCrop: characterCastCropSchema.optional(),
+  displayContent: z.string().optional()
+})
 
 export const characterOpeningMessageSchema = z.object({
   id: z.string().min(1), title: z.string(), content: z.string(),
-  variableVersionId: z.string().optional()
+  variableVersionId: z.string().optional(),
+  segments: z.array(openingSegmentSchema).min(1)
+    .refine(segments => new Set(segments.map(segment => segment.id)).size === segments.length, '开场段落编号不能重复。')
+    .optional()
 }).strict()
 
 export const characterOpeningsSchema = z.object({
@@ -19,6 +39,8 @@ export const characterOpeningsSchema = z.object({
 })
 
 export type CharacterOpeningMessage = z.output<typeof characterOpeningMessageSchema>
+export type OpeningSegment = z.output<typeof openingSegmentSchema>
+export type OpeningSceneSegment = z.output<typeof openingSceneSegmentSchema>
 export type CharacterOpenings = z.output<typeof characterOpeningsSchema>
 
 export function createCharacterOpenings(characterId: string, content = '', enabled = true): CharacterOpenings {

@@ -49,7 +49,7 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
     {(!mobile || view !== 'history' || !historyDetail) && tabs}
     <div className="vm-page" hidden={view !== 'manage'}>
       <VariableConfigurationSelect conversationId={conversationId} model={conversationModel} mobile={mobile} sending={isSending} refreshKey={timeline} />
-      {(!mobile || search) && <div className="vm-toolbar">{!mobile && <h3>{t('当前变量')}</h3>}<Input aria-label={t('搜索变量')} placeholder={t('搜索变量')} value={query} onChange={event => setQuery(event.target.value)} icon={<MagnifyingGlass size={16} />} autoFocus={mobile && search} /></div>}
+      {(!mobile || search) && <div className="vm-toolbar">{!mobile && <h3>{t('当前变量')}</h3>}<Input className="vm-toolbar-search" aria-label={t('搜索变量')} placeholder={t('搜索变量')} value={query} onChange={event => setQuery(event.target.value)} icon={<MagnifyingGlass size={16} />} autoFocus={mobile && search} /></div>}
       <div className="vm-current-body">{loading ? <p className="vm-empty" role="status">{t('正在读取…')}</p> : timeline && <VariableBrowser document={timeline.current} path={path} onNavigate={setPath} query={query} onClearSearch={() => { setQuery(''); setSearch(false); }} mobile={mobile} />}</div>
       {error && <p className="vm-error" role="alert">{error}</p>}
     </div>
@@ -63,5 +63,5 @@ export function VariableViewerDialog({ conversationId, conversationModel, onClos
     headerAction={view === 'manage' ? <button type="button" className="vm-mobile-search" aria-label={t('搜索变量')} onClick={() => { setSearch(value => !value); setQuery(''); }}><MagnifyingGlass size={23} /></button> : null}>
     {body}
   </MobileConversationOverlay>;
-  return <Modal open title={title} closeLabel={t('关闭')} onClose={onClose} className="product-dialog variable-viewer-modal" contentClassName="product-dialog-content">{body}</Modal>;
+  return <Modal open title={title} closeLabel={t('关闭')} onClose={onClose} className="product-dialog variable-viewer-modal" contentClassName="product-dialog-content variable-viewer-content">{body}</Modal>;
 }

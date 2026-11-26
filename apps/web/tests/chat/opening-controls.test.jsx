@@ -5,6 +5,8 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { MessageBubble, WithOfficialMarkdown } from '../helpers/officialMarkdown.jsx'
 import { ChatPanel } from '../../src/modules/chat/components/ChatPanel.jsx'
+import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx'
+import { DEFAULT_CHAT_DISPLAY_PREFERENCES } from '@shared/contracts/settings/schemas'
 
 const opening = {
   id: 'opening', role: 'assistant', content: '合成开场一', selectedOpeningId: 'entry-a', canChangeOpening: true,
@@ -20,6 +22,46 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); document.body.innerHTML = '' })
 
 describe('opening interaction permissions', () => {
+  it.each([
+    ['roleplay', 'portrait', 'portrait-art', '/card-portrait.png'],
+    ['agent', 'circle', 'circle-art', '/card-circle.png'],
+    ['social', 'rounded_square', 'square-art', '/card-square.png'],
+  ])('uses the real chat layout and artwork for every opening speaker (%s, %s)', async (layout, shape, castArt, cardArt) => {
+    const host = document.createElement('div')
+    document.body.append(host)
+    const root = createRoot(host)
+    const character = { id: 'test-card', cast: [{ id: 'cast-member', portraitAssetId: 'portrait-art',
+      circleAssetId: 'circle-art', squareAssetId: 'square-art' }] }
+    const segments = [
+      { id: 'speech', kind: 'speech', speakerId: 'cast-member', speakerName: '登场角色', speakerAvatar: '/old-circle.png', text: '角色台词\n\n录音机开始转动。' },
+      { id: 'cover', kind: 'cover', speakerName: '卡片名称', speakerAvatar: '/old-cover.png', text: '卡片正文' },
+    ]
+    const scene = { ...opening, content: segments.map(part => part.text).join('\n\n'),
+      openingOptions: [{ ...opening.openingOptions[0], segments }, opening.openingOptions[1]] }
+    try {
+      await act(async () => root.render(<WithOfficialMarkdown><MainPageContext.Provider value={{ chat: { chatBackgroundCharacter: character } }}>
+        <ChatPanel renderConversationContent={renderNativeConversationContent} hasActiveChat
+          conversationId="test-chat" characterId={character.id} persona={{ assistant_cover: '/card-portrait.png',
+            assistant_avatar: '/card-circle.png', assistant_square: '/card-square.png' }}
+          messages={[scene]} input="" isSending={false} modelConfigs={[]} scrollRef={{ current: null }}
+          chatDisplay={{ layout, profiles: { [layout]: { ...DEFAULT_CHAT_DISPLAY_PREFERENCES.profiles[layout], avatar_shape: shape } } }}
+          onSelectOpening={() => {}} renderRoleplaySlot={(slot, props) => slot === 'eleckoi.roleplay.chat' ? props.before : null} />
+      </MainPageContext.Provider></WithOfficialMarkdown>))
+      const rows = [...host.querySelectorAll(`.message-${layout}[data-opening-segment]`)]
+      expect(rows.map(row => row.dataset.openingSegment)).toEqual(['speech', 'cover'])
+      expect(rows.every(row => row.classList.contains(`avatar-shape-${shape}`))).toBe(true)
+      expect(rows[0].querySelector(':scope > .avatar img').getAttribute('src')).toBe(`/eleckoi/character-assets/test-card/${castArt}`)
+      expect(rows[0].querySelector('.message-author').textContent).toBe('登场角色')
+      expect(rows[0].querySelector('.bubble').textContent).toContain('角色台词')
+      expect(rows[0].querySelector('.bubble').textContent).toContain('录音机开始转动。')
+      expect(rows[1].querySelector(':scope > .avatar img').getAttribute('src')).toBe(cardArt)
+      expect([...host.querySelectorAll('.message-floor')].map(floor => floor.textContent))
+        .toEqual(layout === 'roleplay' ? ['#0', '#1'] : [])
+      expect(host.querySelectorAll('.opening-pager')).toHaveLength(1)
+      expect(rows[1].contains(host.querySelector('.opening-pager'))).toBe(true)
+    } finally { await act(async () => root.unmount()) }
+  })
+
   it.each(['roleplay', 'agent'])('keeps the pager available on a selected blank opening (%s)', async layoutMode => {
     const host = document.createElement('div'); document.body.append(host)
     const root = createRoot(host), select = vi.fn()

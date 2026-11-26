@@ -41,9 +41,14 @@ it.each(['creator', 'roleplay'])('keeps familiar prompt controls while limiting 
   expect(Boolean(button('关键词触发'))).toBe(purpose === 'roleplay');
   expect(button('仅供EJS引用')).toBeFalsy();
   await click(button('常驻触发'));
-  expect(draft.entries[0].agentReadStrategy).toBe('required');
-  expect(button(purpose === 'creator' ? '默认位置' : '每轮必读').getAttribute('aria-selected')).toBe('true');
-  await click(button('指定插入位置'));
+  if (purpose === 'creator') {
+    expect(draft.entries[0]).toMatchObject({ position: 'instructions', insertRole: 'system' });
+    expect(button('指定插入位置')).toBeUndefined();
+  } else {
+    expect(draft.entries[0].agentReadStrategy).toBe('required');
+    expect(button('每轮必读').getAttribute('aria-selected')).toBe('true');
+    await click(button('指定插入位置'));
+  }
   expect(draft.entries[0].triggerMode).toBe('always');
   expect(document.querySelector('[aria-label="读取策略"]')).toBeNull();
 });

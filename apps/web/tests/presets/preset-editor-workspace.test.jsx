@@ -124,7 +124,7 @@ it('keeps display read-only and opens the selected preset in a stable independen
   expect(host.querySelector('.preset-workspace-tabs')).toBeNull();
   await click(host.querySelector('.preset-summary-edit'));
   const [url, name, features] = open.mock.calls[0];
-  expect(features).toBe(`width=${window.outerWidth},height=${window.outerHeight}`);
+  expect(features).toBe('popup');
   expect(new URL(url).searchParams.get('view')).toBe('preset-editor');
   expect(new URL(url).searchParams.get('preset')).toBe(stored.id);
   openPresetEditorWindow(stored.id, 'tools');

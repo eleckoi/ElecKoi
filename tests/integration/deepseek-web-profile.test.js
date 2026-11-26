@@ -1,6 +1,6 @@
 import { DEEPSEEK_DEFAULT_COUNT } from '@deepseek-ai/dsh-web-deepseek-api'
-import { readSessionInspection } from '@eleckoi/dsh-product-api'
-import { executeToolCall } from '../helpers/tool-call.js'
+import { readSessionInspection, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
+import { executeToolCall, hasRoleplayReplyResult, streamRoleplayReply, streamNextRoleplayReply } from '../helpers/tool-call.js'
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
@@ -15,11 +15,12 @@ import { ELECKOI_DESKTOP_BUNDLES, ELECKOI_INSTALL_ANCHOR } from '../../apps/desk
 import { preparePluginHost } from '../../apps/android-host/src/pluginHostConfiguration'
 import { ELECKOI_INSTALL_ANCHOR as ANDROID_INSTALL_ANCHOR } from '../../apps/android-host/src/androidPluginBundles'
 import Database from 'better-sqlite3'
-import { DEFAULT_CREATOR_INSTRUCTIONS } from '../../packages/shared/src/contracts/presets/builtIns'
+import { DEFAULT_CREATOR_INSTRUCTIONS, DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT } from '../../packages/shared/src/contracts/presets/builtIns'
 import { emptyEntry } from '../../packages/host/product-data/src/domain/settingLibraries/settingLibraryNormalization'
 import { ownerPeer } from '../support/owner-peer.js'
 import { Session, SessionId, SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { CREATOR_STUDIO_EVENT } from '../../packages/client/features/dsh-client-creator-studio/src/host/projection.mjs'
+import { ROLEPLAY_REPLY_TOOL } from '../../packages/client/features/dsh-client-roleplay/src/host/roleplay-reply-tool.mjs'
 
 const cleanups = []
 afterEach(async () => { vi.unstubAllGlobals(); for (const stop of cleanups.splice(0).reverse()) await stop() }, 30000)
@@ -28,15 +29,26 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-preset-position-profile-'))
   cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
   let f = await start(platform, root)
-  const requests = []
+  const requests = [], continuations = []
+  const plainInput = '合成普通正文输入', plainReply = '合成普通正文'
+  let replies = 0
   class Adapter extends LlmAdapter {
-    async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 65536 }, defaultMaxTokens: 8192 } }
+    async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
     async *stream(request) {
-      requests.push(request.messages)
-      const text = `<FINAL>合成回复 ${requests.length}</FINAL>`
-      yield { type: 'block-start', index: 0, blockType: 'text' }
-      yield { type: 'block-end', index: 0, block: { type: 'text', text } }
-      yield { type: 'finish', reason: { kind: 'stop' } }
+      if (request.messages.some(message => message.source.kind === 'user' && message.content.some(block => block.text === plainInput))) {
+        yield { type: 'block-start', index: 0, blockType: 'text' }
+        yield { type: 'block-end', index: 0, block: { type: 'text', text: plainReply } }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+        return
+      }
+      if (hasRoleplayReplyResult(request)) {
+        continuations.push(request.messages)
+        yield* streamNextRoleplayReply(request)
+      } else {
+        requests.push(request.messages)
+        expect(request.tools.some(tool => tool.name === ROLEPLAY_REPLY_TOOL)).toBe(true)
+        yield* streamRoleplayReply(`合成回复 ${++replies}`, request)
+      }
     }
   }
   const provider = 'synthetic-preset-position'
@@ -50,10 +62,13 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
     createdAt: timestamp, updatedAt: timestamp }
   const after = { id: 'synthetic-after', name: '合成自定义输入后', anchor: 'insert_point_4', side: 'after_setting_position', order: 2,
     createdAt: timestamp, updatedAt: timestamp }
-  data.saveAgentPreset({ ...preset, promptPositions: [...preset.promptPositions, before, after],
+  const tail = { id: 'synthetic-tail', name: '合成自定义工具流后', anchor: 'insert_point_5', side: 'before_setting_position', order: 1,
+    createdAt: timestamp, updatedAt: timestamp }
+  data.saveAgentPreset({ ...preset, promptPositions: [...preset.promptPositions, before, after, tail],
     entries: [...preset.entries,
       { ...emptyEntry(before.id), title: before.name, content: before.name, triggerMode: 'always', promptPositionId: before.id, insertRole: 'assistant' },
-      { ...emptyEntry(after.id), title: after.name, content: after.name, triggerMode: 'always', promptPositionId: after.id }]
+      { ...emptyEntry(after.id), title: after.name, content: after.name, triggerMode: 'always', promptPositionId: after.id },
+      { ...emptyEntry(tail.id), title: tail.name, content: tail.name, triggerMode: 'always', promptPositionId: tail.id }]
   }, preset.regexRules)
   const character = data.createCharacter({ id: 'synthetic-preset-character', name: '合成角色' }).items[0]
   const chat = await f.ctx.eleckoiConversationsApi.create({ metadata: { characterId: character.id } })
@@ -73,17 +88,31 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
     expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
   }
   const verifyRequest = input => {
-    const markers = new Set([before.name, input, after.name])
+    const markers = new Set([before.name, input, after.name, tail.name, DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT])
     const entries = requests.at(-1).flatMap(message => message.content.filter(block => block.type === 'text')
       .map(block => [message.role, block.text]))
     expect(entries.filter(([, text]) => markers.has(text))).toEqual([
-      ['assistant', before.name], ['user', input], ['user', after.name]
+      ['assistant', before.name], ['user', input], ['user', after.name], ['user', tail.name], ['user', DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT]
+    ])
+    const hiddenPrompt = { role: 'user', content: [{ type: 'text', text: DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT }] }
+    expect(requests.at(-1).at(-1)).toMatchObject(hiddenPrompt)
+    expect(continuations).toHaveLength(requests.length)
+    expect(continuations.at(-1).slice(-4)).toMatchObject([
+      { role: 'assistant', content: [{ type: 'tool-call', name: ROLEPLAY_REPLY_TOOL }] },
+      { role: 'tool', content: [{ type: 'text', text: '下一步必须把 合成角色 的扮演正文直接发给玩家，格式为 <合成角色>对应的角色扮演内容</合成角色>。' }] },
+      { role: 'user', content: [{ type: 'text', text: tail.name }] },
+      hiddenPrompt
     ])
   }
   await send(first)
   verifyRequest(first)
   await send(second)
   verifyRequest(second)
+  expect(requests.at(-1).filter(message => message.source.kind === 'plugin:eleckoi-product-history')).toEqual([
+    expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: '合成角色：合成回复 1' }] }),
+  ])
+  expect(requests.at(-1).some(message => message.role === 'tool'
+    || message.content.some(block => block.type === 'tool-call' || block.type === 'reasoning'))).toBe(false)
   const userEvents = events => events.filter(event => event.type === 'user/message' && event.data.source.kind === 'user')
   const [retainedInput, retryInput] = userEvents(await inspect())
   const requestId = 'synthetic-preset-retry'
@@ -97,20 +126,47 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   verifyRequest(second)
   const regenerated = await inspect()
   expect(userEvents(regenerated).map(event => event.data.id)).toEqual([retainedInput.data.id, retryInput.data.id])
-  const assistantText = events => events.filter(event => event.type === 'assistant/message')
-    .flatMap(event => event.data.message.content.filter(block => block.type === 'text').map(block => block.text))
-  expect(assistantText(regenerated)).toEqual(['<FINAL>合成回复 1</FINAL>', '<FINAL>合成回复 3</FINAL>'])
+  const assistantText = events => roleplayReplyMessages(events).map(reply => reply.content)
+  const rawModelText = events => events.filter(event => event.type === 'assistant/message')
+    .flatMap(event => event.data.message.content.filter(block => block.type === 'text' && block.text).map(block => block.text))
+  expect(assistantText(regenerated)).toEqual(['合成角色：合成回复 1', '合成角色：合成回复 3'])
+  expect(rawModelText(regenerated)).toEqual(['<合成角色>合成回复 1</合成角色>', '<合成角色>合成回复 3</合成角色>'])
   await invoke('deleteMessagesFrom', { eventSeq: retryInput.seq, role: 'user' })
   await f.close()
   f = await start(platform, root)
   registerModel()
   const reopened = await inspect()
   expect(userEvents(reopened).map(event => event.data.id)).toEqual([retainedInput.data.id])
-  expect(assistantText(reopened)).toEqual(['<FINAL>合成回复 1</FINAL>'])
+  expect(assistantText(reopened)).toEqual(['合成角色：合成回复 1'])
   await send(next)
   expect(requests).toHaveLength(4)
   verifyRequest(next)
   expect(JSON.stringify(requests.at(-1))).not.toContain(second)
+  const beforeEdit = await inspect()
+  const lastReply = roleplayReplyMessages(beforeEdit).at(-1)
+  await invoke('editMessage', { eventSeq: lastReply.addressSeq, role: 'assistant', content: '编辑后的扮演正文' })
+  const edited = await inspect()
+  expect(assistantText(edited)).toEqual(['合成角色：合成回复 1', '合成角色：编辑后的扮演正文'])
+  const rawTrace = events => events.filter(event => ['assistant/message', 'tool/call', 'tool/result'].includes(event.type))
+  expect(rawTrace(edited)).toEqual(rawTrace(beforeEdit))
+  await send('合成编辑后的下一轮输入')
+  expect(requests.at(-1).filter(message => message.source.kind === 'plugin:eleckoi-product-history').map(message => message.content)).toEqual([
+    [{ type: 'text', text: '合成角色：合成回复 1' }], [{ type: 'text', text: '合成角色：编辑后的扮演正文' }]
+  ])
+  expect(requests.at(-1).some(message => message.role === 'tool'
+    || message.content.some(block => block.type === 'tool-call' || block.type === 'reasoning'))).toBe(false)
+  await invoke('deleteMessagesFrom', { eventSeq: lastReply.addressSeq, role: 'assistant' })
+  const deleted = await inspect()
+  expect(assistantText(deleted)).toEqual(['合成角色：合成回复 1'])
+  expect(deleted.filter(event => event.type === 'tool/result' && event.data.meta?.source === 'eleckoi-roleplay-reply')).toHaveLength(1)
+  await send(plainInput)
+  const fallback = (await inspect()).findLast(event => event.type === 'eleckoi/roleplay-output' && event.data.fallback)
+  expect(assistantText(await inspect())).toEqual(['合成角色：合成回复 1', plainReply])
+  await invoke('editMessage', { eventSeq: fallback.data.replySeq, role: 'assistant', content: '编辑后的普通正文' })
+  expect(assistantText(await inspect())).toEqual(['合成角色：合成回复 1', '编辑后的普通正文'])
+  expect(rawModelText(await inspect())).toEqual(['<合成角色>合成回复 1</合成角色>', plainReply])
+  await invoke('deleteMessagesFrom', { eventSeq: fallback.data.replySeq, role: 'assistant' })
+  expect(assistantText(await inspect())).toEqual(['合成角色：合成回复 1'])
 }, 120_000)
 
 it.each(['desktop', 'android'])('%s keeps associated variable configuration live and continues chatting after it is removed', async platform => {
@@ -120,12 +176,10 @@ it.each(['desktop', 'android'])('%s keeps associated variable configuration live
   class Adapter extends LlmAdapter {
     async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
     async listModels(provider) { return [await this.resolveModel(provider, 'synthetic-variable-model')] }
-    async *stream() {
+    async *stream(request) {
       if (holdReply) await holdReply
-      yield { type: 'block-start', index: 0, blockType: 'text' }
-      yield { type: 'text-delta', index: 0, text: 'Synthetic continued reply' }
-      yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic continued reply' } }
-      yield { type: 'finish', reason: { kind: 'stop' } }
+      if (hasRoleplayReplyResult(request)) yield* streamNextRoleplayReply(request)
+      else yield* streamRoleplayReply('Synthetic continued reply', request)
     }
   }
   const install = () => ctx.llm.registerAdapter(['synthetic-variable-profile'], new Adapter())
@@ -219,6 +273,10 @@ it.each(['desktop', 'android'])('%s keeps authored removals out of actual model 
     async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
     async listModels(provider) { return [await this.resolveModel(provider, 'synthetic-removal-model')] }
     async *stream(options) {
+      if (hasRoleplayReplyResult(options)) {
+        yield* streamNextRoleplayReply(options)
+        return
+      }
       const calls = [
         ['eleckoi_glob_variables', {}],
         ['eleckoi_read_variables', { paths: ['/status'] }],
@@ -242,12 +300,7 @@ it.each(['desktop', 'android'])('%s keeps authored removals out of actual model 
         yield { type: 'tool-call-delta', index: 0, id, name, argumentsDelta: JSON.stringify(args) }
         yield { type: 'block-end', index: 0, block: { type: 'tool-call', id, name, arguments: JSON.stringify(args) } }
         yield { type: 'finish', reason: { kind: 'tool-calls' } }
-      } else {
-        yield { type: 'block-start', index: 0, blockType: 'text' }
-        yield { type: 'text-delta', index: 0, text: 'Synthetic updated reply' }
-        yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic updated reply' } }
-        yield { type: 'finish', reason: { kind: 'stop' } }
-      }
+      } else yield* streamRoleplayReply('Synthetic updated reply', options)
     }
   }
   const install = () => ctx.llm.registerAdapter(['synthetic-removal-profile'], new Adapter())
@@ -618,10 +671,12 @@ it.each(['desktop', 'android'])('%s keeps roleplay accessible after its saved pr
     async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
     async listModels(provider) { return [await this.resolveModel(provider, 'synthetic-model')] }
     async *stream(request) {
+      if (hasRoleplayReplyResult(request)) {
+        yield* streamNextRoleplayReply(request)
+        return
+      }
       requests.push(request)
-      yield { type: 'block-start', index: 0, blockType: 'text' }
-      yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic roleplay replacement reply' } }
-      yield { type: 'finish', reason: { kind: 'stop' } }
+      yield* streamRoleplayReply('Synthetic roleplay replacement reply', request)
     }
   }
   const previous = { provider: 'synthetic-removed-roleplay', model: 'synthetic-model' }
@@ -681,11 +736,16 @@ it('desktop compacts image and text history after switching away from an unavail
       return [await this.resolveModel(provider, provider === previous.provider ? previous.model : selected.model)]
     }
     async *stream(request) {
+      if (hasRoleplayReplyResult(request)) {
+        yield* streamNextRoleplayReply(request)
+        return
+      }
       requests.push(request)
-      const text = request.purpose === 'compaction' ? 'Synthetic history summary.' : '<FINAL>Synthetic reply.</FINAL>'
-      yield { type: 'block-start', index: 0, blockType: 'text' }
-      yield { type: 'block-end', index: 0, block: { type: 'text', text } }
-      yield { type: 'finish', reason: { kind: 'stop' } }
+      if (request.purpose === 'compaction') {
+        yield { type: 'block-start', index: 0, blockType: 'text' }
+        yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic history summary.' } }
+        yield { type: 'finish', reason: { kind: 'stop' } }
+      } else yield* streamRoleplayReply('Synthetic reply.', request)
     }
   }
   ctx.llm.registerAdapter([previous.provider], new Adapter())
@@ -718,10 +778,22 @@ it('desktop compacts image and text history after switching away from an unavail
   const summaryEvents = agent => agent.session.snapshotEvents().filter(event => event.type === 'compaction/summary')
 
   const control = await makeHistory('A history with a live previous provider. '.repeat(60), image)
+  await send(control, 'One more message before compaction.')
   await ctx.eleckoiConversationModelsApi.select(control.conversation.id, selected)
   expect((await compact(control.agent)).kind).toBe('success')
   expect(requests.at(-1)).toMatchObject({ purpose: 'compaction', provider: previous.provider, model: previous.model, reasoningEffort: 'high' })
   expect(imageBlocks(requests.at(-1))).toEqual([{ type: 'image', attachment: image }])
+  expect(requests.at(-1).messages.filter(message => message.source?.kind === 'plugin:eleckoi-product-history')).toEqual([
+    expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'Synthetic character：Synthetic reply.' }] }),
+  ])
+  expect(requests.at(-1).messages.some(message => message.role === 'tool'
+    || message.content.some(block => block.type === 'tool-call'))).toBe(false)
+  await send(control, 'Continue from the retained reply.')
+  const continued = requests.at(-1).messages
+  expect(continued.filter(message => message.source?.kind === 'plugin:eleckoi-product-history')).toEqual([
+    expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'Synthetic character：Synthetic reply.' }] }),
+  ])
+  expect(JSON.stringify(continued)).toContain('Synthetic history summary.')
 
   const imageChat = await makeHistory('An earlier chat message with an image. '.repeat(60), image)
   const textChat = await makeHistory('An earlier text-only chat message. '.repeat(60))

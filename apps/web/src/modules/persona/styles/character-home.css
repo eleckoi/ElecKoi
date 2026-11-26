@@ -146,13 +146,17 @@
   min-height: 0;
 }
 
-.character-home-feed,
-.character-home-detail {
+.character-home-feed {
   grid-area: 1 / 1;
 }
 
-.character-home-feed[inert] {
-  visibility: hidden;
+html:not([data-input-modality="pointer"]) :is(.character-home-feed, .preset-home-feed) .character-manager-grid .character-card:focus-visible:not([data-dsh-automatic-focus]),
+html:not([data-input-modality="pointer"]) :is(.character-home-sidebar, .preset-home-sidebar) .character-contact-row:focus-visible:not([data-dsh-automatic-focus]) {
+  outline-color: var(--dsw-alias-label-primary);
+}
+
+:is(.character-home-feed, .preset-home-feed) .character-manager-grid .character-card[data-dsh-automatic-focus]:focus {
+  outline: none;
 }
 
 .character-home-catalog.character-manager-window {
@@ -272,13 +276,10 @@
 }
 
 .character-home-detail {
-  display: grid;
-  grid-template: minmax(0, 1fr) / min(56%, max(35%, calc((100dvh - 40px) * .77))) minmax(0, 1fr);
-  background: var(--surface-raised);
+  grid-template: minmax(0, 1fr) / clamp(56%, calc((100dvh - 2 * var(--catalog-card-block-edge)) * .88), 61%) minmax(0, 1fr);
 }
 
 .character-home-detail-art {
-  position: relative;
   display: grid;
   place-items: center;
   min-width: 0;
@@ -289,32 +290,12 @@
   font-weight: 600;
 }
 
-.character-home-detail .character-home-detail-back {
-  position: absolute;
-  inset-block-start: 16px;
-  inset-inline-start: 16px;
-  z-index: 1;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 50%;
-  corner-shape: round;
-  background: color-mix(in srgb, var(--dsw-alias-button-floating-fill) 86%, transparent);
-  backdrop-filter: var(--dsw-menu-backdrop-filter, blur(12px) saturate(1.15));
-  box-shadow: inset 0 0 0 1px var(--line-strong), 0 2px 8px color-mix(in srgb, var(--shadow-color) 24%, transparent);
-}
-
-@media (hover: hover) {
-  .character-home-detail .character-home-detail-back:hover:not(:disabled) {
-    background: var(--dsw-alias-button-floating-hover);
-  }
-}
-
 .character-home-detail-art img {
   width: 100%;
   height: 100%;
   min-height: 0;
   object-fit: cover;
+  object-position: 50% 40%;
 }
 
 .character-home-detail-reading {
@@ -388,8 +369,19 @@
 
 .character-home-detail-actions > button {
   gap: 6px;
-  height: 40px;
+  min-height: 44px;
   white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .character-home-detail {
+    grid-template: minmax(0, 42%) minmax(0, 1fr) / minmax(0, 1fr);
+  }
+
+  .character-home-detail-art img { object-position: center; }
+  .character-home-detail-author { min-height: 56px; }
+  .character-home-detail-intro { padding-block: 16px; }
+  .character-home-detail-actions { padding-block: 10px; }
 }
 
 @container (max-width: 925px) {

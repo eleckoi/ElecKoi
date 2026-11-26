@@ -463,12 +463,13 @@ export function CharacterManager({ characters, onSaveGroups, onDeleteCharacters,
           </>} empty={<p className="character-manager-empty">{tUi("这个分组里还没有角色卡。")}</p>}>
               {(character, index, width) => {
                 const onOpen = selectionMode ? () => toggleSelected(character.id) : () => (home?.onOpenCharacter || openCharacterEditorWindow)(character.id);
+                const openCard = home && !selectionMode ? (id, trigger) => home.onOpenCharacter(id, trigger) : onOpen;
                 const onMenu = selectionMode ? undefined : home
                   ? event => home.onContextMenu(event, character)
                   : event => openCardGroupMenu(event, character);
                 const card = <CharacterCard character={character} artworkAspectRatio={characterArtworkAspectRatio(index)}
                   artworkWidth={width} selectable={selectionMode} selected={selectedSet.has(character.id)}
-                  onClick={onOpen} onContextMenu={onMenu} />;
+                  onClick={openCard} onContextMenu={onMenu} />;
                 return render('eleckoi.character.library.item', {
                 surface: 'pc-manager', character, selected: selectedSet.has(character.id), selecting: selectionMode,
                 onSelect: onOpen, onOpenMenu: onMenu,

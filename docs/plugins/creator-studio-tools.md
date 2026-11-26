@@ -30,7 +30,7 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 
 | 领域 | 操作 |
 | --- | --- |
-| `character` | `create`、`read`、`update`（含所属分组 `group`） |
+| `character` | `list`、`create`、`read`、`update`；登场角色 `create_cast_member`、`update_cast_member`、`remove_cast_member`；开场白 `read_openings`、`save_openings` |
 | `settings` | `list`、`read`、`create`、`update`、`update_many`、`edit`、`remove`、`create_group`、`update_group`、`remove_group`；角色完整配置另有 `read_library`、`save_library`；全局库另有 `create_library`、`update_library`、`remove_library` |
 | `variables` | `list`、`read`、`create`、`update`、`remove`、`create_object`、`update_object`、`remove_object`、`update_schema`、`validate_schema` |
 | `scripts` | `list`、`read`、`create`、`update`、`remove`、`create_folder`、`update_folder`、`remove_folder`、`move`、`configure` |
@@ -110,6 +110,12 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 
 正则的 replacement 可填写 EJS；regex.test 统一测试最终结果，可提供 variables。执行范围、语法及示例见 [正则中的 EJS](regex-ejs.md)。
 
+## 角色卡、登场角色与开场白
+
+`character.create` 新建角色卡。`character.read` 返回卡片资料和 `cast` 名单。单人卡登记一位，多人卡登记多位；每位可以用自己的名字、立绘和头像发言。创建、编辑和移除名单成员分别用 `character.create_cast_member`、`character.update_cast_member` 和 `character.remove_cast_member`。
+
+通过 `character.read_openings` 和 `character.save_openings` 维护开场白。每条开场白可写一段封面正文，也可按顺序安排多段正文，逐段选择封面或登场角色。保存时提交完整列表，保留未改的条目和变量版本绑定。详细字段、图片及已有对话的行为见 [角色配置创作参考](authoring-configurations.md#角色资料)。
+
 ## 设定读取与 EJS
 
 角色和全局设定新建时触发规则默认关闭。启用时传 `enabled=true`。在 `triggerMode="agent_tool"` 下，`agentReadStrategy` 选 `"normal"` 为 AI 选读，`"keyword"` 为关键词触发，`"required"` 为常驻触发（每轮必读）。指定插入位置的常驻触发使用 `triggerMode="always"` 并填写 `position`。
@@ -121,10 +127,6 @@ PC 空会话显示居中的新会话首页，共用原来的官方输入框与�
 ```
 
 关闭规则时写 `enabled=false`，保留关键词和其他配置。批量修改同步当前设定版本，任一编号、格式或保存失败整批回滚。
-
-主开场白和备用开场白通过 `character.read_openings` 读取、`character.save_openings` 保存。`openingMessages` 接收完整列表，可以新增、修改、删除、调整顺序，并修改每项的标题、正文与 `variableVersionId` 变量版本绑定；未要求修改的项目和字段应保留。`defaultOpeningMessageId` 指定主开场，删除原主开场时必须同时给出有效的新编号。
-
-变量绑定可以改为当前角色已有的准确变量版本编号，也可以填空字符串取消绑定。`variables.list` 返回各版本的 `id/name`，用于查询可选绑定；其 `activeVersionId` 只表示变量编辑器当前选择。新对话只加载所选开场白明确绑定的变量版本及其初值；未绑定或没有有效开场白时不启用变量配置，不自动选择版本。切换至未绑定开场白同时清空本次开局的变量绑定和初值。创作工具不提供开场白独立初值字段。修改原稿不会重写已有对话中的开场与变量。清空开场正文使用空字符串。
 
 设定正文可以使用 `contentMode="plain_text"` 或 `contentMode="ejs"`。启用规则后，`triggerMode="always"` 按插入位置提供正文，`"agent_tool"` 由设定读取流程使用。关闭触发规则后，正文可供其他模板通过 `getwi` 引用。
 

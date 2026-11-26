@@ -87,7 +87,8 @@ if (q.has('long')) {
   role.entries[0].content = text; role.versions[0].entries[0].content = text;
 }
 document.documentElement.dataset.theme = theme; document.body.toggleAttribute('data-ds-dark-theme', theme === 'dark'); document.documentElement.style.colorScheme = theme;
-const catalog = { refresh: async () => ({ items: [{ id: 'synthetic-role', name: '合成角色', persona: {} }] }) };
+const profileLike = q.has('caret') ? Array.from({ length: 160 }, (_, i) => `第 ${i} 行合成简介`).join('\n') : '';
+const catalog = { refresh: async () => ({ items: [{ id: 'synthetic-role', name: '合成角色', profileLike, persona: {} }] }) };
 createRoot(document.getElementById('root')).render(<MainPageContext.Provider value={{ routeBusy: false }}>
   <div id="eleckoi-root" className={compact ? 'mobile-shell mobile-character-editor' : ''}><CharacterEditorWindow compact={compact}
   embeddedCharacterId={characterId} characterCatalog={catalog} characterConfiguration={configuration}
@@ -95,7 +96,7 @@ createRoot(document.getElementById('root')).render(<MainPageContext.Provider val
     <MobileHeader title={subpage?.title || '编辑角色'} back={subpage?.back || (() => {})}>
       {subpage?.actions}<button type="button" disabled={saving || !dirty} onClick={save}>保存</button>
     </MobileHeader> : <header className="client-titlebar split-surface"><div className="title-spacer" /></header>}
-  renderCharacterEditorSection={(section, _owner, fallback) => ['lore', 'openings', 'variables', 'regex', 'scripts'].includes(section) ? fallback : <div data-fixture-section={section} />}
+  renderCharacterEditorSection={(section, _owner, fallback) => (q.has('caret') && section === 'card') || ['lore', 'openings', 'variables', 'regex', 'scripts'].includes(section) ? fallback : <div data-fixture-section={section} />}
 /></div></MainPageContext.Provider>);
 
 if (preview) {

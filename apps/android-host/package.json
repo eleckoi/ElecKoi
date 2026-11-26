@@ -1,6 +1,6 @@
 {
   "name": "@eleckoi/android-host",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "private": true,
   "type": "module",
   "main": "./dist/index.cjs",
@@ -80,6 +80,7 @@
     "@deepseek-ai/dsh-host-directory-picker-browse": "0.2.2-rc.5",
     "@deepseek-ai/dsh-client-ui-directory-picker-browse": "0.2.2-rc.5",
     "pnpm": "11.7.0",
+    "koffi": "3.1.1",
     "@deepseek-ai/dsh-tools": "0.2.2-rc.5",
     "zod": "4.6.6",
     "@deepseek-ai/dsh-client-ui-entry-customization": "0.2.2-rc.5",

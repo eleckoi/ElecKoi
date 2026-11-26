@@ -63,7 +63,10 @@ function ProfileEditor({ owner, onBack }) {
   }, [view.guardRef]);
   useMobileBack(() => { navigate(onBack); return true; });
   return <>
-    <MobileHeader title={tUi("编辑资料")} back={() => navigate(onBack)}><MobileSaveFeedback error={owner.message === "saved" ? '' : owner.message} notice={owner.message === "saved" ? 'saved' : ''} onNotify={view.chat.notify} successMessage={tUi("用户资料已保存")} /><button type="button" className="mobile-settings-save" disabled={owner.saving} onClick={() => owner.onSave()}>{tUi("保存")}</button></MobileHeader>
+    <MobileHeader title={tUi("编辑资料")} back={() => navigate(onBack)}>
+      <MobileSaveFeedback error={owner.message === "saved" ? '' : owner.message} notice={owner.message === "saved" ? 'saved' : ''} onNotify={view.chat.notify} successMessage={tUi("用户资料已保存")} />
+      <button className="mobile-profile-save" type="button" disabled={!dirty || owner.saving} onClick={() => owner.onSave()}>{tUi("保存")}</button>
+    </MobileHeader>
     <div className="mobile-settings-scroll mobile-profile-editor">
       <button type="button" className="mobile-profile-avatar" aria-label={tUi("管理头像")} disabled={owner.saving} onClick={owner.onManageAvatars}>
         <Avatar src={owner.profile.avatars.circle} name={owner.profile.name || tUi("你")} />

@@ -179,6 +179,25 @@ describe('regex display refresh', () => {
     } finally { app.close() }
   })
 
+  it('sends reply speaker bindings and publishes merged display text alongside the source blocks', async () => {
+    const roleplayBlocks = ['原文前半。', '原文后半。'].map((text, index) => ({
+      id: `reply:${index}`, kind: 'speech', speakerId: 'speaker-1', speakerName: '合成发言甲', text,
+    }))
+    const message = { ...sourceMessage, content: '合成发言甲：原文前半。\n\n合成发言甲：原文后半。', roleplayReply: true, roleplayBlocks }
+    const app = await mount('characterRules', message)
+    try {
+      const roleplayGroups = [{ id: 'reply:0', sourceText: '原文前半。\n\n原文后半。', displayText: '合并后替换。' }]
+      app.projectDisplay.mockImplementationOnce(async (_id, [input]) => ({ ok: true, value: [{
+        id: input.id, sourceContent: input.content, displayContent: '合成发言甲：合并后替换。',
+        variableStateJson: input.variableStateJson, roleplayGroups,
+      }] }))
+      await app.regexRules.save('character-1', app.collection())
+      await settle()
+      expect(app.projectDisplay.mock.calls.at(-1)[1][0].roleplayBlocks).toEqual(roleplayBlocks)
+      expect(app.rendered()[0]).toMatchObject({ content: message.content, roleplayBlocks, roleplayGroups })
+    } finally { app.close() }
+  })
+
   it('keeps a settled frontend visible while refreshed message metadata is projected', async () => {
     const message = { ...sourceMessage, content: '<FINAL>Narrative</FINAL>\n[CARD]' }
     const app = await mount('agentPresetRules', message)

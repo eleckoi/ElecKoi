@@ -102,6 +102,48 @@ it('keeps blank alternatives selectable, including a blank primary, after switch
   expect(read(blankId)).toMatchObject({ content: '', selectedOpeningId: 'blank' })
 }, 30_000)
 
+it('starts new chats with ordered opening speakers and preserves the snapshot across roster changes', () => {
+  const f = fixture(), characterId = 'synthetic-character'
+  const repository = new ConversationRepository(f.db, (id, db) => resolveConversationSeed(id, db, f.openings, f.variables))
+  const messages = new MessageRepository(f.db)
+  const original = f.openings.get(characterId)
+  const cast = ['一号', '二号'].map((name, index) => ({ id: `speaker-${index}`, name,
+    portraitAssetId: null, circleAssetId: null, squareAssetId: null, crop: null }))
+  f.characters.update({ id: characterId, cast })
+  const old = repository.create({ metadata: { characterId } }).conversation.id
+  const longText = `录音机开始转动。\n\n${'第一段对白。\n\n第二段对白。'.repeat(100)}`
+  const scene = f.openings.save(characterId, { ...original, openingMessages: [
+    { ...original.openingMessages[0]!, segments: [
+      { id: 'cover', kind: 'cover', text: '封面正文' },
+      { id: 'first', kind: 'speech', speakerId: cast[0]!.id, text: longText },
+      { id: 'second', kind: 'speech', speakerId: cast[1]!.id, text: '二号发言' },
+    ] },
+    { id: 'plain', title: '长篇开场', content: '原样长文' },
+  ] })
+  const created = repository.create({ metadata: { characterId } }).conversation.id
+  const read = (id: string) => messages.pageMetadata(id).messages[0]!
+  const initial = read(created)
+  expect(initial.content).toBe(scene.openingMessages[0]!.content)
+  expect(initial.openingOptions?.[0]?.segments?.map(segment => segment.speakerName)).toEqual(['合成角色', '一号', '二号'])
+  expect(repository.openingText(created)).toContain(`一号：${longText}`)
+  expect(() => repository.updateOpening(created, '把所有段落改成一段')).toThrow('这条开场白有多个段落')
+  expect(read(created).openingOptions).toEqual(initial.openingOptions)
+  expect(read(old).openingOptions?.[0]?.segments).toBeUndefined()
+  expect(read(old).content).toBe('合成初始开场')
+  repository.selectOpening(created, 'plain')
+  expect(read(created).content).toBe('原样长文')
+  repository.selectOpening(created, original.defaultOpeningMessageId)
+  f.characters.update({ id: characterId, cast: [{ ...cast[0]!, name: '一号新名字' }] })
+  expect(read(created).openingOptions).toEqual(initial.openingOptions)
+  const next = repository.create({ metadata: { characterId } }).conversation.id
+  expect(read(next).openingOptions?.[0]?.segments?.map(segment => segment.speakerName))
+    .toEqual(['合成角色', '一号新名字', undefined])
+  repository.restoreImportedOpening(next, { content: initial.content, options: initial.openingOptions!,
+    selectedId: initial.selectedOpeningId! })
+  expect(read(next).openingOptions).toEqual(initial.openingOptions)
+  expect(repository.openingText(next)).toContain(`一号：${longText}`)
+}, 30_000)
+
 it('collects every legacy opening into one list and retains all settings and the default opening', () => {
   const f = fixture(); f.db.close()
   const database = new Database(':memory:'); cleanups.push(() => database.close()); database.exec(legacyOpeningSchemaSql); restoreEditorSchemaV12(database)

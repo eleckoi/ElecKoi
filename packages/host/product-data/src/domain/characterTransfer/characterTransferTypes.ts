@@ -1,4 +1,5 @@
 import type { CharacterOpenings } from '@shared/contracts/characterOpenings/schemas'
+import type { CharacterCastMember } from '@shared/contracts/characters/cast'
 import type { RegexRule } from '@shared/contracts/regex/schemas'
 import type { SettingLibrary } from '@shared/contracts/settingLibrary/schemas'
 import type { VariableConfig } from '@shared/contracts/variables/schemas'
@@ -28,6 +29,7 @@ export interface PortableAsset {
 
 export interface PortableCharacterPackage {
   character: PortableCharacter
+  cast?: CharacterCastMember[]
   assets: PortableAsset[]
   characterOpeningsJson?: string
   settingLibraryJson: string

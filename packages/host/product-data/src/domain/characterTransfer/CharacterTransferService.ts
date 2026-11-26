@@ -24,6 +24,7 @@ import type { SettingLibraryRepository } from '@product-data/domain/settingLibra
 import type { VariableConfigRepository } from '@product-data/domain/variables'
 import type { ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import type { CharacterRepository } from '@product-data/domain/personas'
+import { prepareLegacyCast } from '@product-data/domain/personas/legacyCharacterCast'
 import type { LocalMediaStore } from '@product-data/storage/media/LocalMediaStore'
 import { ScriptLibraryRepository } from '@product-data/domain/scripts'
 import { agentPresetExists } from '@product-data/domain/agentPresets'
@@ -97,6 +98,7 @@ export class CharacterTransferService {
         showOpening: boolean(persona.show_opening)
       },
       assets,
+      cast: character.cast ?? [],
       libraryAssets: this.libraryAssets?.portable(characterId) ?? [],
       libraryFolders: this.libraryAssets?.portableFolders(characterId) ?? [],
       frontends: this.frontends?.portable(characterId),
@@ -212,13 +214,26 @@ export class CharacterTransferService {
   private importOne(decoded: DecodedCharacterCard): string {
     const characterId = `character-${randomUUID()}`
     const scripts = decoded.packageData.scriptLibrary
+    const character = this.characterRecord(characterId, decoded)
+    const libraryAssets = decoded.packageData.libraryAssets ?? []
+    // RETIRE WHEN: native files without a cast roster and single-role Tavern
+    // imports are no longer supported. Remove this adapter and legacy import tests.
+    if (decoded.packageData.cast === undefined && this.libraryAssets) {
+      const persona = record(character.persona)
+      const legacy = prepareLegacyCast(decoded.packageData.character.name, {
+        portrait: string(persona.assistant_cover), circle: string(persona.assistant_avatar), square: string(persona.assistant_square)
+      }, undefined, libraryAssets)
+      character.cast = [legacy.member]
+      libraryAssets.push(...legacy.additions)
+    }
     try {
       const withAssets = (operation: (commit: () => void) => void) => this.libraryAssets
-        ? this.libraryAssets.withNewOwner(characterId, decoded.packageData.libraryAssets ?? [], operation, decoded.packageData.libraryFolders ?? []) : operation(() => {})
+        ? this.libraryAssets.withNewOwner(characterId, libraryAssets, operation, decoded.packageData.libraryFolders ?? []) : operation(() => {})
       const withFrontends = (operation: (commit: () => void) => void) => this.frontends
         ? this.frontends.withImportedCharacterOwner(characterId, decoded.packageData.frontends, operation) : operation(() => {})
       withAssets(copyAssets => withFrontends(copyFrontends => this.scripts.transaction((db) => {
-        this.characters.createInTransaction(this.characterRecord(characterId, decoded), db)
+        copyAssets()
+        this.characters.createInTransaction(character, db)
         if (decoded.packageData.regexEnabled !== undefined) saveRegexScopeEnabled(db, 'character', characterId, decoded.packageData.regexEnabled)
         if (scripts) this.scripts.importInTransaction('character', characterId, scripts, db)
         const library = this.importedLibrary(characterId, decoded)
@@ -246,7 +261,7 @@ export class CharacterTransferService {
           }, imported)
           this.regexRules.saveInTransaction(characterId, merged, current.revision, db)
         }
-        copyAssets(); copyFrontends()
+        copyFrontends()
       })))
       this.characters.commitMediaChanges()
     } catch (error) {
@@ -267,6 +282,7 @@ export class CharacterTransferService {
     return {
       id: characterId,
       name: source.name,
+      ...(decoded.packageData.cast === undefined ? {} : { cast: decoded.packageData.cast }),
       authorName: source.authorName ?? '',
       authorAvatar: assetUrl(assets, 'author.avatar'),
       avatar: circle,

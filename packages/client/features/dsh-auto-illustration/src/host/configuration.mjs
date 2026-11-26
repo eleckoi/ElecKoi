@@ -1,6 +1,5 @@
 import { normalizeNovelAiImageSettings, NOVELAI_IMAGE_PROVIDER, DEFAULT_NOVELAI_COMPILER_INSTRUCTION } from '@eleckoi/dsh-product-data'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
-import { IMAGE_PROMPT_OPEN, IMAGE_PROMPT_CLOSE } from '@eleckoi/dsh-client-roleplay/host/generated-image-result.mjs'
 
 export function prepareIllustration(settings, snapshot) {
   const configId = snapshot.autoIllustration?.modelConfigId
@@ -24,11 +23,10 @@ export function illustrationInstructions(settings) {
   const min = settings.automaticImageCount ? settings.automaticImageMin : settings.fixedImageCount
   const max = settings.automaticImageCount ? settings.automaticImageMax : settings.fixedImageCount
   return [
-    '当前角色对话已启用每轮自动配图。共同构思正文与画面，完成其他工具任务后，在同一次 assistant 文本响应中，先输出以下完整生图指令，再输出 <FINAL> 最终正文。',
+    '当前角色对话已启用每轮自动配图。共同构思正文与画面，将分镜放入 eleckoi_roleplay_reply 的 frames 参数。',
     settings.automaticImageCount ? `本轮选择 ${min} 到 ${max} 个不同的剧情瞬间。` : `本轮必须输出恰好 ${min} 个分镜。`,
-    `${IMAGE_PROMPT_OPEN}\n{"frames":[{"id":1,"prompt":"NovelAI 英文画面标签","negative_prompt":"英文负面标签"}]}\n${IMAGE_PROMPT_CLOSE}\n<FINAL>\n正文，在图片位置独占一行写 [[IMAGE:1]]\n</FINAL>`,
-    'frames 必须按剧情顺序排列，id 从 1 开始连续编号。每个画面包含 prompt 和 negative_prompt。对应的 [[IMAGE:n]] 在正文里恰好出现一次。所有画面集中输出一次，分镜数量服从本轮要求。',
-    'generate_image 是文本指令中的动作名称，不是原生工具。不要发起 Tool Call/function_call，不要等待图片结果，不要为生图追加聊天请求。程序收到完整指令后后台串行生图，正文继续正常流式输出。',
+    '在普通回复的正文中，将 [[IMAGE:n]] 单独写成一行，每张图出现一次。frames 按正文顺序排列，id 从 1 开始连续编号。',
+    '在同一次输出中提交正文和工具调用。分镜在后台生成。',
     '以下编译规则只约束每个画面的提示词，不改变上述格式、数量和顺序：',
     settings.promptCompilerInstruction.trim() || DEFAULT_NOVELAI_COMPILER_INSTRUCTION
   ].join('\n')

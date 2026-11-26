@@ -1,4 +1,3 @@
-.character-editor-workspace:is(.is-regex-rules,.is-scripts,.is-character-openings):has(.rs-workspace) { padding: 0 8px 8px 0; overflow: hidden; background: var(--list); border-radius: 0; }
 .rs-library-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; margin: 2px 10px 10px; font-size: 13px; line-height: 20px; font-weight: 500; }
 .rs-directory-content { flex: 1; min-height: 0; overflow: auto; }
 .rs-directory-content > [role=tree] { min-height: 8px; }
@@ -25,6 +24,13 @@
 .rs-row.is-selected .rs-row-main svg { color: var(--dsw-alias-label-primary); }
 .rs-row.is-disabled .rs-row-main { color: var(--soft-text); opacity: .6; }
 .rs-workspace .rs-row-main .rs-row-name { color: inherit; }
+.rs-card-copy { display: grid; flex: 1; min-width: 0; }
+.rs-card-meta { display: none; }
+.is-character-studio .rs-row:is(.regex-rule-row,.script-list-row):has(.rs-card-meta) {
+  height: auto; min-height: 56px; margin-bottom: 6px; border: 1px solid var(--line); border-radius: 10px;
+}
+.is-character-studio .rs-row:has(.rs-card-meta) .rs-row-main { height: auto; }
+.is-character-studio .rs-card-meta { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px; }
 .rs-view-tabs { width: 132px; }
 .rs-script-tabs { width: 198px; }
 .rs-run { height: 30px; min-height: 30px; font-size: 13px; gap: 6px; }

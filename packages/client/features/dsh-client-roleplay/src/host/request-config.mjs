@@ -1,5 +1,5 @@
 import { readSessionSnapshot } from './session-snapshot.mjs'
-import { isProjectionEnvelope } from './conversation-context.mjs'
+import { isProjectionEnvelope, projectRoleplayDialogue } from './conversation-context.mjs'
 
 const COMPACTION_GUARD = '你当前只执行内部历史压缩。只返回非空的纯文本摘要正文；不要调用工具，不要输出推理过程，也不要使用主对话的输出协议标签。'
 
@@ -9,7 +9,7 @@ const COMPACTION_GUARD = '你当前只执行内部历史压缩。只返回非空
  * the durable route and captures it for each step; this plugin never selects
  * a route from a product snapshot or from the deployment default.
  */
-export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
+export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId, readHistory) {
   const reroutedCompactions = new WeakSet()
   const disposeAssembly = agentCtx.on('system-prompt/assemble', async (_assembly, _context, next) => {
     const snapshot = readSessionSnapshot(snapshotRoot, sourceSessionId)
@@ -33,23 +33,27 @@ export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId) {
     return snapshot.responseLengthOverride === undefined ? inherited : { ...inherited, maxTokens: snapshot.responseLengthOverride }
   }, { prepend: true })
   const disposeCompaction = agentCtx.on('llm/stream', (options, next) => {
-    if (options.sessionId !== sourceSessionId || reroutedCompactions.has(options)) return next()
+    if (options.sessionId !== sourceSessionId || options.purpose !== 'compaction' || reroutedCompactions.has(options)) return next()
     const snapshot = readSessionSnapshot(snapshotRoot, sourceSessionId)
     const model = snapshot.model
     // Maintenance can summarize on a different route from the last prepared turn.
     const effort = model && model.provider === options.provider && model.model === options.model
       ? model.reasoningEffort
       : undefined
-    const projected = projectCompactionRequest(
-      options,
-      snapshot.historyCompactionInstructions,
-      effort
-    )
-    if (!projected) return next()
-    // DSH deep-freezes requests before the waterfall. Route a fresh one-shot request through the
-    // public LLM service, and let its nested waterfall pass through to the adapter exactly once.
-    reroutedCompactions.add(projected)
-    return agentCtx.llm.stream(projected)
+    const dispatch = messages => {
+      const request = messages === options.messages ? options : { ...options, messages }
+      const projected = projectCompactionRequest(request, snapshot.historyCompactionInstructions, effort) ?? request
+      if (projected === options) return next()
+      // DSH deep-freezes requests before the waterfall. Route the projected
+      // request through the public LLM service once.
+      reroutedCompactions.add(projected)
+      return agentCtx.llm.stream(projected)
+    }
+    if (!readHistory) return dispatch(options.messages)
+    return (async function* () {
+      const replies = await readHistory(sourceSessionId, options.signal)
+      yield* dispatch(projectRoleplayDialogue(options.messages, replies))
+    })()
   })
   return () => {
     disposeCompaction()

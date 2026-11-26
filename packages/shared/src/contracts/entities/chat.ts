@@ -1,3 +1,5 @@
+import type { OpeningSceneSegment } from '../characterOpenings/schemas'
+
 export type MessageRole = 'user' | 'assistant'
 export type MessageStatus = 'complete' | 'streaming' | 'error' | 'cancelled'
 export type ChatImageMediaType = 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif'
@@ -83,6 +85,7 @@ export interface OpeningMessageOption {
   content: string
   variableVersionId?: string
   displayContent?: string
+  segments?: OpeningSceneSegment[]
   initialVariableStateJson: string
   initialVariableIdentityJson?: string
 }
@@ -108,6 +111,10 @@ export interface ChatMessage {
   role: MessageRole
   content: string
   displayContent?: string
+  /** Body supplied through the native roleplay reply tool. */
+  roleplayReply?: true
+  roleplayBlocks?: OpeningSceneSegment[]
+  roleplayGroups?: Array<{ id: string; sourceText: string; displayText: string }>
   variableStateJson: string
   /** False when this message has no saved historical variable value. */
   variableSnapshotAvailable?: boolean

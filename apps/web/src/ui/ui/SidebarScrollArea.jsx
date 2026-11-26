@@ -3,7 +3,7 @@ import { forwardRef, useCallback, useId, useLayoutEffect, useRef, useState } fro
 import '../styles/sidebar-scroll-area.css';
 import { applySidebarListWheel } from '../hooks/useSidebarListScroll.js';
 
-export const SidebarScrollArea = forwardRef(function SidebarScrollArea({ className, children }, forwardedRef) {
+export const SidebarScrollArea = forwardRef(function SidebarScrollArea({ className, children, ...viewportProps }, forwardedRef) {
   const tUi = useProductTranslation();
   const area = useRef(null), viewport = useRef(null), content = useRef(null), drag = useRef(null);
   const id = useId();
@@ -42,11 +42,11 @@ export const SidebarScrollArea = forwardRef(function SidebarScrollArea({ classNa
   }
 
   return <div ref={area} className={`sidebar-scroll-area${dragging ? ' is-dragging' : ''}`}>
-    <div ref={setViewport} id={id} className={`sidebar-scroll-viewport ${className}`}>
+    <div {...viewportProps} ref={setViewport} id={viewportProps.id ?? id} className={`sidebar-scroll-viewport ${className}`}>
       <div ref={content} className="sidebar-scroll-content">{children}</div>
     </div>
     {metrics.max > 0 ? <div className="sidebar-scrollbar" role="scrollbar" tabIndex={0} aria-label={tUi("滚动列表")}
-      aria-controls={id} aria-orientation="vertical" aria-valuemin={0} aria-valuemax={Math.ceil(metrics.max)} aria-valuenow={Math.round(metrics.value)}
+      aria-controls={viewportProps.id ?? id} aria-orientation="vertical" aria-valuemin={0} aria-valuemax={Math.ceil(metrics.max)} aria-valuenow={Math.round(metrics.value)}
       onPointerDown={event => {
         if (event.button !== 0) return;
         event.preventDefault();

@@ -1,4 +1,4 @@
-import type { AgentToolGroup } from '@shared/contracts/agent/tools'
+import { ROLEPLAY_REPLY_GROUP_ID, type AgentToolGroup } from '@shared/contracts/agent/tools'
 
 const memberDescriptions: Record<string, string> = {
   eleckoi_read_setting_files: '读取设定正文，并续读或搜索本组的完整工具结果',
@@ -6,7 +6,10 @@ const memberDescriptions: Record<string, string> = {
   eleckoi_call_capability: '执行创作操作，并续读或搜索创作能力的完整工具结果',
 }
 
+const roleplayReplyGroup = group(ROLEPLAY_REPLY_GROUP_ID, '角色扮演回复', '选择发言角色，下一步输出该角色的扮演正文', ['eleckoi_roleplay_reply'])
+
 export const AGENT_TOOL_GROUPS: ReadonlyArray<Omit<AgentToolGroup, 'enabled' | 'included'>> = [
+  roleplayReplyGroup,
   group('builtin:mcp-resources', 'MCP 资源读取', '列出并读取 MCP 服务器提供的资源和资源模板', [
     'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource'
   ]),
@@ -45,7 +48,7 @@ export const AGENT_TOOL_GROUPS: ReadonlyArray<Omit<AgentToolGroup, 'enabled' | '
 
 export const AGENT_TOOL_GROUP_IDS = new Set(AGENT_TOOL_GROUPS.map((item) => item.id))
 export const AGENT_TOOL_EXPLICIT_OPT_IN = new Set(['builtin:creator'])
-export const DEFAULT_AGENT_TOOL_GROUP_IDS = new Set(['builtin:variables', 'builtin:setting-library'])
+export const DEFAULT_AGENT_TOOL_GROUP_IDS = new Set([ROLEPLAY_REPLY_GROUP_ID, 'builtin:variables', 'builtin:setting-library'])
 export const CREATOR_AGENT_TOOL_GROUP_IDS = new Set(['builtin:creator', 'builtin:workspace', 'builtin:workflow', 'builtin:collaboration', 'builtin:web', 'builtin:plugin-discovery'])
 
 export function agentToolGroups(enabledIds: ReadonlySet<string> = DEFAULT_AGENT_TOOL_GROUP_IDS): AgentToolGroup[] {
@@ -55,6 +58,14 @@ export function agentToolGroups(enabledIds: ReadonlySet<string> = DEFAULT_AGENT_
     enabled: enabledIds.has(item.id),
     included: enabledIds.has(item.id)
   }))
+}
+
+export function withRoleplayReplyGroup(groups: AgentToolGroup[], purpose: 'roleplay' | 'creator'): AgentToolGroup[] {
+  const other = groups.filter(group => group.id !== ROLEPLAY_REPLY_GROUP_ID)
+  if (purpose === 'creator') return other
+  const selected = groups.find(group => group.id === ROLEPLAY_REPLY_GROUP_ID && group.included)
+  return [{ ...roleplayReplyGroup, members: roleplayReplyGroup.members.map(member => ({ ...member })),
+    included: true, enabled: selected?.enabled ?? true }, ...other]
 }
 
 function group(id: string, name: string, description: string, members: string[]): Omit<AgentToolGroup, 'enabled' | 'included'> {

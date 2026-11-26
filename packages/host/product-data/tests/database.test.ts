@@ -25,7 +25,7 @@ import { readEntry, writeEntry } from '../src/domain/settingLibraries/settingLib
 import { AgentPresetRepository } from '../src/domain/agentPresets/AgentPresetRepository'
 import { DEFAULT_AGENT_TOOL_GROUP_IDS } from '../src/domain/agentTools'
 import { defaultRoleplayPlanSettings } from '../../../shared/src/contracts/presets/roleplayPlan'
-import { DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT } from '../../../shared/src/contracts/presets/builtIns'
+import { DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT, LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT } from '../../../shared/src/contracts/presets/builtIns'
 import { settingLibraryEntrySchema, settingLibraryPromptPositionSchema, settingLibraryStoredEntrySchema } from '../../../shared/src/contracts/settingLibrary/schemas'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
 import { VariableStateRepository } from '../src/domain/variables/VariableStateRepository'
@@ -174,12 +174,13 @@ const schemaV7Sql = schemaV10Sql
   .replace(", `variableVersionId` TEXT NOT NULL DEFAULT ''", '')
   .replace(/^CREATE TABLE IF NOT EXISTS `chat_sessions` .*;$/m,
     'CREATE TABLE IF NOT EXISTS `chat_sessions` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `characterId` TEXT NOT NULL, `characterName` TEXT NOT NULL, `characterAvatar` TEXT NOT NULL, `historyMessageCount` INTEGER NOT NULL, `historyUserMessageCount` INTEGER NOT NULL, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`id`));')
+  .replace(/^CREATE TABLE IF NOT EXISTS `character_cast_members` .*;\r?\n/m, '')
   .replace(/^PRAGMA user_version = \d+;$/m, 'PRAGMA user_version = 7;')
 
 function productRecords(database: Database.Database) {
   // Script libraries have separate migration and data-retention assertions.
   // Runtime-state retention has its own exact migration assertions.
-  const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('character_catalog_activity', 'conversation_generation_results', 'script_libraries', 'agent_setting_snapshots', 'conversation_state_snapshots', 'character_openings', 'global_setting_libraries', 'global_setting_library_state') ORDER BY name")
+  const tables = database.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('character_cast_members', 'character_catalog_activity', 'conversation_generation_results', 'script_libraries', 'agent_setting_snapshots', 'conversation_state_snapshots', 'character_openings', 'global_setting_libraries', 'global_setting_library_state') ORDER BY name")
     .all() as { name: string }[]
   return Object.fromEntries(tables.map(({ name }) => [name,
     (database.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all() as Record<string, unknown>[])
@@ -503,8 +504,8 @@ describe('shared SQLite baseline', () => {
       `).all() as Array<{ content: string }>) {
         expect(JSON.parse(row.content)).toMatchObject({
           version: 5,
-          includedGroupIds: ['synthetic:tool'],
-          enabledGroupIds: ['synthetic:tool'],
+          includedGroupIds: ['synthetic:tool', 'builtin:roleplay-reply'],
+          enabledGroupIds: ['synthetic:tool', 'builtin:roleplay-reply'],
           roleplayPlan: { steps: ['合成步骤'] },
           futureField: { preserved: true }
         })
@@ -671,7 +672,7 @@ describe('shared SQLite baseline', () => {
         id,name,modelFamily,modelTagsJson,libraryGroupId,activeVersionId,authorName,
         authorAvatarPath,sortIndex,expandedGroupIdsJson
       ) VALUES ('synthetic-preset','合成预设','general','[]','','','', '',0,'[]')`).run()
-      const previousTimelineContent = DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT.replace(/^  reasoning_channel:.*\n/m, '')
+      const previousTimelineContent = LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT.replace(/^  reasoning_channel:.*\n/m, '')
       database.prepare('INSERT INTO agent_preset_entries VALUES (?,?,0,?)').run(
         'synthetic-preset', 'built-in-hidden-tool-timeline', JSON.stringify({
           id: 'built-in-hidden-tool-timeline', kind: 'hidden_tool_timeline',
@@ -936,8 +937,8 @@ describe('shared SQLite baseline', () => {
         WHERE presetId = 'preset-current-v2' AND kind = 'tool_configuration'`).get() as { content: string }
       expect(JSON.parse(configuration.content)).toEqual({
         version: 5,
-        includedGroupIds: ['builtin:variables'],
-        enabledGroupIds: ['builtin:variables'],
+        includedGroupIds: ['builtin:variables', 'builtin:roleplay-reply'],
+        enabledGroupIds: ['builtin:variables', 'builtin:roleplay-reply'],
         roleplayPlan: { steps: ['读取变量', '生成正文'] }
       })
       expect(database.prepare("SELECT kind FROM agent_preset_contents WHERE kind='tool_policy'").all()).toEqual([])

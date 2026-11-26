@@ -9,7 +9,8 @@ app.whenReady().then(async () => {
   win.webContents.on('console-message', details => { if (details.level === 'error') console.error(details.message); });
   const reports = [];
   try {
-    for (const [width, query] of [[360, ''], [412, ''], [780, ''], [1200, '?desktop'], [780, '?desktop'], [360, '?role=user'], [360, '?streaming'], [360, '?layout=agent']]) {
+    for (const [width, query] of [[360, ''], [412, ''], [780, ''], [1200, '?desktop'], [780, '?desktop'], [360, '?role=user'], [360, '?streaming'], [360, '?layout=agent'],
+      [360, '?layout=agent&assistant-bubble'], [1200, '?desktop&layout=agent&assistant-bubble']]) {
       win.setContentSize(width, 850);
       await win.loadURL(pathToFileURL(htmlPath).href + query);
       for (let attempt = 0; attempt < 80; attempt++) {
@@ -20,11 +21,15 @@ app.whenReady().then(async () => {
         const body=document.querySelector('.markdown-message'),column=getComputedStyle(body.parentElement).display==='contents'?body.closest('article'):body.parentElement;
         const code=body.querySelector('.md-code-block'),table=body.querySelector('table').parentElement;
         const rect=e=>e.getBoundingClientRect().toJSON();
-        const button=document.querySelector('[aria-label="更多"]');
+        const tools=document.querySelector('.message-roleplay > .message-tools');
+        const button=tools?.querySelector('[aria-label="更多"]');
+        const edit=tools?.querySelector('[aria-label="编辑"]');
+        const heading=tools?.parentElement.querySelector('.message-heading');
         return {body:rect(body),column:rect(column),bodyClient:body.clientWidth,bodyScroll:body.scrollWidth,
           code:rect(code),table:rect(table),tableClient:table.clientWidth,tableScroll:table.scrollWidth,
           tableOverflow:getComputedStyle(table).overflowX,
-          more:button?rect(button.querySelector('svg')):null,viewport:innerWidth};
+          more:button?rect(button.querySelector('svg')):null,
+          edit:edit?rect(edit.querySelector('svg')):null, heading:heading?rect(heading):null,viewport:innerWidth};
       })()`);
       if (result.more && !query.includes('desktop')) {
         await win.webContents.executeJavaScript('document.querySelector("[aria-label=更多]").click()');
@@ -53,6 +58,27 @@ app.whenReady().then(async () => {
       })()`);
       reports.push({ width, query, ...result });
     }
-    writeFileSync(reportPath, JSON.stringify(reports)); win.destroy(); app.exit(0);
+    const shortReplies = [];
+    for (const [width, desktop] of [[390, false], [1200, true]]) {
+      win.setContentSize(width, 850);
+      await win.loadURL(pathToFileURL(htmlPath).href + `?opening=short&scene&layout=agent&assistant-bubble${desktop ? '&desktop' : ''}`);
+      for (let attempt = 0; attempt < 80; attempt++) {
+        if (await win.webContents.executeJavaScript('document.querySelectorAll(".message-agent .bubble p").length === 3')) break;
+        await new Promise(resolve => setTimeout(resolve, 60));
+      }
+      const rows = await win.webContents.executeJavaScript(`[...document.querySelectorAll('.message-agent')].map(row => {
+        const bubble = row.querySelector('.bubble');
+        const range = document.createRange();
+        range.selectNodeContents(bubble.querySelector('p'));
+        const box = bubble.getBoundingClientRect(), column = row.getBoundingClientRect();
+        const style = getComputedStyle(bubble);
+        return { bubbleWidth: box.width, rowWidth: column.width, textWidth: range.getBoundingClientRect().width,
+          padding: parseFloat(style.paddingLeft) + parseFloat(style.paddingRight),
+          authorFont: getComputedStyle(row.querySelector('.message-author')).fontFamily,
+          shellFont: getComputedStyle(document.querySelector('main')).fontFamily };
+      })`);
+      shortReplies.push({ desktop, rows });
+    }
+    writeFileSync(reportPath, JSON.stringify({ reports, shortReplies })); win.destroy(); app.exit(0);
   } catch (error) { console.error(error); win.destroy(); app.exit(1); }
 });

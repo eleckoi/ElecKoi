@@ -1,26 +1,27 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { Button, IconChevronLeftOutlineMedium, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
+import { useEffect, useId, useState } from 'react';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
+import defaultCover from '../../../assets/default-preset-cover.png';
 import { resolveFailure } from '../../../utils/failureText.js';
+import { Avatar } from '../../../ui/ui/Avatar.jsx';
+import { CatalogCardDialog } from '../../../ui/ui/CatalogCardDialog.jsx';
 import { usePresets } from './PresetContext.jsx';
 import { PresetProfileActions, PresetProfileHeader } from './PresetProfileHeader.jsx';
 import { PresetIntroductionEditor } from './PresetIntroductionEditor.jsx';
 import { openPresetEditorWindow } from '../window/openPresetEditorWindow.js';
 import { useCatalogSlots } from '../../../ui/ui/CatalogSlotsContext.jsx';
 import '../styles/preset-workspace.css';
+import '../styles/preset-card-dialog.css';
 
-export function PresetOverview({ requestedTab, onRequestedTabHandled, onBack, focusBack }) {
+export function PresetOverview({ requestedTab, onRequestedTabHandled, onBack, trigger }) {
   const tUi = useProductTranslation();
   const { render } = useCatalogSlots();
   const { catalog, selectedPresetId, catalogModel, setCatalog, error: catalogError } = usePresets();
   const [activationError, setError] = useState(''), [activating, setActivating] = useState(false);
   const title = useId();
-  const back = useRef(null);
   // Catalog summaries already carry the complete display profile; full editor documents are not needed here.
   const current = catalog?.presets.find(preset => preset.id === selectedPresetId);
   const error = activationError || catalogError;
   useEffect(() => { setError(''); }, [selectedPresetId]);
-  useEffect(() => { if (focusBack) back.current?.focus({ preventScroll: true }); }, [focusBack, current?.id]);
   useEffect(() => {
     if (requestedTab && selectedPresetId) { openPresetEditorWindow(selectedPresetId, requestedTab === 'introduction' ? 'profile' : requestedTab); onRequestedTabHandled?.(); }
   }, [requestedTab, selectedPresetId, onRequestedTabHandled]);
@@ -35,19 +36,9 @@ export function PresetOverview({ requestedTab, onRequestedTabHandled, onBack, fo
     finally { setActivating(false); }
   }
   const owner = { preset: current, active, activating, error, onEdit, onActivate };
-  const backAction = onBack && <div className="preset-overview-back-slot">
-    <Tooltip label={tUi('返回')} portal>
-      <Button ref={back} data-dsh-control variant="outline" className="preset-overview-back" aria-label={tUi('返回')} onClick={onBack}>
-        <IconChevronLeftOutlineMedium size={22} aria-hidden="true" />
-      </Button>
-    </Tooltip>
-  </div>;
-  return render('eleckoi.preset.page.preview', owner,
-    <section className={`preset-workspace preset-overview${onBack ? ' preset-home-detail' : ''}`} aria-labelledby={title} onKeyDown={onBack && (event => {
-      if (event.key === 'Escape' && !event.defaultPrevented) { event.stopPropagation(); onBack(); }
-    })}>
+  const content = <section className={`preset-workspace preset-overview${onBack ? ' preset-home-detail' : ''}`} aria-labelledby={title}>
       <PresetProfileHeader preset={current} headingId={title} active={active} editingAvailable onEdit={onEdit}
-        activating={activating} onActivate={onActivate} showActions={!onBack} backAction={backAction} />
+        activating={activating} onActivate={onActivate} showActions={!onBack} />
       <div className="preset-workspace-body is-introduction" tabIndex={onBack ? 0 : undefined}>
         <div className="preset-overview-reading">
           {error && <p className="preset-save-error" role="alert">{error}</p>}
@@ -57,5 +48,13 @@ export function PresetOverview({ requestedTab, onRequestedTabHandled, onBack, fo
       {onBack && <footer className="preset-overview-footer">
         <PresetProfileActions active={active} activating={activating} onEdit={onEdit} onActivate={onActivate} activateFirst />
       </footer>}
-    </section>);
+    </section>;
+  return render('eleckoi.preset.page.preview', owner, onBack ? <CatalogCardDialog title={current.name}
+    className="preset-card-dialog" sheetClassName="preset-card-sheet" trigger={trigger} labelledBy={title}
+    artworkSelector=".preset-home-card-avatar, .preset-list-avatar" onClose={onBack}>
+    <div className="preset-card-dialog-art" data-catalog-card-art>
+      <Avatar src={current.profile.authorAvatarPath || defaultCover} name={current.name} thumbnail={false} />
+    </div>
+    {content}
+  </CatalogCardDialog> : content);
 }

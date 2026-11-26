@@ -24,7 +24,7 @@
       if (!reply.success) throw new Error(reply.error || 'Android platform operation failed');
       return reply.result;
     };
-    const methods = ['clientReady', 'clientFailed', 'tts', 'readTtsAudio', 'releaseTtsAudio', 'saveText',
+    const methods = ['clientReady', 'clientFailed', 'tts', 'readTtsAudio', 'releaseTtsAudio', 'saveText', 'pickPluginArchive',
       'beginFile', 'writeFile', 'finishFile', 'abortFile', 'reportError', 'openExternal',
       'notificationSettings', 'replyNotificationStatus', 'setReplyNotifications', 'backgroundRunStatus',
       'setEnhancedBackground', 'backgroundRunSettings', 'updateStatus', 'checkUpdates', 'downloadUpdate',
@@ -68,10 +68,10 @@
       binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
     return btoa(binary);
   };
-  const saveBlob = (name, blob, mime = blob.type || 'application/octet-stream') => request(async id => {
+  const saveStream = (name, stream, mime = 'application/octet-stream') => request(async id => {
     const token = await result(ElecKoiAndroid.beginFile(id, name, mime));
     try {
-      const reader = blob.stream().getReader();
+      const reader = stream.getReader();
       try {
         for (;;) {
           const { done, value } = await reader.read();
@@ -79,6 +79,9 @@
           for (let offset = 0; offset < value.length; offset += 64 * 1024)
             await result(ElecKoiAndroid.writeFile(token, encode(value.subarray(offset, offset + 64 * 1024))));
         }
+      } catch (error) {
+        await reader.cancel(error);
+        throw error;
       } finally { reader.releaseLock(); }
       await result(ElecKoiAndroid.finishFile(token));
     } catch (error) {
@@ -87,6 +90,7 @@
       throw error;
     }
   });
+  const saveBlob = (name, blob, mime = blob.type || 'application/octet-stream') => saveStream(name, blob.stream(), mime);
   window.ElecKoiPlatform = {
     version: 1,
     choiceRequest: operation => request(operation),
@@ -104,7 +108,9 @@
       throw new Error(`Unsupported browser command: ${type}`);
     },
     saveText: (name, text, mime = 'text/plain') => request(id => ElecKoiAndroid.saveText(id, name, mime, String(text))),
+    pickPluginArchive: () => request(id => ElecKoiAndroid.pickPluginArchive(id)).then(reply => reply.cancelled ? null : reply.result),
     saveBlob,
+    saveStream,
     saveBytes: (name, bytes, mime = 'application/octet-stream') => saveBlob(name, new Blob([bytes], { type: mime }), mime),
     saveUrl: async (name, url, mime) => {
       const response = await fetch(url);

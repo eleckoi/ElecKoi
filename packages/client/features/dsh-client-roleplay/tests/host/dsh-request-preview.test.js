@@ -38,7 +38,9 @@ describe('actual request previews retained only by the running Host', { timeout:
     const contexts = runtimeContextsFor('synthetic-loop')
     const sessionId = SessionId('synthetic-loop')
     const write = (instruction, prompt) => {
-      contexts.get(sessionId).conversationContext = { historyMode: 'prefix', history: [{ role: 'assistant', content: '合成开场' }], currentPromptText: prompt, settingLibrary: { entries: [{ id: 'synthetic-standing', title: '合成常驻', enabled: true, triggerMode: 'always', position: 'instructions', content: '合成常驻 {{literal}}', order: 0 }] } }
+      contexts.get(sessionId).conversationContext = { historyMode: 'prefix', history: [{ role: 'assistant', content: '合成开场' }], currentPromptText: prompt,
+        cast: [{ id: 'synthetic-cast', name: '合成发言角色' }],
+        settingLibrary: { entries: [{ id: 'synthetic-standing', title: '合成常驻', enabled: true, triggerMode: 'always', position: 'instructions', content: '合成常驻 {{literal}}', order: 0 }] } }
       writeFileSync(join(root, `${sessionId}.json`), JSON.stringify({ model: { systemPrompt: instruction } }))
     }
     write('合成指令一', '合成处理后的输入一')
@@ -81,7 +83,8 @@ describe('actual request previews retained only by the running Host', { timeout:
     const trajectory = officialTrajectoryFixture().replace(events)
     expect(trajectory.requests[0].prompt.system).toBe(systemText(dispatched[0]))
     expect(trajectory.requests.at(-1).prompt.system).toBe(systemText(dispatched[1]))
-    expect(systemText(dispatched[0])).toContain('合成指令一\n\n合成常驻 {{literal}}\n\nYou are')
+    expect(systemText(dispatched[0])).toContain('合成指令一\n\n合成常驻 {{literal}}')
+    expect(systemText(dispatched[0])).not.toMatch(/eleckoi_roleplay_reply|合成发言角色|推进剧情|环境描写/)
     const systemEvents = events.filter(event => event.type === 'system/message')
     expect(systemEvents.some(event => systemText([event.data.message]).startsWith('合成指令一\n\n'))).toBe(true)
     expect(systemEvents.some(event => systemText([event.data.message]).startsWith('合成指令二\n\n'))).toBe(true)

@@ -14,6 +14,7 @@ import { decodePortableScriptLibrary } from '@product-data/domain/scripts'
 import { isPng, readPngText, readPngArchive, removePngArchive } from '@product-data/storage/media/PngTextChunkCodec'
 import { isZip, readBundle, writeBundle } from './characterBundle'
 import { characterAssetSchema, characterAssetFolderSchema } from '@shared/contracts/characterAssets'
+import { characterCastAssetIds, characterCastSchema } from '@shared/contracts/characters/cast'
 import type { DecodedCharacterCard, PortableCharacterPackage } from './characterTransferTypes'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
@@ -77,7 +78,11 @@ function decodeSillyTavern(bytes: Uint8Array): DecodedCharacterCard {
 }
 
 function convertSillyTavernCard(root: JsonObject): DecodedCharacterCard {
-  const data = record(root.data)
+  // RETIRE WHEN: SillyTavern V1 JSON and PNG imports have been removed from
+  // the supported file formats. Remove this flat-root branch and its import cases together.
+  const isFlatCard = !Object.hasOwn(root, 'spec') && !Object.hasOwn(root, 'data') && !Object.hasOwn(root, 'format')
+    && !Object.hasOwn(root, 'entries') && Boolean(cleanString(root.name).trim())
+  const data = record(root.data) ?? (isFlatCard ? root : undefined)
   if (!data) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '酒馆角色卡缺少角色数据', { what: '酒馆角色卡的角色数据' })
   const name = cleanString(data.name) || '未命名角色'
   const openings = [cleanString(data.first_mes), ...stringList(data.alternate_greetings)].map((item) => item.trim()).filter(Boolean)
@@ -98,7 +103,7 @@ function convertSillyTavernCard(root: JsonObject): DecodedCharacterCard {
       character: portableCharacter({
         name,
         author_name: cleanString(data.creator),
-        profile_like: cleanString(data.creator_notes),
+        profile_like: cleanString(isFlatCard ? data.creatorcomment ?? data.creator_notes : data.creator_notes),
         opening: openings[0] ?? '',
         show_opening: openings.length > 0
       }),
@@ -221,9 +226,9 @@ export function decodePortablePackage(encoded: string): PortableCharacterPackage
 
 function decodePortableRoot(root: JsonObject): PortableCharacterPackage {
   if (root.format !== 'eleckoi.character-card') throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '这不是 ElecKoi 角色卡', { what: '角色卡格式' })
-  if (root.version !== 1 && root.version !== 2 && root.version !== 3) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '暂不支持这个角色卡版本', { what: '角色卡版本', expected: '1 / 2 / 3' })
-  if ((root.version === 2 || root.version === 3) && (typeof root.character_openings !== 'string' || !root.character_openings)) {
-    throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'v2 角色卡缺少独立开场白。', { what: '角色卡的独立开场白' })
+  if (root.version !== 1 && root.version !== 2 && root.version !== 3 && root.version !== 4) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '暂不支持这个角色卡版本', { what: '角色卡版本', expected: '1 / 2 / 3 / 4' })
+  if (root.version !== 1 && (typeof root.character_openings !== 'string' || !root.character_openings)) {
+    throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡缺少独立开场白。', { what: '角色卡的独立开场白' })
   }
   if (root.library_assets !== undefined && (!Array.isArray(root.library_assets) || root.library_assets.some(item => !record(item) || typeof item.data !== 'string'))) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡资产目录无效。', { what: '角色卡资产' })
   const character = portableCharacter(record(root.character) ?? {})
@@ -233,14 +238,23 @@ function decodePortableRoot(root: JsonObject): PortableCharacterPackage {
     mediaType: string(asset.media_type),
     bytes: decodeBase64(string(asset.data), '角色卡附件损坏')
   }))
+  const libraryAssets = root.library_assets === undefined ? undefined : objectList(root.library_assets).map(raw => {
+    const { data, ...metadata } = raw
+    return { ...characterAssetSchema.parse(metadata), data: string(data) }
+  })
+  const cast = root.version === 4 ? characterCastSchema.parse(root.cast) : undefined
+  if (cast) {
+    const imageIds = new Set(libraryAssets?.filter(asset => asset.type === 'image').map(asset => asset.id))
+    if (cast.some(member => characterCastAssetIds(member).some(id => !imageIds.has(id)))) {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色卡缺少登场角色的头像文件。', { what: '登场角色头像' })
+    }
+  }
   return {
     character,
     assets,
+    ...(cast === undefined ? {} : { cast }),
     ...(root.library_folders === undefined ? {} : { libraryFolders: objectList(root.library_folders).map(raw => characterAssetFolderSchema.parse(raw)) }),
-    ...(root.library_assets === undefined ? {} : { libraryAssets: objectList(root.library_assets).map(raw => {
-      const { data, ...metadata } = raw
-      return { ...characterAssetSchema.parse(metadata), data: string(data) }
-    }) }),
+    ...(libraryAssets === undefined ? {} : { libraryAssets }),
     ...(root.frontends === undefined ? {} : { frontends: decodeFrontendWorkspace(root.frontends) }),
     ...(root.character_openings === undefined ? {} : { characterOpeningsJson: string(root.character_openings) }),
     settingLibraryJson: string(root.setting_library),
@@ -254,7 +268,8 @@ function decodePortableRoot(root: JsonObject): PortableCharacterPackage {
 function portableRoot(value: PortableCharacterPackage): JsonObject {
   return {
     format: 'eleckoi.character-card',
-    version: value.libraryAssets?.length || value.libraryFolders?.length || value.frontends?.projects.length ? 3 : value.characterOpeningsJson ? 2 : 1,
+    version: value.cast !== undefined ? 4 : value.libraryAssets?.length || value.libraryFolders?.length || value.frontends?.projects.length ? 3 : value.characterOpeningsJson ? 2 : 1,
+    ...(value.cast === undefined ? {} : { cast: value.cast }),
     ...(value.libraryFolders ? { library_folders: value.libraryFolders } : {}),
     ...(value.libraryAssets ? { library_assets: value.libraryAssets } : {}),
     ...(value.frontends ? { frontends: value.frontends } : {}),

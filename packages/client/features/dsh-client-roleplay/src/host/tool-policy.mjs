@@ -1,5 +1,7 @@
 /** Restricts preset-owned tool groups; other tools retain their DSH registration policy. */
 
+import { ROLEPLAY_REPLY_TOOL } from './roleplay-reply-tool.mjs'
+
 export const name = 'eleckoi-tool-policy'
 export const inject = ['tools']
 const activeRestrictions = new WeakMap()
@@ -102,6 +104,7 @@ export function withPluginTools(preset, declarations, plugins = new Map()) {
 function isEssential(declaration) {
   const toolName = declarationName(declaration)
   return toolName === 'eleckoi_capability_probe'
+    || toolName === ROLEPLAY_REPLY_TOOL
     || toolName === 'run_code'
     || toolName === 'read' || toolName === 'read_image'
     || toolName.startsWith('eleckoi_internal_')

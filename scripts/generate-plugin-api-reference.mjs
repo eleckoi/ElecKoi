@@ -99,6 +99,7 @@ export async function generatePluginApiReference(root, { check = false } = {}) {
     const exemptions = Object.fromEntries(closure.filter(type => !type.location.file.startsWith('packages/'))
       .map(type => [type.name, `${upstream}/docs/subsystems/README.zh.md`]))
     exemptions.Session = `${upstream}/packages/core/session/src/index.ts`
+    if (original.face === 'host') exemptions.SessionId = exemptions.Session
     exemptions.RemoteStream = `${upstream}/docs/api-gateway.zh.md`
     exemptions.GenerateOptions = `${upstream}/packages/llm/llm/src/types.ts`
     const policy = { linkedTypePages: links, foundationTypeNames: foundationTypes,

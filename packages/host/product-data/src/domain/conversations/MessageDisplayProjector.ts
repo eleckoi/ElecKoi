@@ -15,6 +15,7 @@ interface CachedProjection {
   sourceContent: string
   variableStateJson: string
   completedAssistant: boolean
+  roleplayReply: boolean
   macroScope: string
   displayContent: string
   displayVariableStateJson: string
@@ -40,6 +41,7 @@ export class MessageDisplayProjector {
   ): ChatMessage {
     const target: RegexRuleTarget = message.role === 'user' ? 'UserInput' : 'AiOutput'
     const completedAssistant = message.role === 'assistant' && message.status !== 'streaming'
+    const roleplayReply = message.roleplayReply === true
     const scope = `${message.conversationId}\u0000${collection.characterId}\u0000${collection.revision}\u0000${collection.agentPresetId}\u0000${collection.agentPresetRegexRevision}`
     if (scope !== this.activeScope) {
       this.cache.clear()
@@ -56,6 +58,7 @@ export class MessageDisplayProjector {
       && cached.sourceContent === message.content
       && cached.variableStateJson === message.variableStateJson
       && cached.completedAssistant === completedAssistant
+      && cached.roleplayReply === roleplayReply
       && cached.macroScope === macroScope
     ) {
       return projectedMessage(message, cached.displayContent, cached.displayVariableStateJson)
@@ -63,16 +66,10 @@ export class MessageDisplayProjector {
 
     const rules = rulesForSurface(collection, target, 'Display')
     const streamingAssistant = message.role === 'assistant' && !completedAssistant
-    const prepared = message.role === 'assistant' && !streamingAssistant
-      ? this.compatibility.prepareAssistantText(
-        message.content,
-        completedAssistant,
-        rules.map((rule) => rule.pattern)
-      )
-      : message.content
-    const opening = message.role === 'assistant' ? message.content.indexOf('<FINAL>') : -1
+    const legacyAssistant = message.role === 'assistant' && !roleplayReply
+    const opening = legacyAssistant ? message.content.indexOf('<FINAL>') : -1
     const position = { offset: opening >= 0 ? opening + '<FINAL>'.length
-      : message.role === 'assistant' && !completedAssistant ? prepared.length : 0 }
+      : legacyAssistant && !completedAssistant ? message.content.length : 0 }
     const options: RegexTransformOptions = {
       replacementDecorator: decorateRichDisplayReplacement,
       protectDecoratedReplacements: true,
@@ -83,15 +80,15 @@ export class MessageDisplayProjector {
         return this.compatibility.resolveVariableMacros(source, message.variableStateJson, escape)
       }
     }
-    const transformed = streamingAssistant ? prepared : transformWithRegexRules(prepared, rules, target, options)
-    const visible = message.role === 'assistant' ? finalReplyText(transformed, {
+    const transformed = streamingAssistant ? message.content : transformWithRegexRules(message.content, rules, target, options)
+    const visible = legacyAssistant ? finalReplyText(transformed, {
       streaming: !completedAssistant,
       bodyStart: position.offset
     }) : transformed
     const displayVariableStateJson = macroValues
       ? resolveCharacterCardMacrosInJson(message.variableStateJson, macroValues)
       : message.variableStateJson
-    const variableDisplayContent = this.compatibility.resolveVariableMacros(visible, displayVariableStateJson)
+    const variableDisplayContent = this.compatibility.resolveVariableMacros(visible, displayVariableStateJson, undefined, roleplayReply)
     const displayContent = macroValues
       ? resolveCharacterCardMacros(variableDisplayContent, macroValues)
       : variableDisplayContent
@@ -100,6 +97,7 @@ export class MessageDisplayProjector {
       sourceContent: message.content,
       variableStateJson: message.variableStateJson,
       completedAssistant,
+      roleplayReply,
       macroScope,
       displayContent,
       displayVariableStateJson

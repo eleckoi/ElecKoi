@@ -8,6 +8,7 @@ import { IconFlatListOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitive
 import { MobileDialog, MobileHeader, MobileSearch } from './MobileChrome.jsx';
 import { FailureAlert } from '../ui/ui/FailureAlert.jsx';
 import { MobileCreatorStudioConversation } from './MobileCreatorStudioConversation.jsx';
+import { MobileWorkspaceFiles } from './MobileWorkspaceFiles.jsx';
 import './mobile-creator-studio.css';
 
 export function MobileCreatorStudioPage() {
@@ -47,7 +48,8 @@ export function MobileCreatorStudioPage() {
   async function create() {
     if (await perform(() => model.create(target?.id || ''))) view.navigation.closeSidebar();
   }
-  return <div className="mobile-root-page mobile-creator-studio-page">
+  const filesSession = view.route?.kind === 'creator-workspace-files' ? view.route.sessionId : null;
+  return <><div className="mobile-root-page mobile-creator-studio-page" hidden={Boolean(filesSession)} inert={Boolean(filesSession)}>
     <MobileHeader title={<><span className="creator-studio-heading-title">{tUi("AI 创作工作室")}</span><span className="creator-studio-heading-preset" ref={setHeaderTarget} /></>} back={() => view.goBack()}
       leading={<button type="button" aria-label={tUi("工作室侧边栏")} aria-expanded={drawer} onClick={view.openWorkspaceDrawer}><IconFlatListOutlineRegular size={20} /></button>}>
       <span className="creator-studio-heading-corner" ref={setCornerTarget} />
@@ -60,7 +62,7 @@ export function MobileCreatorStudioPage() {
           <button type="button" onClick={() => void perform(() => model.restoreRecent())}>{tUi("重试")}</button>}</div>}
     </section>
     {picker && <CreatorStudioCharacterPicker characters={characters} selectedId={target?.id || ''} busy={busy} error={error} onSelect={choose} onClose={() => setPicker(false)} />}
-  </div>;
+  </div>{filesSession && <MobileWorkspaceFiles key={filesSession} model={model} sessionId={filesSession} />}</>;
 }
 
 function CreatorStudioCharacterPicker({ characters, selectedId, busy, error, onSelect, onClose }) {

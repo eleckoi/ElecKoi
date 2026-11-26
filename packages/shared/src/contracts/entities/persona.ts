@@ -1,3 +1,5 @@
+import type { CharacterCastMember } from '../characters/cast'
+
 export interface Persona {
   assistant_name: string
   assistant_avatar: string
@@ -14,6 +16,7 @@ export interface Persona {
 
 export interface CharacterRecord {
   id: string
+  cast?: CharacterCastMember[] | undefined
   /** Original card author, independent of the local player's profile. */
   authorName?: string
   authorAvatar?: string

@@ -21,6 +21,7 @@ app.whenReady().then(async () => {
   const scroll = async selector => { await run(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`); await settle(); };
   const load = async query => { await win.loadURL(pathToFileURL(htmlPath).href+query); await settle(); };
   const measure = async (label,kind) => {
+    await wait(`Boolean(window.editorViewFor(${JSON.stringify(label)}))`, 'Editor did not mount: ' + label);
     const data = await run(`(()=>{const v=window.editorViewFor(${JSON.stringify(label)}),h=v.dom;
       return {kind:${JSON.stringify(kind)},length:v.state.doc.length,lines:v.state.doc.lines,domLines:h.querySelectorAll('.cm-line').length,
         domText:h.textContent.length,instances:[...document.querySelectorAll('.cm-content')].filter(e=>e.getAttribute('aria-label')===${JSON.stringify(label)}).length,
@@ -73,7 +74,7 @@ app.whenReady().then(async () => {
     await load('?view=preset-editor&preset=synthetic-preset&section=regex&large=regex&reset=1');
     await wait("!!document.querySelector('.regex-rule-row')",'Preset regex list'); await click('.regex-rule-row .rs-row-main');
     await measure('替换内容','preset-regex'); await append('替换内容','正则末尾修改');
-    await click('.setting-directory .setting-library-save-button');
+    await click('.character-studio-toolbar .setting-library-save-button');
     check(await run("window.savedRegex().agentPresetRules[0].replacement.endsWith('正则末尾修改')&&!window.savedRegex().globalRules[0].replacement.includes('正则末尾修改')"),'Preset regex save scope or content');report.actions.presetRegex=true;
     await load('?view=preset-editor&preset=synthetic-preset&section=scripts&large=scripts&reset=1');
     await wait("!!document.querySelector('.script-list-name')",'Preset script list'); await click('.script-list-name');
@@ -84,7 +85,7 @@ app.whenReady().then(async () => {
     await run("[...document.querySelectorAll('.rs-script-tabs [role=tab]')].find(e=>e.textContent==='设置').click()"); await settle();
     await measure('脚本设置','preset-script-settings');
     await run("(()=>{const v=window.editorViewFor('脚本设置'),value=JSON.parse(v.state.doc.toString());value.complete=true;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:JSON.stringify(value)}});})()"); await settle();
-    await click('.setting-directory .setting-library-save-button');
+    await click('.character-studio-toolbar .setting-library-save-button');
     check(await run("(()=>{const s=window.savedScripts().trees[0];return s.content.endsWith('脚本末尾修改')&&s.info.endsWith('信息末尾修改')&&s.data.long.endsWith('完整原始末尾')&&s.data.complete===true;})()"),'Preset script fields truncated');report.actions.presetScripts=true;
     check(report.errors.length===0,'Browser errors: '+report.errors.join('\n')); report.passed=true;
   } catch(error) { report.passed=false; report.failure=error.stack; }

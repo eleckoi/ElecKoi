@@ -1,3 +1,5 @@
+import { openingSegmentText } from '@shared/foundation/characterOpenings';
+
 export function primaryFirstOpeningMessages(entry) {
   const messages = entry.openingMessages?.length
     ? entry.openingMessages
@@ -26,6 +28,16 @@ export function updateOpening(entry, messageId, patch) {
     ? { ...message, ...patch, title: Object.hasOwn(patch, "title") ? patch.title : message.title }
     : message);
   return withOpeningMessages(entry, messages, messages[0].id);
+}
+
+export function editableOpeningSegments(message) {
+  return message.segments ?? [{ id: 'body', kind: 'cover', text: message.content }];
+}
+
+export function updateOpeningSegments(entry, messageId, segments) {
+  return updateOpening(entry, messageId, segments.length === 1 && segments[0].kind === 'cover'
+    ? { content: segments[0].text, segments: undefined }
+    : { content: openingSegmentText(segments), segments });
 }
 
 export function duplicateOpening(entry, messageId) {

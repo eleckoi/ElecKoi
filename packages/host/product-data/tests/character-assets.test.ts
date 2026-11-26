@@ -4,10 +4,11 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node
 import { tmpdir } from 'node:os'
 import { join, relative, isAbsolute } from 'node:path'
 import * as Cordis from '@deepseek-ai/cordis'
+import Database from 'better-sqlite3'
 import productDataPlugin from '@eleckoi/dsh-product-data'
 import { CharacterAssetRepository } from '../src/domain/characterAssets'
 import { decodeCharacterCard } from '../src/domain/characterTransfer/characterCardFormats'
-import { readPngArchive, removePngArchive } from '../src/storage/media/PngTextChunkCodec'
+import { readPngArchive, removePngArchive, writePngText } from '../src/storage/media/PngTextChunkCodec'
 import { readZipEntries } from '../src/storage/archive/readZipEntries'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -24,8 +25,7 @@ function upload(repo: Pick<CharacterAssetRepository, 'begin' | 'append' | 'finis
   for (let offset = 0; offset < bytes.length; offset += 65536) repo.append(characterId, ticket.id, offset, bytes.subarray(offset, offset + 65536).toString('base64'))
   const catalog = repo.finish(characterId, ticket.id); return catalog.items.at(-1)!
 }
-async function host() {
-  const root = directory()
+async function host(root = directory()) {
   vi.stubEnv('ELECKOI_DATABASE_PATH', join(root, 'product.sqlite'))
   vi.stubEnv('ELECKOI_MEDIA_ROOT', join(root, 'media'))
   vi.stubEnv('ELECKOI_WORKSPACE_ROOT', join(root, 'workspace'))
@@ -34,6 +34,47 @@ async function host() {
 }
 
 describe('character asset library', () => {
+  it('migrates v19 role photos once and preserves the original card and conversations', async () => {
+    const source = await host()
+    const pixels = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
+    const image = Buffer.from(writePngText(pixels, new Map([['Comment', 'a'.repeat(6 * 1024 * 1024)]])))
+    const png = `data:image/png;base64,${image.toString('base64')}`
+    source.data.createCharacter({ id: 'legacy', name: '卡片名', persona: {
+      assistant_name: '旧角色', assistant_cover: png, assistant_avatar: png, assistant_square: png,
+    } })
+    source.data.createConversation({ metadata: { characterId: 'legacy' } })
+    await source.ctx.fiber.dispose()
+    const before = new Database(join(source.root, 'product.sqlite'))
+    const card = before.prepare('SELECT * FROM characters').all()
+    const chats = before.prepare('SELECT * FROM chat_sessions').all()
+    const speakers = before.prepare('SELECT * FROM conversation_speakers').all()
+    before.exec('DROP TABLE character_cast_members; PRAGMA user_version = 19')
+    before.close()
+
+    const upgraded = await host(source.root)
+    const migrated = upgraded.data.readCharacters().items[0]!
+    const role = migrated.cast?.[0]!
+    expect(role).toMatchObject({ id: 'primary', name: '旧角色', circleAssetId: null, squareAssetId: null })
+    const repo = upgraded.data.characterAssets()
+    expect(repo.list('legacy').items).toHaveLength(1)
+    expect(readFileSync(repo.readAsset('legacy', role.portraitAssetId!).path).equals(image)).toBe(true)
+    expect(() => repo.delete('legacy', [role.portraitAssetId!])).toThrow('仍被登场角色使用')
+    upgraded.data.updateCharacter({ id: 'legacy', cast: [{ ...role, name: '新角色名' }] })
+    await upgraded.ctx.fiber.dispose()
+
+    const reopened = await host(source.root)
+    expect(reopened.data.readCharacters().items[0]?.cast?.[0]).toEqual({ ...role, name: '新角色名' })
+    expect(reopened.data.characterAssets().list('legacy').items).toHaveLength(1)
+    const after = new Database(join(source.root, 'product.sqlite'), { readonly: true })
+    try {
+      expect(after.pragma('user_version', { simple: true })).toBe(20)
+      expect(after.prepare('SELECT pendingLegacyMedia FROM character_cast_members').pluck().get()).toBe(0)
+      expect(after.prepare('SELECT * FROM characters').all()).toEqual(card)
+      expect(after.prepare('SELECT * FROM chat_sessions').all()).toEqual(chats)
+      expect(after.prepare('SELECT * FROM conversation_speakers').all()).toEqual(speakers)
+    } finally { after.close() }
+  })
+
   it('persists chunk uploads, keeps references on rename, copies independently and rejects other owners and paths', () => {
     const root = directory(), owners = new Set(['card-a', 'card-b']), repo = new CharacterAssetRepository(root, id => owners.has(id))
     const bytes = Buffer.from([0, 255, 18, 0, 128]), item = upload(repo, 'card-a', '测试 图片 #.png', bytes)
@@ -47,6 +88,9 @@ describe('character asset library', () => {
     const reopened = new CharacterAssetRepository(root, id => owners.has(id))
     expect(reopened.list('card-a').items).toEqual(repo.list('card-a').items)
     const ticket = reopened.begin('card-a', { name: 'media.mp4', size: 3 })
+    for (const invalid of ['A A=', 'AA', 'AB==', 'AA==!', '__8=']) {
+      expect(() => reopened.append('card-a', ticket.id, 0, invalid)).toThrow('资产二进制编码损坏')
+    }
     expect(() => reopened.append('card-b', ticket.id, 0, 'AAAA')).toThrow()
     expect(() => reopened.append('card-a', ticket.id, 1, 'AAAA')).toThrow()
     expect(() => reopened.finish('card-a', ticket.id)).toThrow('完整')
@@ -74,9 +118,21 @@ describe('character asset library', () => {
     })
     const openings = source.data.readCharacterOpenings(characterId)
     const long = '完整长正文'.repeat(20000)
-    source.data.saveCharacterOpenings(characterId, { ...openings, openingMessages: Array.from({ length: 501 }, (_, index) => ({ id: `opening-${index}`, title: `开场 ${index}`, content: index === 500 ? long + reference : reference, variableVersionId: '' })), defaultOpeningMessageId: 'opening-500' })
+    const segments = [{ id: 'card', kind: 'cover', text: '封面正文' },
+      { id: 'speech', kind: 'speech', speakerId: 'first', text: long + reference }] as const
+    source.data.saveCharacterOpenings(characterId, { ...openings, openingMessages: Array.from({ length: 501 }, (_, index) => ({
+      id: `opening-${index}`, title: `开场 ${index}`, content: reference, variableVersionId: '',
+      ...(index === 500 ? { segments: [...segments] } : {})
+    })), defaultOpeningMessageId: 'opening-500' })
     const regex = source.data.readRegexRules(characterId)
     source.data.saveRegexRules(characterId, { ...regex, characterRules: [{ id: 'asset-regex', name: '素材正则', pattern: 'PLACEHOLDER', replacement: `<img src="${reference}">`, targets: ['AiOutput'], enabled: true, displayOnly: true, promptOnly: false, runOnEdit: false, order: 0 }] }, regex.revision)
+    const portrait = upload(repo, characterId, '角色原图.png', authorBytes)
+    const cast = [
+      { id: 'first', name: '合成角色甲', portraitAssetId: portrait.id, circleAssetId: null, squareAssetId: null,
+        crop: { zoom: 1.4, offset: { x: 20, y: -10 }, rotation: 90 } },
+      { id: 'second', name: '第二位角色', portraitAssetId: null, circleAssetId: null, squareAssetId: null, crop: null },
+    ]
+    expect(source.data.updateCharacter({ id: characterId, cast }).items[0]?.cast).toEqual(cast)
     const exported = source.data.exportCharacter(characterId, format), binary = Buffer.from(exported.base64, 'base64')
     if (format === 'png') {
       expect(readPngArchive(binary)?.length).toBeGreaterThan(bytes.length)
@@ -100,6 +156,8 @@ describe('character asset library', () => {
     expect(importedId).not.toBe(characterId)
     const importedCard = target.data.readCharacters().items.find(card => card.id === importedId)!;
     expect(importedCard.authorName).toBe('原作者 ✨');
+    expect(importedCard.cast).toEqual(cast)
+    expect(readFileSync(target.data.characterAssets().readAsset(importedId, portrait.id).path)).toEqual(authorBytes)
     const targetMedia = new LocalMediaStore(join(target.root, 'media'));
     expect(readFileSync(targetMedia.pathForReference(importedCard.authorAvatar!)!)).toEqual(authorBytes);
     const imported = target.data.characterAssets().list(importedId).items[0]!
@@ -110,18 +168,21 @@ describe('character asset library', () => {
     const frontend = target.data.frontendProjects().workspace({ scope: 'character', characterId: importedId })
     expect(frontend.selectedProjectId).toBeTruthy(); expect(frontend.selectedProjectId).not.toBe(workspace.selectedProjectId)
     expect(target.data.frontendProjects().readFile({ scope: 'character', characterId: importedId }, frontend.selectedProjectId!, 'pages/start.html').content).toBe(html)
-    expect(target.data.readCharacterOpenings(importedId).openingMessages[500]?.content).toBe(long + reference)
+    expect(target.data.readCharacterOpenings(importedId).openingMessages[500]).toMatchObject({
+      content: '封面正文\n\n' + long + reference, segments
+    })
     expect(target.data.readRegexRules(importedId).characterRules[0]?.replacement).toContain(reference)
     const duplicate = target.data.duplicateCharacter(importedId)
     const duplicateCard = target.data.readCharacters().items.find(card => card.id === duplicate.characterId)!;
     expect(duplicateCard.authorName).toBe('原作者 ✨');
+    expect(duplicateCard.cast).toEqual(cast)
     expect(duplicateCard.authorAvatar).not.toBe(importedCard.authorAvatar);
     expect(target.data.characterAssets().list(duplicate.characterId).items[0]).toEqual(asset)
     expect(target.data.characterAssets().list(duplicate.characterId).folders).toEqual(repo.list(characterId).folders)
     target.data.deleteCharacters([importedId])
     expect(readFileSync(targetMedia.pathForReference(duplicateCard.authorAvatar!)!)).toEqual(authorBytes);
     expect(readFileSync(target.data.characterAssets().readAsset(duplicate.characterId, asset.id).path)).toEqual(bytes)
-    expect(source.data.characterAssets().list(characterId).items).toEqual([asset])
+    expect(source.data.characterAssets().list(characterId).items).toEqual([asset, portrait])
   }, 30_000)
 
   it('publishes no half card when a resource hash or frontend archive fails validation', async () => {

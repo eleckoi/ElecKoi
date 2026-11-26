@@ -6,7 +6,7 @@ const [htmlPath, reportPath] = process.argv.slice(2);
 app.setPath('userData', dirname(htmlPath)); app.disableHardwareAcceleration();
 app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true, offscreen: true, backgroundThrottling: false } });
-  const errors = [], layouts = [], run = code => win.webContents.executeJavaScript(code);
+  const errors = [], layouts = [], portraits = [], run = code => win.webContents.executeJavaScript(code);
   win.webContents.on('console-message', details => { if (details.level === 'error') errors.push(details.message); });
   const wait = async code => { for (let i=0;i<100;i++) { if (await run(code)) return; await new Promise(resolve => setTimeout(resolve,20)); } throw Error(code); };
   const measure = () => run(`(()=>{const row=document.querySelector('.message-roleplay'),floor=row.querySelector('.message-floor').getBoundingClientRect(),content=row.querySelector('.message-content').getBoundingClientRect(),prev=row.querySelector('.opening-pager-prev').getBoundingClientRect(),next=row.querySelector('.opening-pager-next').getBoundingClientRect(),page=row.querySelector('.opening-pager-index').getBoundingClientRect();return {arrowsTop:Math.min(prev.top,next.top),arrowsBottom:Math.max(prev.bottom,next.bottom),pageTop:page.top,floorBottom:floor.bottom,contentBottom:content.bottom,arrowOffset:Math.abs(prev.top-next.top),overflow:row.scrollWidth>row.clientWidth+1}})()`);
@@ -33,7 +33,21 @@ app.whenReady().then(async () => {
       report.returnPage=await run("document.querySelector('.opening-pager-index').textContent");
       layouts.push(report);
     }
-    writeFileSync(reportPath,JSON.stringify({layouts,errors},null,2)); win.destroy(); app.exit(0);
+    for (const width of [390, 1200]) for (const [layout, shape] of [['roleplay','portrait'], ['agent','circle'], ['social','rounded_square']]) {
+      win.setContentSize(width,844);
+      await win.loadURL(pathToFileURL(htmlPath).href+`?opening=short&scene&layout=${layout}&shape=${shape}${width===1200?'&desktop':''}`);
+      await wait("document.querySelectorAll('.message > .avatar img').length===3");
+      portraits.push({ width, layout, shape, rows: await run(`[...document.querySelectorAll('.message')].map(row => {
+        const avatar = row.querySelector(':scope > .avatar'), content = row.querySelector('.bubble');
+        const image = avatar.getBoundingClientRect(), body = content.getBoundingClientRect(), outer = row.getBoundingClientRect();
+        return { width: image.width, height: image.height, top: image.top - outer.top, left: image.left - outer.left,
+          radius: getComputedStyle(avatar).borderRadius, visible: getComputedStyle(avatar).visibility === 'visible',
+          beforeBody: image.right <= body.left, aboveBody: image.bottom <= body.top, clipped: image.right > innerWidth };
+      })`) });
+      await run("document.querySelector('.opening-pager-next').click()");
+      await wait("document.querySelector('.opening-pager-index').textContent==='2/3' && !document.querySelector('.opening-pager-next').disabled && !document.querySelector('[data-opening-segment]')");
+    }
+    writeFileSync(reportPath,JSON.stringify({layouts,portraits,errors},null,2)); win.destroy(); app.exit(0);
   } catch(error) {
     console.error(error);
     console.error(JSON.stringify({ errors, state: await run("({page:document.querySelector('.opening-pager-index')?.textContent,busy:document.querySelector('.opening-pager')?.getAttribute('aria-busy'),animations:document.getAnimations().map(animation=>({state:animation.playState,time:animation.currentTime})),body:document.querySelector('.markdown-message')?.textContent.slice(0,30)})") }));

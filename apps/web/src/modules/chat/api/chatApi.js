@@ -23,6 +23,10 @@ function mapMessage(message) {
     role: message.role,
     content: message.content,
     displayContent: message.displayContent,
+    roleplayReply: message.roleplayReply,
+    roleplayBlocks: message.roleplayBlocks,
+    roleplayBodyNodeKeys: message.roleplayBodyNodeKeys,
+    roleplayGroups: message.roleplayGroups,
     variableStateJson: message.variableStateJson || '{}',
     created_at: message.createdAt,
     status: message.status,
@@ -150,10 +154,6 @@ export async function updateChatOpening(sessionId, content, { model } = {}) {
   if (!model) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, "DSH 聊天服务尚未就绪", { what: "聊天服务" });
   const details = await model.updateOpening(sessionId, content);
   return { chat: mapChatDetails(details) };
-}
-
-export async function applyChatHistoryPolicy() {
-  return { ok: true };
 }
 
 export async function sendChatMessage(payload, requestId = "", { model, signal } = {}) {

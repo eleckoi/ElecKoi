@@ -2,13 +2,16 @@ import { ElecKoiCharacterAssetsApi, eleckoiCharacterAssetFilesPlugin } from './c
 export { ElecKoiCharacterAssetsApi, eleckoiCharacterAssetFilesPlugin } from './character-assets.js'
 export type { CharacterAsset, CharacterAssetCatalog, CharacterAssetUpload, CharacterAssetUploadTicket } from './character-assets.js'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
-import type { EditorLibraryAddress, EditorLibraryVersions, EditorLibrarySaveRequest, EditorLibrarySaveResult } from './types.js'
+import type { ConversationMessageEdit, EditorLibraryAddress, EditorLibraryVersions, EditorLibrarySaveRequest, EditorLibrarySaveResult } from './types.js'
 import { ElecKoiConversationLifecycle } from './conversationLifecycle.js'
 import { parseChatImport } from './chatImport.js'
 import { productFailure } from './productFailure.js'
 import { ELECKOI_FAILURE_CODES } from './errorCodes.generated.js'
 import { registerHostApiInspect } from './hostInspect.js'
 import { readSessionInspection } from './sessionInspection.js'
+import { isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from './roleplayReplyMessages.js'
+export { isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE } from './roleplayReplyMessages.js'
+export { roleplayReplyText } from './roleplayReplyText.js'
 import { SESSION_MODEL_PARAMETERS_EVENT, sessionModelParameterKey, sessionModelParameterPatchSchema, sessionModelParametersProjection } from './sessionModelParameters.js'
 import type { SessionModelParameterPatch, SessionModelParameterState } from './sessionModelParameters.js'
 import { importedSession, type DshSessionArchive } from './sessionArchive.js'
@@ -40,7 +43,9 @@ declare module '@deepseek-ai/dsh-session/types' {
 }
 import type {} from '@deepseek-ai/dsh-session-persistence'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
-import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
+import { Remote, TypertRemoteService, type RemoteStream } from '@deepseek-ai/dsh-typert-protocol'
+import { CreatorWorkspaceFiles, type PublishWorkspaceEntry } from './creatorWorkspaceFiles.js'
+import type { WorkspaceFileEdit, WorkspaceFileEntry, WorkspaceFileExport, WorkspaceFileImport, WorkspaceFileSelection } from './types.js'
 import type { AgentPreset, AgentPresetCatalog, AgentPresetExportFormat, AgentPresetExportResult, AgentPresetImportDocument, AgentPresetImportResult, AgentPresetImportSource, AgentPresetPurpose, AuthorConversationState, CreateCreatorProjectInput, CreatorStudioRuntime, CreatorStudioSession, CreatorStudioSessionSummary, CreatorStudioMessage, CharacterCollection, CharacterExportFormat, CharacterExportResult, CharacterGroupAssignment, CharacterImportFile, CharacterImportPreview, CharacterImportResult, CharacterImportSource, CharacterRecord, CharacterConfigurationChange, ConversationChange, ConversationModelSelection, ConversationCreateInput, ConversationDetailsMetadata, ConversationRequestPreview, ConversationRequestPreviewSummary, ConversationMessageDisplayInput, ConversationMessageDisplayResult, ConversationSummary, CreatorProjectCollection, DisplayPreferencesSnapshot, DisplayPreferenceValue, ElecKoiHostStatus, ElecKoiProductDataStore, PersonaProfile, ProductRecordChange, RegexRule, RegexRuleCollection, RegexEditorTarget, RegexRuleEditorCollection, RegexRuleEditorImportResult, RegexRuleImportDocument, RegexRuleImportResult, RegexRuleScope, RegexRuleTarget, RegexRuleTestResult, CharacterOpenings, GlobalSettingLibraryCollection, CharacterOpeningMessage, SettingLibrary, SettingLibraryContent, SettingLibraryConversation, SettingLibraryEntry, SettingLibraryEntryUpdate, ScriptLibrary, ScriptLibraryScope, ScriptWorkspace, TavilyConnection, WebSearchMode, WebFetchMode, VariableConfig, VariableViewerTimeline, ConversationVariableConfiguration } from './types.js';
 import { testTavilyConnection } from './tavily.js'
 import { ElecKoiVariableProcessing } from './variable-processing.js'
@@ -613,6 +618,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
       if (!message || typeof message.id !== 'string' || !message.id
         || (message.role !== 'user' && message.role !== 'assistant')
         || typeof message.content !== 'string'
+        || (message.roleplayReply !== undefined && (message.role !== 'assistant' || message.roleplayReply !== true))
         || typeof message.variableStateJson !== 'string'
         || !['complete', 'streaming', 'error', 'cancelled'].includes(message.status)
         || typeof message.createdAt !== 'string') {
@@ -627,6 +633,19 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
           }
           ids.add(item.id)
         }
+      }
+      if (message.openingSegments !== undefined && (message.id !== 'opening'
+        || !Array.isArray(message.openingSegments)
+        || message.openingSegments.some(segment => !segment || typeof segment.id !== 'string' || typeof segment.text !== 'string'))) {
+        throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '待显示的开场段落格式无效。', { what: '待显示的开场段落' })
+      }
+      if (message.roleplayBlocks !== undefined && (message.roleplayReply !== true
+        || !Array.isArray(message.roleplayBlocks)
+        || message.roleplayBlocks.some(block => !block || typeof block.id !== 'string' || typeof block.text !== 'string'
+          || (block.kind !== 'speech' && block.kind !== 'cover')
+          || (block.speakerId !== undefined && typeof block.speakerId !== 'string')
+          || (block.speakerName !== undefined && typeof block.speakerName !== 'string')))) {
+        throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '待显示的扮演回复段落格式无效。', { what: '待显示的扮演回复段落' })
       }
     }
     return this.productData.projectConversationMessages(conversationId, messages)
@@ -921,18 +940,20 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     if (atSeq === undefined) {
       const created = await this.create({ title, metadata: original.metadata })
       const opening = original.messages.find(message => message.id === 'opening')
-      if (opening) this.productData.updateConversationOpening(created.conversation.id, opening.content ?? '')
+      if (opening) this.productData.copyConversationOpeningForFork(created.conversation.id, { ...opening, content: opening.content ?? '' })
       return created.conversation.id
     }
     const source = this.productData.runtimeSessionId(conversationId), inspection = await readSessionInspection(this.ownerContext, source as SessionId)
     const targetIndex = inspection.events.findIndex(event => Number(event.seq) === atSeq)
     if (targetIndex < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `Branch event does not exist: ${atSeq}`, { what: '分支边界的聊天消息' })
     const sourceTurn = sessionMessageTurn(inspection.events, targetIndex), target = inspection.events[targetIndex]!
+    const assistant = target.type === 'assistant/message' || isToolBackedRoleplayReply(target)
+    const roleplayReply = assistant ? roleplayReplyMessages(inspection.events).find(reply => reply.addressSeq === atSeq) : undefined
     if (!visibleSessionMessages(inspection.events).some(message => message.seq === atSeq)
-      || (target.type === 'assistant/message' && !settledSessionReplyText(jsonRecord(target)).trim())) {
+      || (assistant && !(roleplayReply?.content ?? settledSessionReplyText(jsonRecord(target))).trim())) {
       throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '只能从正式显示的聊天消息创建分支，不能把中间工具步骤当成完整回复状态。', { what: '选择一条正式显示的聊天消息' })
     }
-    const fork = await this.ownerContext.sessionController.fork({ sessionId: source as SessionId, atSeq })
+    const fork = await this.ownerContext.sessionController.fork({ sessionId: source as SessionId, atSeq: roleplayReply?.event.seq ?? atSeq })
     let id: string | undefined
     try {
       const snapshot = this.productData.exportConversationArchive(conversationId), retained = new Set(retainedTurnIds)
@@ -951,12 +972,12 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
           ? retainedReplies.some(reply => reply.id === row.boundaryId) : inputs.has(String(row.boundaryId))
         if (row.turn === null) return row.boundaryType === 'opening' || inputs.has(String(row.boundaryId))
         return Number(row.turn) < sourceTurn || (Number(row.turn) === sourceTurn
-          && (row.phase === 'before' || target.type === 'assistant/message'))
+          && (row.phase === 'before' || assistant))
       })
       const mappings = new Map(this.productData.conversationArchiveRuntimeSessionIds(snapshot).map(sessionId => [sessionId, sessionId === source ? fork.sessionId as string : sessionId]))
       id = this.productData.importConversationArchive(snapshot, snapshot.characterId, mappings, randomUUID())
       this.productData.renameConversation(id, title)
-      await this.ownerContext.eleckoiRoleplaySessions.adoptFork(id, conversationId, sourceTurn, target.type === 'assistant/message')
+      await this.ownerContext.eleckoiRoleplaySessions.adoptFork(id, conversationId, sourceTurn, assistant)
       this.changeFeed.publish({ kind: 'catalog', conversationId: id, reason: 'created' })
       return id
     } catch (error) {
@@ -998,7 +1019,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
    * @param conversationId - ElecKoi 聊天编号。
    * @param eventSeq - 官方 Session 中待修改消息的事件序号。
    * @param role - 消息角色，必须与指定事件中的消息一致。
-   * @param content - 保存后替换原正文的完整文本。
+   * @param content - 完整正文，或按原顺序提交的多人回复各段正文。
    * @returns 修改后的聊天详情与元数据；消息不存在或角色不一致时抛出错误。
    */
   @Remote
@@ -1006,7 +1027,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     conversationId: string,
     eventSeq: number,
     role: 'user' | 'assistant',
-    content: string
+    content: ConversationMessageEdit
   ): Promise<ConversationDetailsMetadata> {
     const runtimeSessionId = this.productData.runtimeSessionId(conversationId)
     await requireSessionMessage(
@@ -1260,11 +1281,16 @@ export function requireSessionMessage(
   const expectedType = role === 'user' ? 'user/message' : 'assistant/message'
   const index = inspection.events.findIndex((candidate) => {
     const event = jsonRecord(candidate)
-    if (event.seq !== eventSeq || event.type !== expectedType || event.surfaceOp !== 'append') return false
+    if (event.seq !== eventSeq) return false
+    if (role === 'assistant' && isToolBackedRoleplayReply(candidate)) return true
+    if (event.type !== expectedType || event.surfaceOp !== 'append') return false
     if (role !== 'user') return true
     return jsonRecord(jsonRecord(event.data).source).kind === 'user'
   })
-  if (index < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到要修改的 DSH 消息。', { what: '要修改的 DSH 消息' })
+  if (index < 0 || (role === 'assistant' && !visibleSessionMessages(inspection.events as readonly SessionEvent[])
+    .some(message => message.seq === eventSeq && message.role === role))) {
+    throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到要修改的 DSH 消息。', { what: '要修改的 DSH 消息' })
+  }
   return { event: jsonRecord(inspection.events[index]), index }
 }
 
@@ -1351,16 +1377,26 @@ function directUserMessageBeforeTurn(
   return undefined
 }
 
-function visibleSessionMessages(events: readonly unknown[]): Array<{ seq: number; role: 'user' | 'assistant' }> {
+function roleplayReplyAddresses(events: readonly SessionEvent[]): Map<number, number | undefined> {
+  return new Map(events.flatMap(event => event.type === ROLEPLAY_OUTPUT_EVENT
+    ? [[event.data.turn, event.data.toolBacked ? Number(event.seq) : event.data.replySeq] as const] : []))
+}
+
+function visibleSessionMessages(events: readonly SessionEvent[]): Array<{ seq: number; role: 'user' | 'assistant' }> {
   const messages: Array<{ seq: number; role: 'user' | 'assistant' }> = []
-  for (const candidate of events) {
-    const event = jsonRecord(candidate)
-    if (!Number.isSafeInteger(event.seq) || event.surfaceOp !== 'append') continue
-    if (event.type === 'assistant/message') {
+  const replies = roleplayReplyAddresses(events)
+  for (const event of events) {
+    if (isToolBackedRoleplayReply(event)) {
       messages.push({ seq: Number(event.seq), role: 'assistant' })
       continue
     }
-    if (event.type === 'user/message' && jsonRecord(jsonRecord(event.data).source).kind === 'user') {
+    if (event.surfaceOp !== 'append') continue
+    if (event.type === 'assistant/message') {
+      if (replies.has(event.data.turn) && replies.get(event.data.turn) !== Number(event.seq)) continue
+      messages.push({ seq: Number(event.seq), role: 'assistant' })
+      continue
+    }
+    if (event.type === 'user/message' && event.data.source.kind === 'user') {
       messages.push({ seq: Number(event.seq), role: 'user' })
     }
   }
@@ -1377,7 +1413,7 @@ function retainedInputMessageIds(events: readonly unknown[]): string[] {
 function sessionAssistantMessages(
   conversationId: string,
   runtimeSessionId: string,
-  events: readonly unknown[],
+  events: readonly SessionEvent[],
   variableStateByTurn: Record<string, string>,
   historicalByTurn: ReadonlyMap<number, readonly { variableStateJson: string }[]> = new Map()
 ): Array<{
@@ -1397,35 +1433,30 @@ function sessionAssistantMessages(
   // (reasoning/tool steps plus the settled reply).  The official conversation
   // projection exposes only the settled reply after the current final-boundary
   // marker, so the variable viewer must use that same one-per-turn boundary.
-  const finalByTurn = new Map<number, {
-    event: Record<string, unknown>
-    index: number
-    content: string
-    turn: number
-  }>()
-  for (const [index, candidate] of events.entries()) {
-    const event = jsonRecord(candidate)
-    if (event.type !== 'assistant/message' || event.surfaceOp !== 'append'
-      || !Number.isSafeInteger(event.seq)) continue
-    const content = settledSessionReplyText(event)
-    if (!content.trim()) continue
+  const finalByTurn = new Map(roleplayReplyMessages(events).map(reply => [reply.event.data.turn, {
+    seq: reply.addressSeq, time: reply.event.time, content: reply.content, turn: reply.event.data.turn
+  }]))
+  const addresses = roleplayReplyAddresses(events)
+  for (const [index, event] of events.entries()) {
+    if (event.type !== 'assistant/message' || event.surfaceOp !== 'append') continue
     const turn = sessionMessageTurn(events, index)
-    finalByTurn.set(turn, { event, index, content, turn })
+    if (addresses.has(turn)) continue
+    const raw = jsonRecord(event)
+    const content = settledSessionReplyText(raw)
+    if (content.trim()) finalByTurn.set(turn, { seq: Number(event.seq), time: event.time, content, turn })
   }
-  return [...finalByTurn.values()].sort((left, right) => Number(left.event.seq) - Number(right.event.seq)).flatMap(({ event, content, turn }) => {
+  return [...finalByTurn.values()].sort((left, right) => left.seq - right.seq).flatMap(({ seq, time, content, turn }) => {
     let state = variableStateByTurn[String(turn)]
     if (typeof state !== 'string') {
       const rows = historicalByTurn.get(turn) ?? []
       state = rows.length === 1 ? rows[0]?.variableStateJson : undefined
     }
     const available = typeof state === 'string' && !!state.trim()
-    const rawTime = event.time ?? jsonRecord(event.data).time
-    const time = Number(rawTime)
     const createdAt = Number.isFinite(time) && time > 0
       ? new Date(time).toISOString()
       : new Date().toISOString()
     return [{
-      id: `dsh-${String(event.seq)}`,
+      id: `dsh-${seq}`,
       conversationId,
       role: 'assistant' as const,
       content,
@@ -1434,7 +1465,7 @@ function sessionAssistantMessages(
       status: 'complete' as const,
       createdAt,
       runtimeSessionId,
-      sessionEventSeq: Number(event.seq),
+      sessionEventSeq: seq,
       dshTurn: turn
     }]
   })
@@ -2612,9 +2643,82 @@ export class ElecKoiCreatorStudioApi extends TypertRemoteService {
 export class ElecKoiCreatorStudioSessionsApi extends TypertRemoteService {
   static inject = ['typert', 'eleckoiCreatorStudioRuntime']
   private readonly runtime: CreatorStudioRuntime
+  private workspaceFiles?: CreatorWorkspaceFiles
   constructor(ctx: Context) {
     super(ctx, 'eleckoiCreatorStudioSessionsApi', { namespace: 'eleckoiCreatorStudioSessions' })
     this.runtime = ctx.eleckoiCreatorStudioRuntime
+  }
+  /** @internal Android supplies its app-private workspace root and atomic publication operation. */
+  mountWorkspaceFiles(workspaceHome: string, publish: PublishWorkspaceEntry): void {
+    this.workspaceFiles = new CreatorWorkspaceFiles(workspaceHome, publish)
+  }
+  private workspaceFileOperations(): CreatorWorkspaceFiles {
+    if (!this.workspaceFiles) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '当前 Host 未装配安卓工作区文件管理。', { what: '打开安卓工作区' })
+    return this.workspaceFiles
+  }
+  /**
+   * 读取安卓创作工作室当前文件夹的直接子项。
+   * @param sessionId 当前创作会话。
+   * @param path 工作区相对目录的路径分量。
+   * @param signal 取消当前目录读取。
+   * @returns 工作区名称与当前文件夹的全部直接子项。
+   */
+  @Remote({ resources: { session: (sessionId) => sessionId } })
+  async listWorkspaceFiles(sessionId: SessionId, path: string[], signal: AbortSignal): Promise<{ name: string; entries: WorkspaceFileEntry[] }> {
+    return this.workspaceFileOperations().list(await this.runtime.workspaceDirectory(sessionId, signal), path, signal, sessionId)
+  }
+  /**
+   * 修改安卓创作工作区的文件或文件夹。
+   * @param sessionId 当前创作会话。
+   * @param path 工作区相对目录的路径分量。
+   * @param edit 用户明确选择的操作、条目版本与目标。
+   * @param signal 取消尚未完成的文件操作。
+   */
+  @Remote({ resources: { session: (sessionId) => sessionId } })
+  async editWorkspaceFiles(sessionId: SessionId, path: string[], edit: WorkspaceFileEdit, signal: AbortSignal): Promise<void> {
+    return this.workspaceFileOperations().edit(await this.runtime.workspaceDirectory(sessionId, signal), path, edit, signal)
+  }
+  /**
+   * 将系统选中的文件分段写入安卓创作工作区。
+   * @param sessionId 当前创作会话。
+   * @param path 导入目标目录的路径分量。
+   * @param name 系统文件选择器提供的文件名。
+   * @param size 文件的字节数。
+   * @param signal 取消传输并清理未完成的文件。
+   * @returns 每段确认的字节偏移和最终写入完成事件。
+   */
+  @Remote({ mode: 'stream', resources: { session: (sessionId) => sessionId } })
+  async *importWorkspaceFile(sessionId: SessionId, path: string[], name: string, size: number, signal: AbortSignal): RemoteStream<WorkspaceFileImport, string> {
+    const invocation = this.ctx.invocation
+    if (!invocation) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '工作区文件导入需要 Remote 输入流。', { what: '文件导入连接' })
+    yield* this.workspaceFileOperations().import(await this.runtime.workspaceDirectory(sessionId, signal), path, name, size, invocation.uplink<string>(), signal)
+  }
+  /**
+   * 导出安卓创作工作区里选中的文件或文件夹。
+   * @param sessionId 当前创作会话。
+   * @param path 所选条目所在目录的路径分量。
+   * @param entries 用户选中的文件或文件夹及各自版本。
+   * @param signal 取消当前导出。
+   * @returns 文件名、按客户端请求发送的字节片段和完成事件。文件夹或多项导出为 ZIP。
+   */
+  @Remote({ mode: 'stream', resources: { session: (sessionId) => sessionId } })
+  async *exportWorkspaceFiles(sessionId: SessionId, path: string[], entries: WorkspaceFileSelection[], signal: AbortSignal): RemoteStream<WorkspaceFileExport, true> {
+    const invocation = this.ctx.invocation
+    if (!invocation) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleNotReady, '工作区文件导出需要 Remote 输入流。', { what: '文件导出连接' })
+    const source = this.workspaceFileOperations().export(await this.runtime.workspaceDirectory(sessionId, signal), path, entries, signal)
+    const iterator = source[Symbol.asyncIterator]()
+    try {
+      const first = await iterator.next()
+      if (first.done) return
+      yield first.value
+      // Only read another chunk when the Client's Android writer can accept it.
+      for await (const _ of invocation.uplink<true>()) {
+        signal.throwIfAborted()
+        const next = await iterator.next()
+        if (next.done) { yield { kind: 'complete' }; return }
+        yield next.value
+      }
+    } finally { await iterator.return?.() }
   }
   /**
    * 列出工作室的正式 DSH 会话。

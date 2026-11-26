@@ -12,6 +12,7 @@ import {
   IdentificationCard,
   TreeStructure,
   Browsers,
+  Users,
 } from "@phosphor-icons/react";
 import logoIcon from "../../assets/eleckoi-app-icon.png";
 import { ElecKoiWordmark } from "../../ui/icons/ElecKoiWordmark.jsx";
@@ -34,11 +35,14 @@ import { appWindow, showCurrentWindow } from "../services/windowControls.js";
 import { TitleBar } from "./shell/components/TitleBar.jsx";
 import { useDesktopPageTransition } from './shell/hooks/useDesktopPageTransition.js';
 import { EditorPresentationContext, useEditorFeedbackHost } from '../../ui/ui/EditorPresentationContext.jsx';
+import { useMobileEditorCaret } from '../../ui/hooks/useMobileEditorCaret.js';
 import { usePageFade } from '../../ui/hooks/usePageFade.js';
 import { bestEffort } from "../../utils/swallowedFailure.js";
+import { CastRosterView } from '../../modules/persona/components/CastRosterView.jsx';
 
 const EDITOR_SECTIONS = [
   { id: "card", label: "基础资料", Icon: IdentificationCard },
+  { id: "cast", label: "登场角色", Icon: Users },
   { id: "openings", label: "开场白", Icon: ChatCircleDots },
   { id: "lore", label: "设定库", Icon: BookOpenText },
   { id: "variables", label: "变量", Icon: TreeStructure },
@@ -96,11 +100,12 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
   const [pendingAction, setPendingAction] = useState(null);
   const [subpage, setSubpage] = useState(null);
   const { feedback, registerSaveFeedback } = useEditorFeedbackHost();
+  const mobileCaret = useMobileEditorCaret(compact);
   const registerSubpage = useCallback(page => {
     setSubpage(page);
     return () => setSubpage(current => current === page ? null : current);
   }, []);
-  const presentation = useMemo(() => ({ compact, sectionTitleInHeader: compact, registerSubpage, registerBackHandler, registerSaveFeedback }), [compact, registerSubpage, registerBackHandler, registerSaveFeedback]);
+  const presentation = useMemo(() => ({ compact, characterStudio: !compact, sectionTitleInHeader: compact, registerSubpage, registerBackHandler, registerSaveFeedback }), [compact, registerSubpage, registerBackHandler, registerSaveFeedback]);
   useEffect(() => {
     if (!compact || !subpage || !registerBackHandler) return undefined;
     return registerBackHandler(() => { subpage.back(); return true; });
@@ -139,7 +144,8 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     () => editableCharacterSnapshot(character) !== editableCharacterSnapshot(persistedCharacter),
     [character, persistedCharacter],
   );
-  const dirty = activeSection === 'assets' ? false : activeSection === "openings"
+  const castDirty = JSON.stringify(character?.cast ?? []) !== JSON.stringify(persistedCharacter?.cast ?? []);
+  const dirty = activeSection === 'cast' ? castDirty : activeSection === 'assets' ? false : activeSection === "openings"
     ? openingsDirty
     : activeSection === "lore"
     ? loreDirty
@@ -205,15 +211,9 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
   async function saveBasicInfo(candidate = character) {
     if (!candidate || !collectionRef.current || saving) return false;
 
-    const normalizedName = (candidate.persona?.assistant_name || candidate.name || "").trim() || tUi("未命名角色");
-    const submittedCharacter = {
-      ...candidate,
-      name: normalizedName,
-      persona: {
-        ...(candidate.persona || {}),
-        assistant_name: normalizedName,
-      },
-    };
+    const normalizedName = (candidate.name || "").trim() || tUi("未命名角色");
+    const { cast: _cast, ...cardDetails } = candidate;
+    const submittedCharacter = { ...cardDetails, name: normalizedName };
     setSaving(true);
     setSaveError("");
     setBasicSaveNotice("");
@@ -233,7 +233,28 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     }
   }
 
+  async function saveCast() {
+    if (!character || !castDirty || saving) return false;
+    setSaving(true);
+    setSaveError("");
+    try {
+      const saved = await characterCatalog.update({ id: character.id, cast: character.cast ?? [] });
+      const savedCharacter = saved.items.find(item => item.id === character.id);
+      if (!savedCharacter) throw new Error(tUi("角色不存在"));
+      collectionRef.current = saved;
+      setPersistedCharacter(savedCharacter);
+      setCharacter(savedCharacter);
+      return true;
+    } catch (error) {
+      setSaveError(resolveFailure(error, { fallback: tUi("保存失败") }).text);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveCurrentDraft() {
+    if (activeSection === 'cast') return saveCast();
     if (!["openings", "lore", "variables", "regex", 'scripts', 'frontend', "dynamic"].includes(activeSection)) return saveBasicInfo();
     if (saving) return false;
     setSaving(true);
@@ -383,8 +404,17 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
         onChange: updateBasicInfo, onCancel: cancelChanges, onSave: saveBasicInfo,
       };
       editorContent = renderCharacterEditorSection?.("card", owner, fallback) ?? fallback;
+    } else if (activeSection === 'cast') {
+      const fallback = <CastRosterView key={character.id} characterId={character.id}
+        roles={character.cast ?? []} dirty={castDirty} saving={saving} saveError={saveError}
+        setRoles={update => {
+          setSaveError("");
+          setCharacter(current => current && { ...current, cast: update(current.cast ?? []) });
+        }}
+        onSave={saveCast} />;
+      editorContent = renderCharacterEditorSection?.('cast', { characterId: character.id }, fallback) ?? fallback;
     } else if (activeSection === "openings") {
-      const fallback = <CharacterOpeningsPanel ref={openingsRef} characterId={character.id}
+      const fallback = <CharacterOpeningsPanel ref={openingsRef} characterId={character.id} character={character}
         openings={characterConfiguration.openings} variables={characterConfiguration.variables}
         onDirtyChange={setOpeningsDirty} />;
       editorContent = renderCharacterEditorSection?.("openings", {
@@ -476,7 +506,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
 
   return (
     <EditorPresentationContext.Provider value={presentation}>
-    <main className={`qq-shell qq-character-editor-window-shell${compact && subpage ? ' is-editor-subpage' : ''}${compact && sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`} style={{ "--character-editor-sidebar-width": `${sidebarWidth}px` }}>
+    <main className={`qq-shell qq-character-editor-window-shell${compact && subpage ? ' is-editor-subpage' : ''}${compact && sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`} style={{ "--character-editor-sidebar-width": `${sidebarWidth}px` }} {...mobileCaret}>
       <aside className="character-editor-side-panel">
         <header className="side-panel-header" data-tauri-drag-region>
           <div className="side-panel-brand">
@@ -518,7 +548,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
           dirty, saving, onSave: saveCurrentDraft, onClose: subpage?.back ?? onToolbarBack ?? requestClose,
         }, editorToolbar)}
         <section
-          className={`character-editor-workspace${['openings', 'lore', 'variables', 'regex', 'scripts', 'dynamic'].includes(activeSection) ? ' is-collection-editor' : ''}${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "openings" ? " is-character-openings" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === 'scripts' ? ' is-scripts' : ''}${activeSection === 'frontend' ? ' is-frontend' : ''}${activeSection === 'assets' ? ' is-character-assets' : ''}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
+          className={`character-editor-workspace${['openings', 'lore', 'variables', 'regex', 'scripts', 'dynamic'].includes(activeSection) ? ' is-collection-editor' : ''}${activeSection === "card" ? " is-basic-info" : ""}${activeSection === "cast" ? " is-character-cast" : ""}${activeSection === "openings" ? " is-character-openings" : ""}${activeSection === "lore" ? " is-setting-library" : ""}${activeSection === "variables" ? " is-variable-config" : ""}${activeSection === "regex" ? " is-regex-rules" : ""}${activeSection === 'scripts' ? ' is-scripts' : ''}${activeSection === 'frontend' ? ' is-frontend' : ''}${activeSection === 'assets' ? ' is-character-assets' : ''}${activeSection === "dynamic" ? " is-dynamic-settings" : ""}`}
           aria-label={activeLabel}
           aria-busy={!loaded || undefined}
           data-desktop-page-content={compact ? undefined : ''}

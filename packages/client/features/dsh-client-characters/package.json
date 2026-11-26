@@ -193,6 +193,15 @@
         "relation": "provides"
       },
       {
+        "id": "eleckoi.character.editor.cast",
+        "kind": "ui-slot",
+        "title": "登场角色编辑",
+        "description": "包装或替换角色卡的登场角色编辑区。",
+        "mode": "replace",
+        "scope": "root",
+        "relation": "provides"
+      },
+      {
         "id": "eleckoi.character.editor.openings",
         "kind": "ui-slot",
         "title": "角色开场白编辑",

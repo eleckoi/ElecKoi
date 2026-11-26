@@ -1,5 +1,10 @@
 import React from 'react';
+import * as ReactDOM from 'react-dom';
+import * as ReactDOMClient from 'react-dom/client';
 import { createRoot } from 'react-dom/client';
+import * as jsxRuntime from 'react/jsx-runtime';
+import * as Cordis from '@deepseek-ai/cordis';
+import * as Slots from '@deepseek-ai/dsh-client-ui-slots';
 import { EditorView } from '@codemirror/view';
 import { PresetEditorWindow } from '../../src/app/windows/PresetEditorWindow.jsx';
 import { PresetListPanel, PresetProvider } from '../../src/modules/presets/components/PresetPanel.jsx';
@@ -40,6 +45,7 @@ const seeds = { id, name: '合成预设', purpose: q.has('creator') ? 'creator' 
   toolGroups:[{id:'builtin:web',name:'联网搜索',description:'使用原联网搜索配置',source:'built_in',included:true,enabled:true,members:[{name:'web_search',description:'搜索网页'}]},
     {id:'builtin:variables',name:'剧情变量',description:'查看和修改变量',source:'built_in',included:true,enabled:true,members:[{name:'synthetic_read',description:'完整工具说明'}]}] };
 if(q.has('many')) seeds.profile.timeline=Array.from({length:50},(_,index)=>({id:`update-${index}`,title:`合成更新 ${index}`,dateLabel:'2026-11-12',note:index===49?largeText:'短更新记录'}));
+if(q.has('caret')) seeds.profile.timeline[0].note = Array.from({ length: 160 }, (_, index) => `第 ${index} 行更新说明`).join('\n');
 if(q.has('emptyProfile')) Object.assign(seeds.profile,{usageInstructions:'',timeline:[]});
 let stored = JSON.parse(localStorage.getItem(key) || 'null') || seeds, activePreset = q.get('view')==='tool-menu'?id:'', snapshot, detail;
 const listeners=new Set(),details=new Set();window.saveCalls=0;window.saveFails=false;window.presetReadCalls=0;
@@ -71,7 +77,37 @@ function editorView(selector) {
 }
 window.editorView=()=>editorView('.cm-editor');
 window.editorViewFor=label=>editorView(`.cm-content[aria-label="${label}"]`);
-createRoot(document.getElementById('root')).render(<WebSearchProvider model={web}>{q.get('view')==='mobile-editor'?<MobileEditorHarness presetModel={model} preset={stored} character={q.has('character')} longText={q.has('long')?'合成长文本 const a = 1;\n'.repeat(100000)+'完整末尾':''} configuration={{regexRules:{editor:()=>regexEditor,test:async()=>({output:'合成结果'})},scripts}} />:q.get('view')==='tool-menu'?<AgentToolsDialog presetCatalog={model} onClose={()=>{window.toolMenuClosed=true;}} onManage={()=>{window.toolMenuManaged=true;}} onNotify={(type,message)=>{window.toolMenuNotice={type,message};}} />:q.get('view')==='preset-editor'?<div id="eleckoi-root"><PresetEditorWindow presetCatalog={model} characterConfiguration={{regexRules:{editor:()=>regexEditor,test:async()=>({output:'合成测试结果'})},scripts}} /></div>:<div id="eleckoi-root" className="qq-shell" style={{gridTemplateColumns:'328px minmax(0,1fr)'}}><PresetProvider catalogModel={model} fixedPresetId={id}><aside className="side-panel-shell"><PresetListPanel /></aside><section className="main-panel-content"><PresetOverview /></section></PresetProvider></div>}</WebSearchProvider>);
+
+function DesktopPreset({ renderPresetEditorSection }) {
+  return <div id="eleckoi-root"><PresetEditorWindow presetCatalog={model} renderPresetEditorSection={renderPresetEditorSection}
+    characterConfiguration={{ regexRules: { editor: () => regexEditor, test: async () => ({ output: '合成测试结果' }) }, scripts }} /></div>;
+}
+
+async function mountWithOfficialSlots(container) {
+  const ctx = new Cordis.Context();
+  let renderer;
+  const dependencies = { react: React, 'react-dom': ReactDOM, 'react-dom/client': ReactDOMClient,
+    'react/jsx-runtime': jsxRuntime, '@deepseek-ai/cordis': Cordis, '@deepseek-ai/dsh-client-ui-slots': Slots };
+  window.__ModuleLoader__ = { load(registration) { renderer = registration.factory(name => dependencies[name]); } };
+  await import('@deepseek-ai/dsh-client-ui-renderer/client');
+  await ctx.plugin({ name: 'synthetic-preset-renderer', apply: renderer.apply });
+  await ctx.plugin({ name: 'synthetic-preset-root', inject: ['slots'], apply(owner) {
+    const absent = { key: undefined, hooks: {}, keyedHooks: {}, props: {} };
+    const current = { getSnapshot: () => absent, subscribe: () => () => {} };
+    owner.slots.installScope('session', { current, bindingSource: () => current });
+    owner.slots.register({ name: 'root', children: {
+      'eleckoi.preset.editor.profile': { kind: 'chain', scope: 'root' },
+      'eleckoi.preset.editor.introduction': { kind: 'chain', scope: 'root' },
+    } }, ({ renderSlotChain }) => <WebSearchProvider model={web}><DesktopPreset
+      renderPresetEditorSection={(section, props, fallback) => renderSlotChain(`eleckoi.preset.editor.${section}`, { ...props, fallback }, { fallback })} />
+    </WebSearchProvider>);
+  } });
+  ctx.uiRenderer.mount(container);
+}
+
+const container = document.getElementById('root');
+if (q.get('view') === 'preset-editor' && q.has('slots')) void mountWithOfficialSlots(container);
+else createRoot(container).render(<WebSearchProvider model={web}>{q.get('view')==='mobile-editor'?<MobileEditorHarness presetModel={model} preset={stored} character={q.has('character')} longText={q.has('long')?'合成长文本 const a = 1;\n'.repeat(100000)+'完整末尾':''} configuration={{regexRules:{editor:()=>regexEditor,test:async()=>({output:'合成结果'})},scripts}} />:q.get('view')==='tool-menu'?<AgentToolsDialog presetCatalog={model} onClose={()=>{window.toolMenuClosed=true;}} onManage={()=>{window.toolMenuManaged=true;}} onNotify={(type,message)=>{window.toolMenuNotice={type,message};}} />:q.get('view')==='preset-editor'?<DesktopPreset />:<div id="eleckoi-root" className="qq-shell" style={{gridTemplateColumns:'328px minmax(0,1fr)'}}><PresetProvider catalogModel={model} fixedPresetId={id}><aside className="side-panel-shell"><PresetListPanel /></aside><section className="main-panel-content"><PresetOverview /></section></PresetProvider></div>}</WebSearchProvider>);
 if (q.get('view') === 'mobile-editor' && !q.has('character') && q.has('section')) {
   const label = PRESET_MOBILE_SECTIONS.find(section => section.id === q.get('section'))?.label;
   const navigation = new MutationObserver(() => {

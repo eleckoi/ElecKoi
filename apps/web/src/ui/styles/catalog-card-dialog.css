@@ -1,0 +1,90 @@
+/* The product card sets geometry and motion while DSH owns the overlay and focus. */
+body > [role="presentation"]:has(> .catalog-card-dialog) {
+  --catalog-card-edge: 32px;
+  --catalog-card-block-edge: max(var(--catalog-card-edge), var(--dsh-frame-overlay-top, 0px));
+  padding: var(--catalog-card-block-edge) var(--catalog-card-edge);
+}
+
+:root[data-windows-titlebar]:has(body > [role="presentation"] > .catalog-card-dialog) {
+  --eleckoi-native-caption-fill: transparent;
+}
+
+body > [role="presentation"]:has(> .catalog-card-dialog) > [aria-hidden="true"] {
+  inset-block-start: 0;
+}
+
+body > [role="presentation"]:has(> .catalog-card-dialog) > [aria-hidden="true"]::after {
+  animation: none;
+}
+
+.catalog-card-dialog[role="dialog"] {
+  --dsw-focus-ring-color: var(--dsw-alias-label-primary);
+  display: block;
+  width: min(1140px, 100%, max(760px, 78vw));
+  height: min(var(--catalog-card-height, 900px), calc(100dvh - 2 * var(--catalog-card-block-edge)));
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+  pointer-events: none;
+}
+
+.catalog-card-dialog-sheet {
+  display: grid;
+  height: 100%;
+  border-radius: calc(var(--dsw-radius-panel) + 4px);
+  overflow: hidden;
+  background: var(--surface-raised);
+  box-shadow: var(--dsw-elevation-prominent);
+  transform-origin: top left;
+  pointer-events: auto;
+}
+
+.catalog-card-dialog .catalog-card-dialog-close {
+  position: fixed;
+  inset-block-start: var(--catalog-card-block-edge);
+  inset-inline-start: var(--catalog-card-edge);
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-button-floating-fill);
+  color: var(--dsw-alias-label-primary);
+  pointer-events: auto;
+}
+
+@media (hover: hover) {
+  .catalog-card-dialog .catalog-card-dialog-close:hover:not(:disabled) {
+    background: var(--dsw-alias-button-floating-hover);
+  }
+}
+
+.catalog-card-dialog[data-closing="true"] .catalog-card-dialog-close {
+  display: none;
+}
+
+.catalog-card-dialog[data-closing="true"] .catalog-card-dialog-sheet {
+  pointer-events: none;
+}
+
+.catalog-card-dialog[data-closing="true"] [data-catalog-card-art] {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 940px) {
+  .catalog-card-dialog .catalog-card-dialog-close {
+    position: absolute;
+    inset-block-start: 12px;
+    inset-inline-start: 12px;
+  }
+}
+
+@media (max-width: 620px) {
+  body > [role="presentation"]:has(> .catalog-card-dialog) {
+    --catalog-card-edge: 16px;
+  }
+}

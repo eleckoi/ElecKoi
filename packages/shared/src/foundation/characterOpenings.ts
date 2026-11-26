@@ -1,10 +1,16 @@
 import { z } from 'zod'
 import { characterOpeningsSchema, characterOpeningMessageSchema, type CharacterOpenings, type CharacterOpeningMessage } from '../contracts/characterOpenings/schemas'
 
+export function openingSegmentText(segments: readonly { text: string }[]): string {
+  return segments.filter(segment => segment.text.trim()).map(segment => segment.text).join('\n\n')
+}
+
 /** 相同编号和内容只保留一条；编号冲突且内容不同时另设编号，完整保留正文和绑定。 */
 export function appendCharacterOpeningMessages(current: CharacterOpenings, incoming: CharacterOpeningMessage[], createId: () => string): CharacterOpenings {
   const value = characterOpeningsSchema.parse(current)
-  const fingerprint = (message: CharacterOpeningMessage) => JSON.stringify([message.title, message.content, message.variableVersionId ?? ''])
+  const fingerprint = (message: CharacterOpeningMessage) => JSON.stringify([message.title,
+    message.segments ? openingSegmentText(message.segments) : message.content, message.variableVersionId ?? '',
+    message.segments?.map(({ id: _id, ...segment }) => segment)])
   const seen = new Map<string, Set<string>>()
   for (const message of value.openingMessages) seen.set(message.id, new Set([fingerprint(message)]))
   const ids = new Set(value.openingMessages.map(message => message.id))

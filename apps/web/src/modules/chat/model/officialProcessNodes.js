@@ -11,7 +11,8 @@ export function officialProcessPart({ node, turnProcess, groupPart }, answer) {
     && Boolean(String(answer.displayContent ?? '').trim());
   // DSH can route the same node through separate reasoning and response seats.
   // The response seat must not render that node's reasoning a second time.
-  if (closingStep || liveAnswer) return groupPart !== 'response'
+  const roleplayBody = answer?.roleplayBodyNodeKeys?.includes(node.key);
+  if (closingStep || liveAnswer || roleplayBody) return groupPart !== 'response'
     && (node.data.blocks || []).some(block => block.kind === 'reasoning' && block.text) ? 'reasoning' : null;
   if (spec.answerAnchorSeq !== null && node.anchorSeq >= spec.answerAnchorSeq) return null;
   return 'all';

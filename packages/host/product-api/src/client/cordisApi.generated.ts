@@ -539,7 +539,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       {
         signature: 'updateOpening(conversationId: string, content: string): Promise<ConversationClientDetails | null>',
         description: '修改聊天开场白并刷新消息。',
-        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'content', description: '要保存的消息文本。' }],
+        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'content', description: '完整正文，或按原顺序提交的多人回复各段正文。' }],
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
       {
@@ -573,7 +573,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
       {
-        signature: 'editMessage(conversationId: string, eventSeq: number, role: \'user\' | \'assistant\', content: string): Promise<ConversationClientDetails | null>',
+        signature: 'editMessage(conversationId: string, eventSeq: number, role: \'user\' | \'assistant\', content: ConversationMessageEdit): Promise<ConversationClientDetails | null>',
         description: '修改官方 Session 中的一条消息并刷新聊天显示。',
         parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'eventSeq', description: '官方 Session 中消息的事件序号。' }, { name: 'role', description: '要修改或回退的消息角色。' }, { name: 'content', description: '要保存的消息文本。' }],
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
@@ -1319,7 +1319,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConversationClientMessage',
-    declaration: 'export interface ConversationClientMessage extends Omit<ConversationMessageMetadata, \'dshTurn\'> {\n    content?: string;\n    displayContent?: string;\n    status: \'complete\' | \'streaming\' | \'error\' | \'cancelled\';\n    sequence?: number;\n    productSequence?: number;\n    sessionEventSeq?: number;\n    dshTurn?: number | null;\n    requestId?: string;\n    nativeVariableStateJson?: string;\n    variableSnapshotAvailable?: boolean;\n    inputEventSeq?: number;\n    process?: ConversationProcessItem[];\n    processTiming?: {\n        startedAtMillis?: number;\n        completedAtMillis?: number;\n    };\n    dshMessageId?: string;\n    runtimeSessionId?: string;\n    renderKey?: string;\n    dshNodeKey?: string;\n    turnUsage?: TurnTailChatData[\'tokenUsage\'];\n    inputImageAttachments?: (ImageAttachmentRef | ConversationPendingImage)[];\n    generatedImageAttachments?: ConversationGeneratedImage[];\n    inputFileAttachments?: (FileAttachmentRef | ConversationPendingFile)[];\n}',
+    declaration: 'export interface ConversationClientMessage extends Omit<ConversationMessageMetadata, \'dshTurn\'> {\n    content?: string;\n    displayContent?: string;\n    roleplayReply?: true;\n    roleplayBlocks?: ConversationMessageDisplayInput[\'roleplayBlocks\'];\n    roleplayGroups?: ConversationMessageDisplayResult[\'roleplayGroups\'];\n    roleplayBodyNodeKeys?: string[];\n    status: \'complete\' | \'streaming\' | \'error\' | \'cancelled\';\n    sequence?: number;\n    productSequence?: number;\n    sessionEventSeq?: number;\n    dshTurn?: number | null;\n    requestId?: string;\n    nativeVariableStateJson?: string;\n    variableSnapshotAvailable?: boolean;\n    inputEventSeq?: number;\n    process?: ConversationProcessItem[];\n    processTiming?: {\n        startedAtMillis?: number;\n        completedAtMillis?: number;\n    };\n    dshMessageId?: string;\n    runtimeSessionId?: string;\n    renderKey?: string;\n    dshNodeKey?: string;\n    turnUsage?: TurnTailChatData[\'tokenUsage\'];\n    inputImageAttachments?: (ImageAttachmentRef | ConversationPendingImage)[];\n    generatedImageAttachments?: ConversationGeneratedImage[];\n    inputFileAttachments?: (FileAttachmentRef | ConversationPendingFile)[];\n}',
   },
   {
     name: 'ConversationDetailsSnapshot',

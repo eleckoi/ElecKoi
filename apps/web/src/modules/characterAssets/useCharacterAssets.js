@@ -59,6 +59,7 @@ export function useCharacterAssets(characterId) {
         return btoa(text);
       };
       try {
+        const uploaded = [];
         for (const file of files) {
           if (lifetime.current !== active) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'Upload page was closed', { what: '资产上传页面' });
           const ticket = await request('beginUpload', { name: file.name, size: file.size, folderId });
@@ -73,9 +74,11 @@ export function useCharacterAssets(characterId) {
             }
             if (lifetime.current !== active || current.cancelled) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'Upload was cancelled', { what: '资产上传' });
             await request('finishUpload', ticket.id);
+            uploaded.push(ticket.id);
           } catch (error) { await request('cancelUpload', ticket.id); throw error; }
           finally { if (uploadTicket.current === current) uploadTicket.current = null; }
         }
+        return uploaded;
       } finally { if (lifetime.current === active) setProgress(null); }
     });
   }

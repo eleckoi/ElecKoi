@@ -7,7 +7,7 @@ import { deleteOpening } from '../model/openingEditing.js';
 import { useCharacterConfigurationDraft } from '../../../ui/hooks/useCharacterConfigurationDraft.js';
 import { resolveFailure } from '../../../utils/failureText.js';
 
-export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel({ characterId, openings, variables, onDirtyChange }, ref) {
+export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel({ characterId, character, openings, variables, onDirtyChange }, ref) {
   const tUi = useProductTranslation();
   const { compact } = useEditorPresentation();
   const { library, persisted, dirty, saving, error, saveNotice, changeLibrary, save, discard } = useCharacterConfigurationDraft({
@@ -47,7 +47,7 @@ export const CharacterOpeningsPanel = forwardRef(function CharacterOpeningsPanel
       updateEntry(deleteOpening(entry, deleteTarget.messageId)); setDeleteTarget(null);
     }} />;
   return <section className={`character-openings-panel${compact ? ' is-mobile-opening-workspace' : ' is-opening-workspace'}`} aria-label={tUi("开场白")} aria-busy={!entry && !error}>
-    {entry ? <OpeningWorkspace ref={openingEditorRef} key={characterId} entry={entry} query={query} onQueryChange={setQuery}
+    {entry ? <OpeningWorkspace ref={openingEditorRef} key={characterId} entry={entry} character={character} query={query} onQueryChange={setQuery}
       variableVersions={variableSnapshot.value?.versions || []} variableVersionsError={variableSnapshot.error}
       onChange={updateEntry} onRequestDelete={requestDelete} busy={saving} dirty={dirty}
       save={<SaveControl workspace title={tUi("保存（Ctrl/Command + S）")} dirty={dirty} error={error} notice={saveNotice} saving={saving} onSave={save} />} />

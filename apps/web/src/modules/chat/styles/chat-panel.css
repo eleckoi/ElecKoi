@@ -1,5 +1,3 @@
-@import '../../../ui/styles/rounded-font.css';
-
 .chat-panel {
   --chat-scroll-horizontal-padding: 24px;
   --chat-window-resize-edge-inset: var(--window-resize-edge-inset, 2px);
@@ -325,8 +323,9 @@
   padding: 28px var(--chat-scroll-horizontal-padding) 16px;
 }
 
-.chat-panel.layout-roleplay .message-area [data-chat-scroll] {
+.chat-panel.layout-roleplay.view-chat .message-area [data-chat-scroll] {
   padding-top: 10px;
+  padding-bottom: 8px;
 }
 
 .message-area [data-chat-column] {
@@ -353,9 +352,7 @@
   padding-inline: var(--chat-roleplay-side-rail);
 }
 
-/* DSH's running indicator remains the authoritative status/timer, but the
-   roleplay composer owns its visual seat. Keep it docked immediately above
-   the input and use the same width and side clearance as the InputBar card. */
+/* The status uses the InputBar's width and side clearance. */
 .chat-running-seat {
   box-sizing: border-box;
   width: min(var(--dsh-composer-card-max-width), calc(100% - 2 * var(--dsh-composer-side-clearance)));
@@ -364,6 +361,29 @@
 
 .chat-running-seat:empty {
   display: none;
+}
+
+.chat-panel.layout-roleplay.view-chat [data-conversation-frame] {
+  --roleplay-process-line-height: max(24px, calc(var(--dsh-content-font-size, 14px) * 1.5));
+}
+
+.chat-panel.layout-roleplay.view-chat .chat-composer-region:has(> .chat-running-seat) {
+  position: relative;
+}
+
+/* Reserve the status row in history clearance without moving the official bottom button. */
+.chat-panel.layout-roleplay.view-chat [data-conversation-frame]:has(> [data-composer-seat] .chat-running-seat)
+  [data-chat-column] {
+  padding-block-end: var(--roleplay-process-line-height);
+}
+
+.chat-panel.layout-roleplay.view-chat .chat-running-seat {
+  display: block;
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 100%;
+  min-block-size: var(--roleplay-process-line-height);
+  pointer-events: none;
 }
 
 .chat-running-seat [data-chat-running] {
@@ -375,6 +395,24 @@
 
 .chat-running-seat [data-chat-running] > [aria-hidden="true"] {
   display: none !important;
+}
+
+.roleplay-composer-process {
+  padding-inline: 14px;
+}
+
+.roleplay-composer-process .agent-process-inline {
+  width: fit-content;
+  line-height: var(--roleplay-process-line-height);
+  pointer-events: auto;
+}
+
+.roleplay-composer-process .agent-process-inline-chevron {
+  display: none;
+}
+
+.roleplay-composer-process .agent-process-inline:is(:hover, :focus-visible) .agent-process-inline-icon {
+  opacity: 1;
 }
 
 .message-flow.is-conversation-entering {
@@ -397,6 +435,27 @@
 
 .message-flow-row > .message {
   margin-bottom: 0;
+}
+
+.opening-message-followups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--chat-turn-gap, 10px);
+  padding-block-start: var(--chat-turn-gap, 10px);
+}
+
+.opening-message-followups > .message { margin-bottom: 0; }
+.roleplay-reply-turn {
+  position: relative;
+  min-width: 0;
+  margin-inline: auto;
+}
+.roleplay-reply-turn .roleplay-reply-part { margin-bottom: 0; }
+.roleplay-reply-followups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--chat-turn-gap, 10px);
+  padding-block-start: var(--chat-turn-gap, 10px);
 }
 
 .message-delete-selection-row {
@@ -439,7 +498,7 @@
   background: color-mix(in srgb, var(--blue) 7%, transparent);
 }
 
-.message-delete-selection-row > .message {
+.message-delete-selection-row > :is(.message, .opening-message-followups, .roleplay-reply-turn) {
   margin-bottom: 0;
   pointer-events: none;
   user-select: none;
@@ -585,7 +644,6 @@
 .message-agent .message-author {
   display: block;
   color: var(--bubble-fg);
-  font-family: 'ElecKoi Mobile Rounded', sans-serif;
   font-size: var(--chat-name-size, 14px);
   font-weight: 400;
   line-height: var(--chat-name-line-height, 20px);
@@ -659,6 +717,10 @@
 }
 
 .assistant-bubble-enabled .message-agent.theirs .bubble {
+  justify-self: start;
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 100%;
   padding: 9px 12px;
   border: 0;
   border-radius: var(--chat-bubble-radius, 12px);
@@ -803,6 +865,17 @@
 
 .agent-message-footer .opening-pager .opening-pager-next { order: 2; }
 
+:is(.message-roleplay, .roleplay-reply-turn) {
+  width: min(
+    calc(
+      var(--chat-reading-width)
+      + var(--chat-roleplay-side-rail)
+      + var(--chat-roleplay-side-rail)
+    ),
+    100%
+  );
+}
+
 .message-roleplay {
   --chat-roleplay-leading-stack-height: var(--chat-avatar-height, 86.67px);
   display: grid;
@@ -812,14 +885,6 @@
     var(--chat-roleplay-side-rail);
   align-items: start;
   gap: 0;
-  width: min(
-    calc(
-      var(--chat-reading-width)
-      + var(--chat-roleplay-side-rail)
-      + var(--chat-roleplay-side-rail)
-    ),
-    100%
-  );
   margin: 0 auto var(--chat-turn-gap, 10px);
   padding: 0;
 }
@@ -1070,13 +1135,11 @@
   gap: 0;
   width: 100%;
 }
-
 .message-roleplay > .message-tools > .message-tools-leading {
   grid-column: 1;
   grid-row: 1;
   justify-self: end;
 }
-
 .message-roleplay > .message-tools > button:last-child {
   grid-column: 2;
   grid-row: 1;
@@ -2238,7 +2301,6 @@ button.chat-file-card:hover { border-color: var(--blue); }
     box-sizing: border-box;
     padding-right: 56px;
   }
-
 }
 
 .composer-more-anchor {
@@ -2388,97 +2450,28 @@ button.chat-file-card:hover { border-color: var(--blue); }
   background: #e8e8e8;
 }
 
-.history-search {
-  margin: 7px 28px 4px;
-}
-
 .history-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+  gap: 12px;
   min-width: 0;
-  padding: 0 28px;
-  border-bottom: 1px solid #e3e3e3;
+  padding-block: 7px 12px;
+  border-bottom: 1px solid var(--line);
 }
 
-.history-retention {
-  display: inline-flex;
-  align-items: center;
-  gap: 18px;
+.history-toolbar .history-search {
+  flex: 1;
   min-width: 0;
+  height: 36px;
 }
 
-.history-retention b {
+.history-modal .history-toolbar .history-search:focus-within {
+  border-color: var(--dsw-alias-border-l4);
+  box-shadow: none;
+}
+
+.history-import {
   flex: none;
-  color: #666;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.history-retention button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  color: #333;
-  font-size: 14px;
-}
-
-.history-retention button span {
-  width: 15px;
-  height: 15px;
-  border: 1px solid #bdbdbd;
-  border-radius: 999px; corner-shape: round;
-  background: #fff;
-}
-
-.history-retention button.active {
-  color: var(--blue);
-}
-
-.history-retention button.active span {
-  border-color: var(--blue);
-  box-shadow: inset 0 0 0 4px #fff;
-  background: var(--blue);
-}
-
-.history-actions {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  flex: none;
-}
-
-.history-actions button {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 7px;
-  color: #555;
-  transition: background 0.14s ease, color 0.14s ease, opacity 0.14s ease;
-}
-
-.history-actions button:hover:not(:disabled) {
-  background: var(--control-bg);
-  color: var(--blue);
-}
-
-.history-actions button.danger:hover:not(:disabled) {
-  color: #d92d20;
-}
-
-.history-actions button:disabled {
-  color: #b5b5b5;
-  cursor: default;
-  opacity: 0.62;
-}
-
-.history-actions svg {
-  width: 20px;
-  height: 20px;
 }
 
 .history-list {

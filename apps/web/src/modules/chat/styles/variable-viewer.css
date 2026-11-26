@@ -1,17 +1,34 @@
-.vm-dialog,.mobile-variable-manager,.vm-config-sheet{
+.variable-viewer-modal,.mobile-variable-manager,.vm-config-sheet{
  --vm-paper:var(--dsw-alias-bg-base,#fff);--vm-ink:var(--dsw-alias-label-primary,#111);--vm-secondary:var(--dsw-alias-label-secondary,#65676b);
  --vm-line:var(--dsw-alias-border-l1,#0000000a);--vm-outline:var(--dsw-alias-border-l2,#0000001a);--vm-wash:color-mix(in srgb,var(--vm-paper) 97%,var(--vm-ink));
  --vm-selection:color-mix(in srgb,var(--vm-paper) 94%,var(--vm-ink));--vm-accent:var(--dsw-alias-brand-primary-new-colorprimary-new-color,#4176e6);
+}
+.mobile-variable-manager,.vm-config-sheet{
  --dsw-menu-surface-fill:var(--vm-paper);--dsw-menu-backdrop-filter:none;color:var(--vm-ink);background:var(--vm-paper)!important;backdrop-filter:none!important;
 }
-.vm-dialog{display:grid;grid-template-rows:64px 45px minmax(0,1fr);width:min(1040px,calc(100vw - 80px));height:min(716px,calc(100dvh - 96px));min-height:360px;overflow:hidden;border:1px solid var(--vm-outline);border-radius:17px;box-shadow:0 24px 80px #00000024,0 4px 14px #0000000a}
-.vm-dialog *,.mobile-variable-manager *,.vm-config-sheet *{box-sizing:border-box}
-.vm-dialog [hidden],.mobile-variable-manager [hidden]{display:none!important}
-:where(.vm-dialog,.vm-config-sheet) button{font-family:inherit;cursor:pointer;color:inherit}
-.vm-dialog button:disabled,.vm-config-sheet button:disabled{cursor:default;opacity:.5}
-.vm-dialog button:focus-visible{outline:2px solid var(--vm-accent);outline-offset:-2px}
+.product-dialog.variable-viewer-modal {
+  --vm-outline: var(--dsw-alias-border-l3);
+  --vm-wash: var(--dsw-alias-interactive-bg-hover);
+  --vm-selection: var(--dsw-alias-interactive-bg-active);
+  height: min(716px, 100%);
+  padding-bottom: 0;
+  border: 1px solid var(--vm-outline);
+  background: var(--vm-paper);
+  color: var(--vm-ink);
+}
+.variable-viewer-modal .variable-viewer-content { flex: 1; overflow: hidden; }
+/* Modal renders its header and then a body wrapper with default padding and margin. */
+.variable-viewer-content > :last-child { flex: 1; min-height: 0; margin-top: 0; padding-inline: 0; }
+.variable-viewer-content > :first-child h2 { font-size: 18px; font-weight: 600; }
+.variable-viewer-modal :is(.vm-page, .vm-history) { flex: 1; }
+.mobile-variable-manager *,.vm-config-sheet *{box-sizing:border-box}
+.variable-viewer-modal [hidden],.mobile-variable-manager [hidden]{display:none!important}
+:where(.variable-viewer-modal,.vm-config-sheet) button{font-family:inherit;cursor:pointer;color:inherit}
+.variable-viewer-modal button:disabled,.vm-config-sheet button:disabled{cursor:default;opacity:.5}
+.variable-viewer-modal button:focus-visible{outline:2px solid var(--vm-accent);outline-offset:-2px}
 .vm-tabs{display:flex;align-items:stretch;gap:26px;padding:0 28px;border-bottom:1px solid var(--vm-outline);flex:none}
 .vm-tabs>button{position:relative;padding:0 0 14px;align-self:end;font-size:13px;line-height:20px;background:none;border:0;color:var(--vm-secondary)}
+.vm-tabs>button:hover{color:var(--vm-ink)}
 .vm-tabs>button[aria-selected=true]{color:var(--vm-ink);font-weight:600}
 .vm-tabs>button[aria-selected=true]:after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--vm-accent);border-radius:1px}
 .vm-page{display:flex;flex-direction:column;min-height:0;overflow:hidden}
@@ -27,7 +44,10 @@
 .vm-config-options>button:hover,.vm-config-options>button[aria-checked=true]{background:var(--vm-selection)}
 .vm-no-config{width:17px;text-align:center;color:var(--vm-secondary);flex:none}.vm-config-options>i{display:block;height:1px;background:var(--vm-outline);margin:5px}
 .vm-toolbar{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:66px;padding:0 28px;flex:none}
-.vm-toolbar h3{margin:0;font-size:14px;font-weight:600}.vm-toolbar>span{width:220px;min-width:0;background:var(--vm-wash);border:0;border-radius:7px}.vm-toolbar input{font-size:12px}
+.vm-toolbar h3{margin:0;font-size:14px;font-weight:600}
+.vm-toolbar-search{width:220px;min-width:0}
+.vm-toolbar-search input{font-size:12px}
+.vm-toolbar-search input::placeholder{color:var(--vm-secondary)}
 .vm-current-body{display:flex;min-height:0;flex:1;margin:0 28px 24px}
 .vm-browser{display:grid;grid-template-columns:224px minmax(0,1fr);min-width:0;min-height:0;flex:1;border:1px solid var(--vm-outline);border-radius:8px;overflow:hidden}
 .vm-browser.no-directory{display:flex}.vm-values{display:flex;flex-direction:column;min-width:0;min-height:0;flex:1}
@@ -66,12 +86,12 @@ button.vm-value-row:hover{background:var(--vm-wash)}.vm-field-name{min-width:0;d
 .vm-json-value summary{cursor:pointer;font-size:12px;color:var(--vm-secondary)}.vm-json-value pre,.vm-raw pre{font:12px/1.65 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;user-select:text}
 .vm-raw{overflow:auto;min-height:0;padding:24px;font-size:13px;flex:1}.vm-raw strong{font-weight:500}
 .vm-empty{margin:0;padding:36px 16px;font-size:13px;line-height:22px;color:var(--vm-secondary);text-align:center}.vm-error{margin:0;padding:10px 20px;font-size:13px;line-height:21px;color:var(--dsw-alias-state-error-primary,#c33);overflow-wrap:anywhere}.vm-error>button{margin-left:12px;border:0;background:none;color:inherit;text-decoration:underline}
-@media(max-width:1100px){.vm-dialog{width:calc(100vw - 56px);height:calc(100dvh - 72px)}.vm-browser{grid-template-columns:190px minmax(0,1fr)}.vm-history{grid-template-columns:190px minmax(0,1fr)}.vm-snapshot{padding:24px}.vm-snapshot-heading{flex-wrap:wrap;gap:5px;padding-bottom:16px}}
+@media(max-width:1100px){.vm-browser{grid-template-columns:190px minmax(0,1fr)}.vm-history{grid-template-columns:190px minmax(0,1fr)}.vm-snapshot{padding:24px}.vm-snapshot-heading{flex-wrap:wrap;gap:5px;padding-bottom:16px}}
 .mobile-variable-manager{font-family:'ElecKoi Mobile Rounded',sans-serif}
 .mobile-variable-manager .vm-page,.mobile-variable-manager .vm-history{flex:1;min-height:0}
 .mobile-variable-manager .vm-tabs{gap:28px;padding:0 20px;height:49px;min-height:49px}.mobile-variable-manager .vm-tabs>button{min-height:48px;align-self:stretch;padding:0;font-size:14px}
 .mobile-variable-manager .vm-config-bar{margin:0 20px;min-height:82px;gap:14px}.mobile-variable-manager .vm-config-anchor{flex:1}.mobile-variable-manager .vm-config-trigger{min-width:0;width:100%;min-height:48px;padding:0 12px;gap:9px;font-family:inherit}.mobile-variable-manager .vm-config-trigger>strong{font-size:15px}
-.mobile-variable-manager .vm-toolbar{padding:12px 20px 0;min-height:56px}.mobile-variable-manager .vm-toolbar>span{width:100%}.mobile-variable-manager .vm-toolbar input{font-size:14px;min-height:44px}
+.mobile-variable-manager .vm-toolbar{padding:12px 20px 0;min-height:56px}.mobile-variable-manager .vm-toolbar-search{width:100%;min-height:44px}.mobile-variable-manager .vm-toolbar-search input{font-size:14px}
 .mobile-variable-manager .vm-current-body{margin:0;min-height:0;flex:1}.mobile-variable-manager .vm-browser{display:flex;border:0;border-radius:0}
 .mobile-variable-manager .vm-breadcrumb{min-height:49px;height:49px;flex-basis:49px;margin:0 20px;padding:0;border-bottom-color:var(--vm-line);gap:8px}.mobile-variable-manager .vm-breadcrumb button{min-height:48px;min-width:48px;text-align:left;font-family:inherit}
 .mobile-variable-manager .vm-scroll{padding:0 20px 24px;scrollbar-width:none}
@@ -89,5 +109,5 @@ button.vm-value-row:hover{background:var(--vm-wash)}.vm-field-name{min-width:0;d
 .mobile-conversation-overlay .mobile-variable-manager .vm-tabs>button[aria-selected=true]{font-weight:550}
 .mobile-conversation-overlay .mobile-variable-manager .vm-config-trigger{border:1px solid var(--vm-outline);background:var(--vm-paper);font-size:15px;line-height:22px}
 .mobile-conversation-overlay .vm-config-sheet .vm-config-options>button{font-size:16px;line-height:24px;font-weight:400}
-.vm-dialog .vm-directory-select{font-size:13px;line-height:18px;font-weight:400}
-.vm-dialog .vm-directory-row.selected .vm-directory-select{font-weight:550}
+.variable-viewer-modal .vm-directory-select{font-size:13px;line-height:18px;font-weight:400}
+.variable-viewer-modal .vm-directory-row.selected .vm-directory-select{font-weight:550}

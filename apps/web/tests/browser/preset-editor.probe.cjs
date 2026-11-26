@@ -17,7 +17,88 @@ app.whenReady().then(async()=>{
   const input=async(win,selector,value)=>{await run(win,`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),type=e.tagName==='TEXTAREA'?HTMLTextAreaElement:HTMLInputElement;Object.getOwnPropertyDescriptor(type.prototype,'value').set.call(e,${JSON.stringify(value)});e.dispatchEvent(new Event('input',{bubbles:true}));})()`);await settle(win);};
   const load=async(win,query,width=1480,height=970)=>{win.setContentSize(width,height);await win.loadURL(pathToFileURL(process.argv[2]).href+query);await settle(win);};
   const category=async(win,label)=>textClick(win,'.character-editor-navigation button',label);
+  const checkWorkspace = async (win, label, hasSelection) => {
+    const layout = await run(win, `(() => {
+      const workspace = document.querySelector('.setting-workspace');
+      const header = workspace.querySelector(':scope > .character-studio-toolbar');
+      const directory = workspace.querySelector('.setting-directory');
+      const documentPane = workspace.querySelector('.setting-document');
+      const rect = element => element.getBoundingClientRect().toJSON();
+      const color = element => getComputedStyle(element).backgroundColor;
+      const selection = directory.querySelector('.editor-directory-select');
+      return { workspace: rect(workspace), header: rect(header), directory: rect(directory), document: rect(documentPane),
+        title: header.querySelector('h1')?.textContent, save: rect(header.querySelector('.setting-library-save-button')),
+        saveCount: workspace.querySelectorAll('.setting-library-save-button').length,
+        directoryRadius: getComputedStyle(directory).borderRadius, documentRadius: getComputedStyle(documentPane).borderRadius,
+        unifiedSurface: color(workspace) === color(directory) && color(directory) === color(documentPane),
+        search: rect(directory.querySelector('.setting-directory-search input')), multiSelect: selection && {
+          bounds: rect(selection), label: selection.getAttribute('aria-label'), text: selection.textContent.trim(), enabled: !selection.disabled,
+        }, overflow: document.documentElement.scrollWidth > innerWidth };
+    })()`);
+    const near = (actual, expected) => Math.abs(actual - expected) < 1;
+    const expectedWidth = Math.max(260, Math.min(480, layout.workspace.width - 388));
+    check(!layout.overflow && layout.title === label && layout.unifiedSurface && layout.saveCount === 1
+      && layout.directoryRadius === '0px' && layout.documentRadius === '0px'
+      && near(layout.header.width, layout.workspace.width) && near(layout.header.bottom, layout.directory.top)
+      && near(layout.directory.top, layout.document.top) && near(layout.document.left - layout.directory.right, 1)
+      && near(layout.directory.width, expectedWidth) && near(layout.document.bottom, layout.workspace.bottom)
+      && near(layout.save.right, layout.header.right - 28) && layout.search.top >= layout.header.bottom,
+    'Unified workspace geometry: ' + JSON.stringify(layout));
+    const select = layout.multiSelect;
+    check(hasSelection ? select?.enabled && select.label === '多选' && !select.text && select.bounds.left >= layout.search.right : !select,
+      'Directory selection placement: ' + JSON.stringify(layout));
+    return layout;
+  };
   try{
+    const profileUrl = '?view=preset-editor&preset=synthetic-preset&section=profile&reset=1&slots=1';
+    const profileFit = () => run(main, `(() => {
+      const scroll = document.querySelector('.preset-basic-scroll');
+      const bounds = scroll.getBoundingClientRect();
+      const cards = [...scroll.querySelectorAll('.preset-basic-card, .preset-basic-introduction .preset-content-section')];
+      const slot = scroll.querySelector('[data-slot="eleckoi.preset.editor.introduction"]');
+      const writing = scroll.querySelector('.preset-usage-section .preset-composer-writing');
+      return {
+        width: innerWidth, height: innerHeight, clientHeight: scroll.clientHeight, scrollHeight: scroll.scrollHeight,
+        cards: cards.map(card => ({ top: card.getBoundingClientRect().top, bottom: card.getBoundingClientRect().bottom })),
+        allVisible: cards.length === 3 && cards.every(card => {
+          const rect = card.getBoundingClientRect();
+          return rect.top >= bounds.top && rect.bottom <= bounds.bottom;
+        }),
+        editing: Boolean(writing), writingHeight: writing?.getBoundingClientRect().height,
+        slotDisplay: slot && getComputedStyle(slot).display,
+        bottomGap: bounds.bottom - cards.at(-1).getBoundingClientRect().bottom,
+        bottomPadding: parseFloat(getComputedStyle(scroll).paddingBottom),
+        overflow: scroll.scrollWidth > scroll.clientWidth,
+      };
+    })()`);
+    report.profileFit = [];
+    for (const [width, height, theme, empty] of [[1480, 970, 'dark', true], [1480, 970, 'light', false], [1334, 778, 'light', true]]) {
+      await load(main, `${profileUrl}&theme=${theme}${empty ? '&emptyProfile=1' : ''}`, width, height);
+      await wait(main, 'Boolean(document.querySelector(".preset-basic-introduction .preset-updates"))', 'Basic profile sections');
+      const fit = await profileFit();
+      report.profileFit.push(fit);
+      check(fit.slotDisplay === 'contents' && fit.allVisible && !fit.overflow && fit.scrollHeight === fit.clientHeight && fit.editing === empty,
+        'Basic profile does not fit without scrolling: ' + JSON.stringify(fit));
+      if (empty) check(Math.abs(fit.bottomGap - fit.bottomPadding) < 1,
+        'The usage editor leaves unused space below update history: ' + JSON.stringify(fit));
+      if (empty && height === 970) {
+        main.setContentSize(width, height - 48);
+        await settle(main);
+        const resized = await profileFit();
+        report.resizedProfileFit = resized;
+        check(resized.allVisible && resized.scrollHeight === resized.clientHeight
+          && Math.abs(resized.bottomGap - resized.bottomPadding) < 1 && Math.abs(fit.writingHeight - resized.writingHeight - 48) < 1,
+        'The usage editor does not resize with the window: ' + JSON.stringify(resized));
+      }
+    }
+    await load(main, `${profileUrl}&emptyProfile=1`, 900, 650);
+    const small = await profileFit();
+    check(small.scrollHeight > small.clientHeight && await run(main, `(() => {
+      const scroll = document.querySelector('.preset-basic-scroll');
+      scroll.scrollTop = scroll.scrollHeight;
+      return scroll.scrollTop > 0 && scroll.querySelector('.preset-updates').getBoundingClientRect().bottom <= scroll.getBoundingClientRect().bottom;
+    })()`), 'Short editor cannot scroll to the update history: ' + JSON.stringify(small));
+    report.actions.profileFitsDefaultWindow = true;
     await load(main,'?reset=1&blockDetail=1');await wait(main,"!!document.querySelector('.preset-summary')",'Main summary');
     check(await run(main,'window.presetReadCalls===0'),'Overview unnecessarily loaded full editor content');report.actions.summaryWithoutDetail=true;
     const buttons=await run(main,"Array.from(document.querySelectorAll('.preset-summary-actions button')).map(e=>{const r=e.getBoundingClientRect();return {text:e.textContent,width:r.width,height:r.height,radius:getComputedStyle(e).borderRadius}})");
@@ -46,20 +127,23 @@ app.whenReady().then(async()=>{
     await wait(main,"document.querySelector('.preset-summary h1').textContent==='合成独立窗口保存'",'Existing service subscription did not refresh main');report.actions.profileSync=true;
     await category(editor,'工具');await click(editor,'.preset-tool-summary');
     await textClick(editor,'.web-search-key-actions button','前往官方插件配置');check(await run(editor,"window.pluginSettingsOpened&&!!document.querySelector('.preset-tool-config-inline .web-search-mode')"),'Plugin navigation replaced tool details');report.actions.navigationKeepsEditor=true;
-    check(await run(editor,"!!document.querySelector('.setting-document .web-search-mode')&&!document.querySelector('.preset-tool-config-dialog')&&!!document.querySelector('.setting-directory .setting-library-save-button')&&!document.querySelector('.setting-document .setting-library-save-button')"),'Tools must use right detail and directory save');
+    check(await run(editor,"!!document.querySelector('.setting-document .web-search-mode')&&!document.querySelector('.preset-tool-config-dialog')&&!!document.querySelector('.character-studio-toolbar .setting-library-save-button')&&!document.querySelector('.setting-document .setting-library-save-button')"),'Tools must use right detail and header save');
     await run(editor,"Array.from(document.querySelectorAll('.web-search-mode button')).find(e=>e.textContent.includes('Tavily')).click()");await settle(editor);check(await run(editor,"!!document.querySelector('[aria-label=\"Tavily API Key\"]')"),'Native web config missing');report.actions.inlineWebConfig=true;
-    await click(editor,'.setting-document [role=switch]');await run(editor,'window.saveFails=true');await click(editor,'.setting-directory .setting-library-save-button');check(await run(editor,"!document.querySelector('.setting-library-save-button').disabled"),'Failed tool save discarded draft');await run(editor,'window.saveFails=false');await click(editor,'.setting-library-save-button');report.actions.toolSaveRetry=true;
+    await click(editor,'.setting-document [role=switch]');await run(editor,'window.saveFails=true');await click(editor,'.character-studio-toolbar .setting-library-save-button');check(await run(editor,"!document.querySelector('.setting-library-save-button').disabled"),'Failed tool save discarded draft');await run(editor,'window.saveFails=false');await click(editor,'.setting-library-save-button');report.actions.toolSaveRetry=true;
     for(const [width,height,theme]of [[1480,970,'light'],[900,650,'light'],[1480,970,'dark']]){
       await load(editor,`?view=preset-editor&preset=synthetic-preset&section=prompts&theme=${theme}`,width,height);await wait(editor,"!!document.querySelector('.cm-editor')",'Prompt body');
-      const layout=await run(editor,`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON(),s=s=>getComputedStyle(document.querySelector(s));return{width:innerWidth,height:innerHeight,theme:${JSON.stringify(theme)},directory:r('.setting-directory'),document:r('.setting-document'),directoryRadius:s('.setting-directory').borderRadius,documentRadius:s('.setting-document').borderRadius,background:s('.preset-editor-canvas').backgroundColor,panel:s('.setting-document').backgroundColor,font:s('.cm-content').fontSize,overflow:document.documentElement.scrollWidth>innerWidth,saveCount:document.querySelectorAll('.setting-library-save-button').length}})()`);
-      check(!layout.overflow&&layout.font==='14px'&&layout.directoryRadius==='16px'&&layout.documentRadius==='16px'&&layout.background!==layout.panel&&layout.directory.top===40&&layout.document.top===40&&layout.directory.height===height-48&&layout.document.height===height-48&&layout.document.left-layout.directory.right===8&&layout.saveCount===1,'Editor layout: '+JSON.stringify(layout));report.layouts.push(layout);
+      const layout = { width, height, theme, prompts: await checkWorkspace(editor, '预设提示词', true) };
+      check(await run(editor, "getComputedStyle(document.querySelector('.cm-content')).fontSize === '14px'"), 'Prompt font size');
+      report.layouts.push(layout);
       await textClick(editor,'.setting-view-switch button','设置');
       if (await run(editor, 'document.querySelector(".setting-rule-heading [role=switch]")?.getAttribute("aria-checked")==="false"')) await click(editor,'.setting-rule-heading [role=switch]');
       await textClick(editor,'.setting-usage-fields button','常驻触发');await textClick(editor,'.setting-usage-fields button','指定插入位置');
       const placement=await run(editor,`(()=>{const q=s=>document.querySelector(s),b=q('.setting-library-position-manage'),label=q('.setting-library-placement-heading strong'),rail=q('.setting-library-placement-rail'),r=e=>e.getBoundingClientRect().toJSON();return{button:r(b),label:r(label),rail:r(rail),scrollHeight:b.scrollHeight,clientHeight:b.clientHeight,icon:r(b.querySelector('svg')),overflow:q('.setting-settings-board').scrollWidth>q('.setting-settings-board').clientWidth}})()`);
       check(placement.label.height<=24&&placement.button.width>=90&&placement.scrollHeight<=placement.clientHeight&&placement.icon.width>=13&&!placement.overflow,'Position management button collapsed: '+JSON.stringify(placement));layout.placement=placement;
       await click(editor,'.setting-library-position-manage');check(await run(editor,"!!document.querySelector('.setting-position-manager')"),'Position manager did not open');await click(editor,'.setting-position-back');await click(editor,'.setting-library-save-button');
-      await category(editor,'工具');await click(editor,'.preset-tool-summary');check(await run(editor,"document.querySelector('.setting-document').scrollWidth<=document.querySelector('.setting-document').clientWidth"),'Tool details overflow');
+      await click(editor, '.editor-directory-select');
+      check(await run(editor, "document.querySelector('.editor-directory-select').getAttribute('aria-pressed') === 'true'"), 'Prompt multiselect did not open');
+      await category(editor,'工具');layout.tools = await checkWorkspace(editor, '工具', false);await click(editor,'.preset-tool-summary');check(await run(editor,"document.querySelector('.setting-document').scrollWidth<=document.querySelector('.setting-document').clientWidth"),'Tool details overflow');
       const rows=await run(editor,`Array.from(document.querySelectorAll('.setting-directory .preset-tool-row')).map(e=>{const s=getComputedStyle(e),i=getComputedStyle(e.querySelector('.preset-tool-icon')),r=e.getBoundingClientRect(),toggle=e.querySelector('[role=switch]').getBoundingClientRect();return{border:s.borderTopWidth,borderColor:s.borderTopColor,iconBackground:i.backgroundColor,iconWidth:i.width,iconHeight:i.height,contained:toggle.right<r.right&&toggle.left>r.left,overflow:e.scrollWidth>e.clientWidth}})`);
       check(rows.length===2&&rows.every(r=>r.border==='1px'&&r.borderColor!=='rgba(0, 0, 0, 0)'&&r.iconBackground==='rgba(0, 0, 0, 0)'&&r.iconWidth==='20px'&&r.iconHeight==='20px'&&r.contained&&!r.overflow),'Tool row geometry: '+JSON.stringify(rows));layout.toolRows=rows;
       await category(editor,'基础资料');await wait(editor,"document.querySelector('.preset-profile-editor-avatar img').complete",'Avatar image');layout.avatar=await checkAvatar();
@@ -67,7 +151,11 @@ app.whenReady().then(async()=>{
       const basics=layout.basics;
       check(basics.cards.length===3&&basics.cards.every(card=>Math.abs(card.left-basics.cards[0].left)<.5&&Math.abs(card.right-basics.cards[0].right)<.5)&&basics.nestedGutter==='auto'&&basics.nestedOverflow==='visible'&&!basics.overflow,'Basic information cards misaligned: '+JSON.stringify(basics));
       check(Math.abs(basics.document.right-basics.scroll.right-2)<.5&&basics.barWidth===basics.officialWidth&&basics.thumb===basics.officialThumb,'Basic information scrollbar: '+JSON.stringify(basics));
-      for(const label of ['基础资料','正则','脚本']){await category(editor,label);check(await run(editor,'document.documentElement.scrollWidth<=innerWidth'),`Overflow in ${label}`);}
+      for (const [section, label] of [['regex', '正则'], ['scripts', '脚本']]) {
+        await category(editor, label);
+        await wait(editor, "document.querySelector('.setting-version-button') !== null", label + '版本');
+        layout[section] = await checkWorkspace(editor, label, true);
+      }
     }
     check(report.layouts.some(layout=>layout.basics.scrollable),'Basic information must scroll in the short window');
     await load(editor,'?view=preset-editor&preset=synthetic-preset&section=prompts&long=1&reset=1');await wait(editor,"!!document.querySelector('.cm-editor')",'Long text');

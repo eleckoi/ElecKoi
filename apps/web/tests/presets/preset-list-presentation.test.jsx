@@ -175,22 +175,24 @@ describe('preset list consistency', () => {
 
   it('pins the two preset-owned runtime prompts above ordinary prompts', () => {
     const ordinary = { ...createEntryDraft('', 1, []), id: 'ordinary', title: '普通提示词', treeViewOrder: 1 };
-    const hidden = { ...createEntryDraft('', 1, []), id: 'built-in-hidden-tool-timeline', title: '隐藏工具时间线', kind: 'hidden_tool_timeline', treeViewOrder: Number.MIN_SAFE_INTEGER };
+    const hidden = { ...createEntryDraft('', 1, []), id: 'built-in-hidden-tool-timeline', title: '隐藏工具调用过程', kind: 'hidden_tool_timeline', treeViewOrder: Number.MIN_SAFE_INTEGER };
     const compaction = { ...createEntryDraft('', 1, []), id: 'built-in-roleplay-history-compaction', title: '自动压缩摘要模板', kind: 'history_compaction', treeViewOrder: Number.MIN_SAFE_INTEGER + 1 };
     const nodes = treeNodes({ ...preset, entries: [ordinary, compaction, hidden] });
-    expect(nodes.map((node) => node.label)).toEqual(['隐藏工具时间线', '自动压缩摘要模板', '普通提示词']);
+    expect(nodes.map((node) => node.label)).toEqual(['隐藏工具调用过程', '自动压缩摘要模板', '普通提示词']);
   });
 
-  it('keeps hidden tool timeline as a full setting editor and confirms before disabling it', () => {
+  it('shows only the editable body for the fixed runtime-context prompt and confirms before disabling it', () => {
     const hidden = {
       ...createEntryDraft('', 1, []),
       id: 'built-in-hidden-tool-timeline',
-      title: '隐藏工具时间线',
+      title: '隐藏工具调用过程',
+      content: '<roleplay_output_protocol>合成规则</roleplay_output_protocol>',
       iconId: 'timeline',
       kind: 'hidden_tool_timeline',
       position: 'insert_point_4',
     };
     const html = renderToStaticMarkup(<SettingLibraryDocument
+      presetPrompt
       selected={{ kind: 'entry', value: hidden }}
       library={{ ...preset, entries: [hidden], promptPositions: [] }}
       nameInputRef={{ current: null }}
@@ -202,9 +204,11 @@ describe('preset list consistency', () => {
       onPromptPositionsChange={() => {}}
     />);
 
-    expect(html).toContain('aria-label="设定编辑视图"');
-    expect(html).toContain('>正文<');
-    expect(html).toContain('>设置<');
+    expect(html).toContain('隐藏工具调用过程');
+    expect(html).toContain('设定正文');
+    expect(html).toContain(`${hidden.content.length} 字符`);
+    expect(html).not.toContain('aria-label="设定编辑视图"');
+    expect(html).not.toContain('>设置<');
     expect(html).not.toContain('aria-current="step"');
     expect(html).not.toContain('时间线协议');
     expect(shouldConfirmHiddenTimelineDisable(hidden, false)).toBe(true);

@@ -239,7 +239,11 @@ describe('Android settings presentation with shared PC contracts', () => {
   });
   it('uses the real profile extension and keeps a failed save editable', async () => {
     await mount('profile');
+    const saveButton = container.querySelector('.mobile-header-actions > button.mobile-profile-save');
+    expect(saveButton?.textContent).toBe('保存');
+    expect(saveButton.disabled).toBe(true);
     await input(container.querySelector('[aria-label="名字"]'), '合成新名字');
+    expect(saveButton.disabled).toBe(false);
     save.mockRejectedValueOnce(new Error('合成保存失败'));
     await click('保存');
     expect(save.mock.lastCall[0].name).toBe('合成新名字');

@@ -9,10 +9,10 @@ import { durableProductPluginSpecifier } from './preset-definition.mjs'
 import { turnOutcomesProjection } from './turn-outcomes-projection.mjs'
 import { inputContinuationsProjection } from './input-continuations-projection.mjs'
 import { currentRequestSnapshot, requestSnapshot } from './model-request-snapshot.mjs'
-import { renderPrompt } from '@deepseek-ai/dsh-system-prompt'
+import { joinContextSections, renderContextSections, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { createSystemMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { readSessionInspection, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
-import { projectRequestInput, requestProjectionSnapshot, visibleDialogueHistory } from './conversation-context.mjs'
+import { projectRoleplayDialogue, projectRequestInput, readRoleplayReplies, requestProjectionSnapshot, visibleDialogueHistory } from './conversation-context.mjs'
 import { resolvePlacedSettingTemplates } from './setting-library-tools.mjs'
 
 export { requestSnapshot } from './model-request-snapshot.mjs'
@@ -89,10 +89,12 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     const historySession = creating ? ctx.sessions.get(runtime.runtimeSessionId)
       : (await requireIdleAgent(ctx, runtime.runtimeSessionId)).session
     const nextTurn = initialTurn ?? (creating ? 1 : await nextSessionTurn(ctx, runtime.runtimeSessionId))
+    const surface = historySession
+      ? projectRoleplayDialogue(historySession.deriveMessages(), await readRoleplayReplies(ctx, historySession.id, signal)) : []
     const operationId = creating ? undefined : randomUUID()
     ctx.eleckoiProductData.recordRuntimeBeforeTurn(conversationId, runtime.runtimeSessionId, nextTurn)
     ctx.eleckoiRuntimeContexts.prepare(runtime.runtimeSessionId, runtime,
-      visibleDialogueHistory(historySession?.deriveMessages() ?? [], retainedInputMessageId),
+      visibleDialogueHistory(surface, retainedInputMessageId),
       runtime.conversationContext.currentPromptText ?? text,
       ctx.eleckoiProductData.snapshotConversationRuntime(conversationId).variableStateJson)
     writeSessionSnapshot(snapshotRoot, runtime.runtimeSessionId, {
@@ -199,7 +201,10 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       if ('error' in resolved) throw resolved.error
       const model = { ...await currentRequestSnapshot(ctx, resolved.agent.model.current(), resolved.agent.session), ...(generationOptions.get(conversationId)?.responseLength
         ? { maxTokens: generationOptions.get(conversationId).responseLength } : {}) }
-      let surface = resolved.agent.session.deriveMessages()
+      const session = resolved.agent.session
+      const roleplayReplies = await readRoleplayReplies(ctx, session.id)
+      const roleplayBlocks = new Map()
+      let surface = projectRoleplayDialogue(session.deriveMessages(), roleplayReplies, Infinity, roleplayBlocks)
       const cutoff = generationOptions.get(conversationId)?.historyCutoffId
       if (cutoff) {
         const index = surface.findIndex(message => message.id === cutoff)
@@ -217,9 +222,15 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
         eleckoiConversationSnapshot: { ...runtime, model, conversationContext }
       })
       const system = renderPrompt(assembly)
-      surface = surface.filter(message => message.role !== 'system')
+      const sections = renderContextSections(assembly)
+      surface = surface.filter(message => message.role !== 'system' && message.source.kind !== 'runtime-context')
       if (system) surface.unshift(createSystemMessage(system, 'system-prompt'))
+      if (sections.length) surface.push(createUserMessage({
+        content: [{ type: 'text', text: joinContextSections(sections) }],
+        source: { kind: 'runtime-context', form: 'snapshot', sections }
+      }))
       const messages = projectRequestInput(surface, requestProjectionSnapshot(conversationContext), {
+        roleplayBlocks,
         currentPromptText: conversationContext.currentPromptText ?? text
       })
       return { model, messages: await renderRequestEjs(messages, { conversationId, variables }), dryRun: true }

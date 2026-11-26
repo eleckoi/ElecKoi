@@ -86,11 +86,19 @@ function Fixture() {
   ]));
   return <div className={mobile ? 'mobile-conversation-page' : 'fixture-surface'} style={{ height: '100%' }}><section className={`chat-panel view-chat layout-${layoutMode}`} style={spacing}>
     <header className="chat-header">合成聊天</header>
-    <div className="chat-conversation-body" style={alignment ? { '--dsh-chat-user-width': `${query.get('reading') || 680}px` } : undefined}>
-      <div className={`message-area layout-${layoutMode}`} data-conversation-scroll="" ref={scroller}>
-        <div className="chat-transcript-region"><OfficialMarkdownProvider component={MarkdownText}><ChatView {...props} /></OfficialMarkdownProvider></div>
+    <div className="chat-conversation-body native-roleplay-content" style={alignment ? { '--dsh-chat-user-width': `${query.get('reading') || 680}px` } : undefined}>
+      <div data-conversation-content="" data-conversation-frame="">
+        <div className={`message-area layout-${layoutMode}`} data-conversation-scroll="" ref={scroller}>
+          <div className="chat-transcript-region"><OfficialMarkdownProvider component={MarkdownText}><ChatView {...props} /></OfficialMarkdownProvider></div>
+          <div data-composer-clearance="" aria-hidden="true" />
+        </div>
         <div className="chat-composer-region" data-composer-seat="" ref={composer}>
-          <textarea aria-label="合成输入框" />
+          <div className="chat-running-seat" data-chat-running-seat="">
+            {query.has('running') ? <div className="roleplay-composer-process">
+              <button type="button" className="agent-process-inline">合成运行状态</button>
+            </div> : null}
+          </div>
+          <textarea aria-label="合成输入框" data-composer-card="" />
         </div>
       </div>
     </div>

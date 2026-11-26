@@ -19,7 +19,6 @@ function Fixture() {
   return <aside className="character-list-panel" style={{ width: '100%', height: '100vh' }}>
     <header style={{ padding: 12 }}>合成角色目录</header>
     <div />
-    <div className="character-list-tabs"><button>角色</button><button>群聊</button></div>
     <SidebarScrollArea className="character-list-scroll" ref={scrollRef}>
       <CharacterGroupList groups={groups} characters={characters} artworkMode="avatar" collapsedGroups={collapsed}
         onToggleGroup={group => setCollapsed(value => ({ ...value, [group]: !value[group] }))}

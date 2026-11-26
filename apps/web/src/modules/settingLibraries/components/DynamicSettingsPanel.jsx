@@ -2,7 +2,8 @@ import { productLocaleTag } from '../../../app/i18n/productCopy.js';
 import { sourceText } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { EditorDirectoryActions, EditorDirectoryHeading } from '../../../ui/ui/EditorDirectoryHeading.jsx';
-import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives';
+import { EditorSearchInput } from '../../../ui/ui/EditorDirectorySearch.jsx';
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -11,7 +12,6 @@ import {
   Copy,
   FileText,
   GitBranch,
-  MagnifyingGlass,
   PencilSimple,
   Plus,
   SlidersHorizontal,
@@ -507,8 +507,8 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
       <section className={`dynamic-settings-list-page editor-heading-surface${compact ? ' is-compact' : ''}`} aria-label={tUi("分支设定")} aria-busy={loading}>
         <EditorDirectoryHeading title={tUi('分支设定')} />
         <header className={`dynamic-settings-list-toolbar${compact ? ' editor-collection-toolbar is-mobile-collection' : ''}`}>
-          <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
-            value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索对话")} aria-label={tUi("搜索分支设定对话")} />
+          <EditorSearchInput className="editor-collection-search" query={query} onQueryChange={setQuery}
+            placeholder={tUi("搜索对话")} label={tUi("搜索分支设定对话")} />
         </header>
         <div className="dynamic-settings-conversation-list">
           {!loading && <FailureAlert failure={error} className="dynamic-settings-status is-error" />}
@@ -575,8 +575,8 @@ export const DynamicSettingsPanel = forwardRef(function DynamicSettingsPanel({ c
         inspectorTitle={selected.kind === 'group' ? tUi("编辑文件夹") : selected.value?.title || tUi("编辑分支设定")} onCloseInspector={closeEditor}>
         <section className="dynamic-settings-tree-pane">
           <div className={`dynamic-settings-tree-toolbar${compact ? ' editor-collection-toolbar is-mobile-collection' : ''}`}>
-            <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
-              value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索设定")} aria-label={tUi("搜索分支设定")} />
+            <EditorSearchInput className="editor-collection-search" query={query} onQueryChange={setQuery}
+              placeholder={tUi("搜索设定")} label={tUi("搜索分支设定")} />
             <EditorDirectoryActions label={tUi("操作")}>
             {!compact && <div className="setting-library-add-wrap">
               <Button data-dsh-control variant="ghost" className="setting-toolbar-button setting-toolbar-create" icon={<Plus size={17} />}

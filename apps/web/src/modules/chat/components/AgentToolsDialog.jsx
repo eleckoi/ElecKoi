@@ -4,9 +4,10 @@ import '../../../ui/styles/product-dialogs.css';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, CaretRight } from '../../../ui/icons/interfaceIcons.jsx';
 import { AgentToolGroupIcon } from '../../../ui/icons/index.jsx';
-import { RoleplayPlanEditor, SubagentSettingsLink, WebSearchSettings, pluginToolSections } from '../../agentTools/index.js';
+import { RoleplayPlanEditor, RoleplayReplyDisableDialog, SubagentSettingsLink, WebSearchSettings, pluginToolSections } from '../../agentTools/index.js';
 import { loadAgentTools, setAgentToolGroupEnabled, setRoleplayPlanSettings } from '../api/agentToolsApi.js';
 import { MobileConversationOverlay, MobileOverlayScroll, isMobilePresentation } from '../../../mobile/MobileConversationOverlay.jsx';
+import { ROLEPLAY_REPLY_GROUP_ID } from '@shared/contracts/agent/tools';
 
 export function AgentToolsDialog({
   presetCatalog,
@@ -22,6 +23,7 @@ export function AgentToolsDialog({
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(true);
   const [changingId, setChangingId] = useState('');
+  const [replyDisableGroup, setReplyDisableGroup] = useState(null);
   const [savingRoleplayPlan, setSavingRoleplayPlan] = useState(false);
   const selected = catalog?.basicGroups?.find(item => item.id === selectedId) || catalog?.groups.find((item) => item.id === selectedId) || catalog?.extraGroups?.find(item => item.id === selectedId);
   const selectedIsExtra = Boolean(catalog?.basicGroups?.some(item => item.id === selectedId) || catalog?.extraGroups?.some(item => item.id === selectedId));
@@ -44,7 +46,12 @@ export function AgentToolsDialog({
 
 
 
-  async function changeEnabled(group, enabled) {
+  function changeEnabled(group, enabled) {
+    if (group.id === ROLEPLAY_REPLY_GROUP_ID && !enabled) setReplyDisableGroup(group);
+    else void saveEnabled(group, enabled);
+  }
+
+  async function saveEnabled(group, enabled) {
     if (changingId) return;
     setChangingId(group.id);
     setCatalog((current) => current ? {
@@ -108,6 +115,8 @@ export function AgentToolsDialog({
             {!loading && !catalog?.basicGroups?.length && !catalog?.groups.length && !catalog?.extraGroups?.length ? <p className="agent-tools-state">{tUi("当前预设还没有添加工具")}</p> : null}
           </div>
         )}
+        <RoleplayReplyDisableDialog open={Boolean(replyDisableGroup)} onCancel={() => setReplyDisableGroup(null)}
+          onConfirm={() => { const group = replyDisableGroup; setReplyDisableGroup(null); if (group) void saveEnabled(group, false); }} />
       </div>;
   const manage = <button type="button" className="agent-tools-manage" onClick={() => { onClose(); onManage?.(); }}>{tUi("管理预设工具 ")}<ArrowRight aria-hidden="true" /></button>;
   if (mobile) return <MobileConversationOverlay title={selected?.name || selectedPlugin?.name || tUi("工具")} className="mobile-agent-tools" onClose={onClose}

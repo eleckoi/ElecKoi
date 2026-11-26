@@ -75,7 +75,7 @@ describe('conversation state database', () => {
     f.history.recordTurn(f.id, f.id, 1, 'before', state(4, legacySnapshot))
     const archive = new ConversationArchiveRepository(f.db, { read: id => f.settings.snapshotConversationRuntimeState(id), restore: () => {} })
     const oldExport = archive.export(f.id)
-    db.pragma('user_version = 18')
+    db.exec('DROP TABLE character_cast_members; PRAGMA user_version = 18')
 
     const globalJson = db.prepare('SELECT configurationJson FROM global_setting_libraries').pluck().get()
     const replaceGlobalJson = db.prepare('UPDATE global_setting_libraries SET configurationJson=?')

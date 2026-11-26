@@ -1,5 +1,6 @@
 import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
+import { hasRoleplayReplyResult, streamRoleplayReply, streamNextRoleplayReply } from '../helpers/tool-call.js'
 import { createVariableIdentities } from '../../packages/shared/src/foundation/variables/identity'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -34,6 +35,8 @@ import {
 import { apply as applySettingLibraryTools } from '../../apps/desktop/resources/dsh/setting-library-tools.mjs'
 import { apply as applyVariableTools } from '../../apps/desktop/resources/dsh/variable-tools.mjs'
 import { restoreRuntimeContext } from '../../packages/client/features/dsh-client-roleplay/src/host/runtime-contexts.mjs'
+import { installRoleplayReply } from '../../packages/client/features/dsh-client-roleplay/src/host/roleplay-reply-tool.mjs'
+import { roleplayReplyMessages } from '@eleckoi/dsh-product-api'
 
 const directories = []
 const previousSessionRoot = process.env.DSH_SESSION_ROOT
@@ -74,13 +77,17 @@ describe('DSH subagent runtime context inheritance', () => {
         async resolveModel(provider, id) { return { provider, id, name: id } }
         async *stream(options) {
           requests.push(options)
+          if (options.sessionId === rootId && hasRoleplayReplyResult(options)) {
+            yield* streamNextRoleplayReply(options)
+            return
+          }
           const step = (counts.get(options.sessionId) ?? 0) + 1
           counts.set(options.sessionId, step)
           if (options.sessionId === rootId) {
             if (step === 1) yield* call('subagent', { description: 'Synthetic task', prompt: 'Synthetic child input' })
             else {
               if (step === 2) stopped.resolve()
-              yield* reply(step === 2 ? 'Synthetic pending child' : 'Synthetic final child result')
+              yield* streamRoleplayReply(step === 2 ? 'Synthetic pending child' : 'Synthetic final child result', options)
             }
           } else if (step === 1) {
             childEntered.resolve()
@@ -91,10 +98,13 @@ describe('DSH subagent runtime context inheritance', () => {
       }
       ctx.llm.registerAdapter(['synthetic'], new Adapter())
       const root = await ctx.agents.create({ sessionId: rootId, agentOptions: { provider: 'synthetic', model: 'synthetic' } })
+      installRoleplayReply(root.agent)
       root.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Synthetic delegation' }], source: { kind: 'user' } }))
       await Promise.all([childEntered.promise, stopped.promise])
       await root.agent.whenIdle()
       expect(root.agent.session.snapshotEvents().filter(event => event.type === 'turn/start')).toHaveLength(1)
+      expect(roleplayReplyMessages(root.agent.session.snapshotEvents()).flatMap(result => result.blocks.map(block => block.text)))
+        .toEqual(['Synthetic pending child'])
       expect(ctx.agents.list().some(agent => agent.session.header.origin === 'subagent' && agent.status !== 'idle')).toBe(true)
       if (deleting) {
         const child = ctx.agents.list().find(agent => agent.session.header.origin === 'subagent')
@@ -127,6 +137,8 @@ describe('DSH subagent runtime context inheritance', () => {
       const events = root.agent.session.snapshotEvents()
       expect(events.filter(event => event.type === 'turn/start').length).toBeGreaterThan(1)
       expect(events.findLast(event => event.type === 'turn/end').data.reason.kind).toBe('completed')
+      expect(roleplayReplyMessages(events).flatMap(result => result.blocks.map(block => block.text)))
+        .toContain('Synthetic final child result')
       {
         const sources = events.filter(event => event.type === 'user/message').map(event => event.data.source.kind)
         const childId = events.find(event => event.type === 'subagent/catalog').data.childId
@@ -142,7 +154,7 @@ describe('DSH subagent runtime context inheritance', () => {
     } finally { release.resolve(); await ctx.fiber.dispose() }
   }, 30_000)
 
-  it('restores only durable variables and keeps the official dialogue order without replaying an input', () => {
+  it('restores only durable variables and keeps the official dialogue order without replaying an input', async () => {
     const id = 'synthetic-restored-session'
     const contexts = runtimeContextsFor(id)
     const messages = [createUserMessage({ content: [{ type: 'text', text: '合成输入一' }, { type: 'text', text: '合成输入二' }], source: { kind: 'user' } }),
@@ -150,11 +162,13 @@ describe('DSH subagent runtime context inheritance', () => {
     const library = { characterId: 'synthetic-character', groups: [], entries: [] }
     const runtime = { conversationId: 'synthetic-chat', conversationContext: { history: [], settingLibrary: library },
         variableContext: { versionId: 'synthetic-version', identityJson: JSON.stringify(createVariableIdentities({ score: 7 }, { versionId: 'synthetic-version', objects: [], variables: [] }, 'runtime')), defaultStateJson: '{"score":0}', stateJson: '{"score":7}', schemaCode: '', objects: [], variables: [] } }
-    const ctx = { eleckoiRuntimeContexts: contexts, eleckoiProductData: {
+    const ctx = { eleckoiRuntimeContexts: contexts,
+      sessionQuery: { observeSession: async () => ({ header: {}, inheritedEventCount: 0, events: [], [Symbol.dispose]() {} }) },
+      eleckoiProductData: {
       prepareConversationRuntime: vi.fn(() => runtime), snapshotConversationRuntime: () => ({ variableStateJson: '{"score":7}' }) } }
     contexts.get(id).variables = { enabled: true, state: { score: 99 } }
     contexts.forget(id)
-    restoreRuntimeContext(ctx, { id, deriveMessages: () => messages }, { conversationId: 'synthetic-chat' })
+    await restoreRuntimeContext(ctx, { id, deriveMessages: () => messages }, { conversationId: 'synthetic-chat' })
     expect(ctx.eleckoiProductData.prepareConversationRuntime).toHaveBeenCalledWith('synthetic-chat', '合成输入一\n合成输入二')
     expect(contexts.get(id).variables.state).toEqual({ score: 7 })
     expect(contexts.get(id).settings.history).toEqual([{ role: 'user', content: '合成输入一\n合成输入二' }, { role: 'assistant', content: '合成回复' }])
@@ -501,7 +515,7 @@ function runtimeAgent(id, header = {}, session = {}) {
       on: vi.fn(() => () => undefined),
       llm: { stream: vi.fn() },
       sessions: { get: vi.fn() },
-      tools: { schemas: vi.fn(() => []), restrict: vi.fn(() => () => undefined) }
+      tools: { register: vi.fn(), schemas: vi.fn(() => []), restrict: vi.fn(() => () => undefined) }
     },
     session: {
       id,

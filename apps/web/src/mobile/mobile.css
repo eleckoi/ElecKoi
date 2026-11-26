@@ -37,6 +37,13 @@
 .mobile-shell button:focus-visible { outline: 2px solid color-mix(in srgb, var(--text) 38%, transparent); outline-offset: 2px; }
 :root[data-eleckoi-mobile="true"] :is(button, a, summary, [tabindex]):focus-visible { outline-color: color-mix(in srgb, var(--text) 38%, transparent); }
 :root[data-eleckoi-mobile="true"] :is(input, select, textarea):focus-visible { outline: none; }
+:root[data-eleckoi-mobile="true"] :is(input:not([type]), input[type="text"], input[type="search"], textarea, [contenteditable="true"]):not([data-composer-chip-selected]) {
+  caret-color: var(--dsw-alias-state-business-primary, currentColor);
+}
+:root[data-eleckoi-mobile="true"] :is(input, textarea, [contenteditable="true"])::selection {
+  background-color: var(--dsw-alias-bg-document-selection);
+  color: var(--dsw-alias-label-primary);
+}
 :root[data-eleckoi-mobile="true"] :is(.regex-field, .regex-version-create, .regex-manager-transfer, .model-detail-form, .preset-author-fields, .preset-description-field, .preset-profile-editor-layout, .profile-settings-name, .roleplay-plan-list) :is(input, select, textarea):focus { border-color: color-mix(in srgb, var(--text) 28%, transparent); box-shadow: none; }
 :root[data-eleckoi-mobile="true"] .character-basic-content :is(.semi-input-wrapper-focus, .semi-input-textarea-wrapper-focus) { border-color: color-mix(in srgb, var(--text) 28%, transparent); }
 :root[data-eleckoi-mobile="true"] :is(.dsh-search-field, .web-search-key-field, .chat-model-list-tools label):focus-within { border-color: color-mix(in srgb, var(--text) 28%, transparent); outline: none; box-shadow: none; }
@@ -205,6 +212,7 @@
 .mobile-conversation-page .chat-header-tabs button::after { bottom: 0; }
 .mobile-conversation-page .chat-conversation-body { --dsh-composer-side-clearance: 12px; }
 .mobile-conversation-page .message-area { margin-right: 0; scrollbar-gutter: auto; scrollbar-width: none; overscroll-behavior: none; }
+.mobile-conversation-page .chat-panel.layout-roleplay.view-chat .message-area [data-chat-scroll] { padding-bottom: 0; }
 .mobile-conversation-page .message-agent { --agent-action-glyph-size: var(--agent-action-icon-size); }
 .mobile-conversation-page .agent-user-actions { opacity: 1; pointer-events: auto; }
 .mobile-conversation-page [data-input-scroll] { overscroll-behavior: none; }

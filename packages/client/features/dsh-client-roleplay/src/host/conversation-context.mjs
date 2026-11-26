@@ -1,21 +1,24 @@
 import { hasRegexEjsOutput } from '@eleckoi/dsh-product-data/regex'
 import { renderRequestEjs } from './regex-ejs.mjs'
 import { createSystemMessage, freezeMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm'
-import { transformReasoningPrompt } from '@eleckoi/dsh-product-data'
+import { transformAiReplyPrompt, transformReasoningPrompt } from '@eleckoi/dsh-product-data'
 import { createHash } from 'node:crypto'
 import { readSessionSnapshot } from './session-snapshot.mjs'
 import { requiredSettingCache } from './required-setting-cache.mjs'
 import { resolvePlacedSettingTemplates } from './setting-library-tools.mjs'
 import { INPUT_CONTINUATIONS_PROJECTION } from './input-continuations-projection.mjs'
-import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
+import { productFailure, ELECKOI_FAILURE_CODES, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
+import { roleplayReplyEnabled } from './roleplay-reply-tool.mjs'
 
 export const name = 'eleckoi-conversation-context'
 export const projectionPlugin = 'eleckoi-request-projection'
 
 /** Install product-owned prompt contributions for every root turn. */
-export function installConversationContext(agentCtx, snapshotRoot, sourceSessionId, previews, settings, runtimeContexts = agentCtx.eleckoiRuntimeContexts) {
+export function installConversationContext(agentCtx, snapshotRoot, sourceSessionId, previews, settings,
+  runtimeContexts = agentCtx.eleckoiRuntimeContexts, readHistory) {
   let executionStep
   let placedSource, placedContext
+  let historyTurn, historyReplies
   const disposeStep = agentCtx.on('session/event', (session, event) => {
     if (session.id === sourceSessionId && event.type === 'step/start') executionStep = event.data
   })
@@ -42,33 +45,42 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
     const conversationContext = preview ? snapshot.conversationContext : await placedSettings(snapshot.conversationContext)
     const illustration = agentCtx.get('eleckoiAutoIllustration')?.instructions(snapshot) ?? ''
     const instructions = sessionInstructions({ ...snapshot, conversationContext }, illustration)
-    return !instructions ? assembly : {
+    return {
       ...assembly,
-      sections: [{ name: 'eleckoi:session-instructions', text: instructions, interpolate: false }, ...assembly.sections]
+      sections: instructions ? [{ name: 'eleckoi:session-instructions', text: instructions, interpolate: false }, ...assembly.sections] : assembly.sections
     }
   })
   const disposeRequestProjection = agentCtx.on('llm/stream', (options, next) => {
     if (!isAgentLoopRequest(options) || options.sessionId !== sourceSessionId) return next()
     const session = agentCtx.sessions.get(options.sessionId)
     if (!session) return next()
+    const step = executionStep
     const snapshot = read()
     const prepared = placedSettings(snapshot.conversationContext)
-    if (prepared !== snapshot.conversationContext) return (async function* () {
-      yield* streamProjected(options, session, { ...snapshot, conversationContext: await prepared })
+    if (readHistory && step && historyTurn !== step.turn) {
+      historyTurn = step.turn
+      historyReplies = readHistory(session.id, options.signal)
+    }
+    const replies = historyReplies
+    if (replies || prepared !== snapshot.conversationContext) return (async function* () {
+      const [conversationContext, toolReplies] = await Promise.all([prepared, replies])
+      yield* streamProjected(options, session, { ...snapshot, conversationContext }, step, toolReplies)
     })()
-    return streamProjected(options, session, snapshot)
+    return streamProjected(options, session, snapshot, step)
   })
-  function streamProjected(options, session, snapshot) {
+  function streamProjected(options, session, snapshot, executionStep, replies) {
+    if (!executionStep) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '实际模型请求缺少 Session 步骤。', { what: '实际模型请求的 Session 步骤' })
     const projection = requestProjectionSnapshot(snapshot.conversationContext)
-    const surface = session.deriveMessages()
+    const roleplayBlocks = new Map()
+    const surface = projectRoleplayDialogue(session.deriveMessages(), replies, executionStep.turn, roleplayBlocks)
     const currentUser = surface.findLast(isDirectUserMessage)
     const prompt = snapshot.conversationContext.currentPromptText
     const transform = {
+      roleplayBlocks,
       currentPromptText: typeof prompt === 'string' && prompt !== messageText(currentUser)
         ? prompt : null
     }
     const messages = projectRequestInput(surface, projection, transform)
-    if (!executionStep) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '实际模型请求缺少 Session 步骤。', { what: '实际模型请求的 Session 步骤' })
     const inputState = agentCtx.sessionProjections.stateOf(session, INPUT_CONTINUATIONS_PROJECTION)
     if (!inputState) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '实际模型请求缺少正式用户输入投影。', { what: '实际模型请求的用户输入投影' })
     const inputs = inputState.inputs
@@ -96,12 +108,66 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
   return () => { disposeRequestProjection(); disposeInstructions(); disposeStep() }
 }
 
+export async function readRoleplayReplies(ctx, sessionId, signal) {
+  const observation = await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none', ...(signal ? { signal } : {}) })
+  try {
+    return roleplayReplyMessages(observation.events)
+  } finally { observation[Symbol.dispose]() }
+}
+
+/** Project finished replies at their surviving positions in the official request surface. */
+export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Infinity, roleplayBlocks) {
+  if (!replies.length) return messages
+  const presentIds = new Set(messages.map(message => message.id))
+  const bodies = new Map(), processIds = new Set()
+  for (const reply of replies) {
+    if (reply.event.data.turn >= beforeTurn) continue
+    for (const id of reply.processMessageIds) processIds.add(id)
+    const { bodyParts } = reply
+    if (!bodyParts.length || bodyParts.every(part => presentIds.has(part.messageId))) {
+      if (!presentIds.has(reply.messageId)) continue
+      bodies.set(reply.messageId, reply.content)
+      roleplayBlocks?.set(reply.messageId, reply.blocks)
+      continue
+    }
+    // DSH can cut the history between native text messages of the same turn.
+    // Keep each slice's own text. A user edit replaces its whole speaker block.
+    const presentBlocks = []
+    let anchorId
+    for (const block of reply.blocks) {
+      const original = bodyParts.filter(part => part.blockId === block.id)
+      const last = original.at(-1)
+      const edited = block.text !== original.map(part => part.text).join('\n\n')
+      const present = edited ? (presentIds.has(last.messageId) ? [last] : [])
+        : original.filter(part => presentIds.has(part.messageId))
+      if (!present.length) continue
+      anchorId = present.at(-1).messageId
+      presentBlocks.push({ ...block, text: edited ? block.text : present.map(part => part.text).join('\n\n') })
+    }
+    if (anchorId) {
+      bodies.set(anchorId, presentBlocks.map(block => `${block.speakerName}：${block.text}`).join('\n\n'))
+      roleplayBlocks?.set(anchorId, presentBlocks)
+    }
+  }
+  if (processIds.size === 0) return messages
+  return messages.flatMap(message => {
+    const content = bodies.get(message.id)
+    if (content !== undefined) return [freezeMessage({
+      id: message.id,
+      role: 'assistant',
+      content: [{ type: 'text', text: content }],
+      source: { kind: 'plugin:eleckoi-product-history' }
+    })]
+    return processIds.has(message.id) ? [] : [message]
+  })
+}
+
 /** Assemble the actual request from the official surface and this turn's active settings. */
 export function projectRequestInput(surface, snapshot, transform) {
   const messages = projectRequestMessages(
-    projectCurrentUserPrompt(projectProductHistory(surface, snapshot), transform), snapshot.plan
+    projectCurrentUserPrompt(projectProductHistory(surface, snapshot, transform.roleplayBlocks), transform), snapshot.plan
   )
-  return projectRequestReasoning(prependRequestInstructions(messages, transform.instructions), snapshot.reasoningPromptRules, snapshot.reasoningPromptMacros)
+  return projectRequestReasoning(prependRequestInstructions(messages, transform.instructions), snapshot.reasoningPromptRules, snapshot.regexPromptMacros)
 }
 
 /** Apply prompt rules to the active turn without mutating Session blocks or opaque adapter replay data. */
@@ -167,7 +233,10 @@ export function sessionInstructions(snapshot, imageInstructions = '') {
   const additions = settingInjections(snapshot.conversationContext)
     .filter((entry) => entry.anchor === 'instructions')
     .map((entry) => entry.content)
-  return [snapshot.model?.systemPrompt, ...additions, imageInstructions]
+  const output = roleplayReplyEnabled(snapshot)
+    ? imageInstructions
+    : '当前预设已关闭角色扮演正文。完成本轮所需的其他工具操作即可。'
+  return [snapshot.model?.systemPrompt, ...additions, output]
     .filter((value) => typeof value === 'string' && value.trim())
     .join('\n\n')
 }
@@ -194,8 +263,9 @@ export function requestProjectionSnapshot(context) {
   return {
     plan: requestProjectionPlan(context),
     historyMode: context?.historyMode === 'prefix' ? 'prefix' : 'replace',
+    replyPromptRules: Array.isArray(context?.replyPromptRules) ? context.replyPromptRules : [],
     reasoningPromptRules: Array.isArray(context?.reasoningPromptRules) ? context.reasoningPromptRules : [],
-    reasoningPromptMacros: context?.reasoningPromptMacros,
+    regexPromptMacros: context?.regexPromptMacros,
     history: (Array.isArray(context?.history) ? context.history : [])
       .flatMap((item) => isProductHistoryEntry(item)
         ? [{ role: item.role, content: item.content }]
@@ -381,7 +451,7 @@ function projectionMessage(entry) {
 /**
  * Keep prior user input and final replies, with the active turn's full flow.
  */
-export function projectProductHistory(messages, context) {
+export function projectProductHistory(messages, context, roleplayBlocks = new Map()) {
   const currentUserIndex = findCurrentUserIndex(messages)
   if (currentUserIndex < 0) return messages
   const firstDialogue = messages.findIndex((message, index) => (
@@ -389,16 +459,27 @@ export function projectProductHistory(messages, context) {
   ))
   const replaceFrom = firstDialogue < 0 ? currentUserIndex : firstDialogue
   const nativeHistory = messages.slice(replaceFrom, currentUserIndex)
+  const runtimeContext = messages.findLast(message => message?.source?.kind === 'runtime-context')
+  const retainedContext = runtimeContext && nativeHistory.includes(runtimeContext) ? [runtimeContext] : []
   const productHistory = (Array.isArray(context?.history) ? context.history : [])
     .map(productHistoryMessage)
     .filter(Boolean)
   if (context?.historyMode === 'prefix') {
     const dialogueHistory = previousTurnDialogue(nativeHistory)
     const prefix = productHistory.filter((product, index) => !messagesMatch(product, dialogueHistory[index]))
+    const rules = context.replyPromptRules
+    const history = rules?.length ? dialogueHistory.map((message, index) => {
+      if (message.role !== 'assistant') return message
+      const source = messageText(message)
+      const text = transformAiReplyPrompt(source, rules, context.regexPromptMacros,
+        dialogueHistory.length - index, roleplayBlocks.get(message.id))
+      return text === source ? message : freezeMessage({ ...message, content: [{ type: 'text', text }] })
+    }) : dialogueHistory
     return [
       ...messages.slice(0, replaceFrom),
       ...prefix,
-      ...dialogueHistory,
+      ...history,
+      ...retainedContext,
       ...messages.slice(currentUserIndex)
     ]
   }
@@ -406,6 +487,7 @@ export function projectProductHistory(messages, context) {
   return [
     ...messages.slice(0, replaceFrom),
     ...authoritative,
+    ...retainedContext,
     ...messages.slice(currentUserIndex)
   ]
 }
@@ -428,7 +510,8 @@ function previousTurnDialogue(messages) {
     finalReply = undefined
   }
   for (const message of messages) {
-    if (isDirectUserMessage(message) || isCompactionCheckpoint(message)) {
+    if (isDirectUserMessage(message) || isCompactionCheckpoint(message)
+      || (message?.role === 'assistant' && message.source?.kind === 'plugin:eleckoi-product-history')) {
       flush()
       history.push(message)
     } else if (message?.role === 'assistant'
@@ -563,10 +646,8 @@ export function settingInjections(context) {
         positionOrder: custom?.order ?? 0,
         order: Number.isInteger(entry.order) ? entry.order : 1,
         traceTitle: entry.kind === 'hidden_tool_timeline'
-            ? `预设固定条目 · ${title}`
-            : String(entry.id || '').startsWith('agent-preset:')
-              ? `预设条目 · ${title}`
-              : `设定 · ${title}`,
+          ? `预设固定条目 · ${title}`
+          : String(entry.id || '').startsWith('agent-preset:') ? `预设条目 · ${title}` : `设定 · ${title}`,
         traceSource: String(custom?.name || '').trim() || positionLabel(anchor)
       }
     })

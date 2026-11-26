@@ -35,7 +35,7 @@ function fixture() {
   return { root, store, characters, card }
 }
 function legacySnapshot(store: SqliteDatabase) {
-  return store.native.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name<>'character_catalog_activity' ORDER BY name").all()
+  return store.native.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('character_catalog_activity', 'character_cast_members') ORDER BY name").all()
     .map((row: any) => [row.name, store.native.prepare(`SELECT * FROM "${row.name}" ORDER BY rowid`).all()])
 }
 
@@ -96,7 +96,7 @@ describe('local character catalog activity and grouping', () => {
   }, 30_000)
   it('upgrades a v17 file without inventing old timestamps or changing product records, then persists later edits across reopen', () => {
     const f = fixture(); f.characters.create(f.card('a')); f.characters.saveGroups(['A', 'B'], [{ characterId: 'a', group: 'B' }])
-    f.store.native.exec('DROP TABLE character_catalog_activity; PRAGMA user_version=17')
+    f.store.native.exec('DROP TABLE character_cast_members; DROP TABLE character_catalog_activity; PRAGMA user_version=17')
     const before = legacySnapshot(f.store)
     installSchema(f.store.native)
     expect(f.store.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
@@ -110,7 +110,7 @@ describe('local character catalog activity and grouping', () => {
     expect(f.store.native.pragma('integrity_check', { simple: true })).toBe('ok')
   }, 30_000)
   it('leaves the original v17 file intact when the activity migration fails before its version stamp', () => {
-    const f = fixture(); f.characters.create(f.card('a')); f.store.native.exec('DROP TABLE character_catalog_activity; PRAGMA user_version=17')
+    const f = fixture(); f.characters.create(f.card('a')); f.store.native.exec('DROP TABLE character_cast_members; DROP TABLE character_catalog_activity; PRAGMA user_version=17')
     const before = legacySnapshot(f.store), exec = f.store.native.exec.bind(f.store.native)
     const probe = vi.spyOn(f.store.native, 'exec').mockImplementation(sql => {
       const result = exec(sql)

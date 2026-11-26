@@ -24,7 +24,8 @@ import { readSessionSnapshot } from '../../../dsh-client-roleplay/src/host/sessi
 import { createNovelAiImageGeneration } from '../../src/host/novelai-image-generation.mjs';
 import { installConversationContext } from '../../../dsh-client-roleplay/src/host/conversation-context.mjs';
 import { illustrationProjection } from '../../../dsh-client-roleplay/src/host/illustration-projection.mjs';
-import { IMAGE_PROMPT_OPEN, IMAGE_PROMPT_CLOSE } from '../../../dsh-client-roleplay/src/host/generated-image-result.mjs';
+import { findGeneratedImage } from '../../../dsh-client-roleplay/src/host/generated-image-result.mjs';
+import { installRoleplayReply, ROLEPLAY_REPLY_TOOL } from '../../../dsh-client-roleplay/src/host/roleplay-reply-tool.mjs';
 import { inputContinuationsProjection } from '../../../dsh-client-roleplay/src/host/input-continuations-projection.mjs';
 
 const directories = [], servers = [];
@@ -68,7 +69,7 @@ describe('NAI preset illustration', () => {
     expect(() => normalizeNovelAiImageSettings({ sampler: 'unknown' })).toThrow();
   });
 
-  it.each(['image-first', 'text-first', 'agent-close', 'plugin-close', 'invalid-json', 'invalid-count', 'missing-model'])('handles %s independently of the real Agent text stream', async order => {
+  it.each(['image-first', 'text-first', 'agent-close', 'plugin-close', 'invalid-json', 'invalid-count', 'missing-model'])('handles %s from the native reply result without another image request', async order => {
     const invalidCommand = order === 'invalid-json' || order === 'invalid-count';
     const recovers = invalidCommand || order === 'missing-model';
     let modelAvailable = order !== 'missing-model';
@@ -90,29 +91,35 @@ describe('NAI preset illustration', () => {
       async resolveModel(provider, id) { return { provider, id, name: id }; }
       async *stream(options) {
         requests.push(options);
+        const previous = options.messages.at(-1);
+        if (options.sessionId !== sessionId || (previous?.role === 'tool' && !previous.isError)) {
+          if (options.sessionId === sessionId && order === 'image-first' && requests.length === 2) await imageReady;
+          yield { type: 'finish', reason: { kind: 'stop' } };
+          return;
+        }
         const instructions = options.messages.filter(message => message.role === 'system').flatMap(message => message.content).filter(block => block.type === 'text').map(block => block.text).join('\n');
-        let text = '<FINAL>合成角色回复</FINAL>';
-        if ((requests.length === 1 && modelAvailable) || (recovers && requests.length === 2)) {
+        const hasIllustration = instructions.includes('当前角色对话已启用每轮自动配图');
+        const withFrames = hasIllustration && previous?.role !== 'tool';
+        if (withFrames) {
           expect(instructions).toContain('当前角色对话已启用每轮自动配图');
-          expect(instructions).toContain('不要发起 Tool Call/function_call');
+          expect(instructions).toContain('eleckoi_roleplay_reply 的 frames');
           expect(instructions).toContain('professional prompt compiler for NovelAI');
-          expect((options.tools || []).some(tool => tool.name === 'generate_image')).toBe(false);
           entry.image_settings.promptPrefix = 'changed during turn';
-          const command = requests.length === 1 && invalidCommand
-            ? order === 'invalid-json' ? '{invalid JSON' : JSON.stringify({ frames: [frame, { ...frame, id: 2 }] })
-            : JSON.stringify({ frames: [frame] });
-          text = `${IMAGE_PROMPT_OPEN}\n${command}\n${IMAGE_PROMPT_CLOSE}\n<FINAL>合成角色回复\n[[IMAGE:1]]\n</FINAL>`;
-        } else expect(instructions).not.toContain('当前角色对话已启用每轮自动配图');
+        }
+        expect((options.tools || []).some(tool => tool.name === ROLEPLAY_REPLY_TOOL)).toBe(true);
+        expect((options.tools || []).some(tool => tool.name === 'generate_image')).toBe(false);
+        const frames = requests.length === 1 && order === 'invalid-count' ? [frame, { ...frame, id: 2 }] : [frame];
+        const text = withFrames ? '合成角色回复\n\n[[IMAGE:1]]' : '合成角色回复';
+        const block = { type: 'tool-call', id: ToolCallId(`synthetic-reply-${requests.length}`), name: ROLEPLAY_REPLY_TOOL,
+          arguments: requests.length === 1 && order === 'invalid-json' ? '{invalid JSON' : JSON.stringify({
+            name: '未命名角色', ...(hasIllustration ? { frames: withFrames ? frames : [] } : {}),
+          }) };
         yield { type: 'block-start', index: 0, blockType: 'text' };
-        const boundary = text.indexOf(IMAGE_PROMPT_CLOSE) + IMAGE_PROMPT_CLOSE.length;
-        if (requests.length === 1) {
-          yield { type: 'text-delta', index: 0, text: text.slice(0, 15) };
-          yield { type: 'text-delta', index: 0, text: text.slice(15, boundary) };
-          if (!recovers) await imageRequested;
-          if (order === 'image-first') await imageReady;
-          yield { type: 'text-delta', index: 0, text: text.slice(boundary) };
-        } else yield { type: 'text-delta', index: 0, text };
+        yield { type: 'text-delta', index: 0, text };
         yield { type: 'block-end', index: 0, block: { type: 'text', text } };
+        yield { type: 'block-start', index: 1, blockType: 'tool-call' };
+        yield { type: 'tool-call-delta', index: 1, id: block.id, name: block.name, argumentsDelta: block.arguments };
+        yield { type: 'block-end', index: 1, block };
         yield { type: 'finish', reason: { kind: 'stop' } };
       }
     }
@@ -132,10 +139,11 @@ describe('NAI preset illustration', () => {
       const imageFork = await ctx.plugin(imagePlugin);
       ctx.llm.registerAdapter(['synthetic'], new Adapter());
       const handle = await ctx.agents.create({ sessionId: SessionId(sessionId), agentOptions: { provider: 'synthetic', model: 'synthetic' } });
+      installRoleplayReply(handle.agent, undefined, undefined, () => readSessionSnapshot(snapshotRoot, sessionId).autoIllustration);
       ctx.on('agent/assistant-stream', event => {
-        if (!bodyStreamed && event.frame.type === 'chunk' && event.frame.chunk.type === 'text-delta' && event.frame.chunk.text.includes('<FINAL>')) {
+        if (!bodyStreamed && event.frame.type === 'chunk' && event.frame.chunk.type === 'text-delta' && event.frame.chunk.text.includes('合成角色回复')) {
           bodyStreamed = true;
-          if (!recovers) expect(imageFinished).toBe(order === 'image-first');
+          if (order === 'text-first') expect(imageFinished).toBe(false);
         }
       });
       ctx.on('session/event', (_session, event) => {
@@ -150,11 +158,13 @@ describe('NAI preset illustration', () => {
       if (recovers) {
         const events = handle.agent.session.snapshotEvents();
         expect(events.findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' });
-        expect(JSON.stringify(events.findLast(event => event.type === 'assistant/message').data.message.content)).toContain('合成角色回复');
+        const accepted = events.findLast(event => event.type === 'tool/result' && !event.data.message.isError);
+        expect(events.find(event => event.type === 'assistant/message' && event.data.step === accepted.data.step).data.message.content[0])
+          .toMatchObject({ type: 'text', text: '合成角色回复' });
         expect(bodyStreamed).toBe(true);
         const batches = events.filter(event => event.type === 'eleckoi/illustration');
-        expect(batches).toHaveLength(invalidCommand ? 1 : 0);
-        if (invalidCommand) expect(batches[0].data).toMatchObject({ status: 'failed', error: expect.any(String) });
+        expect(batches).toHaveLength(0);
+        if (invalidCommand) expect(events.find(event => event.type === 'tool/result').data.message.isError).toBe(true);
         expect(remote.requests).toHaveLength(0);
         modelAvailable = true;
         handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '下一轮正确配图' }], source: { kind: 'user' } }));
@@ -165,6 +175,7 @@ describe('NAI preset illustration', () => {
         return;
       }
       if (order === 'agent-close' || order === 'plugin-close') {
+        await imageRequested;
         if (order === 'agent-close') await handle.dispose();
         else await imageFork.dispose();
         const outcomes = handle.agent.session.snapshotEvents().filter(event => event.type === 'eleckoi/illustration');
@@ -176,14 +187,17 @@ describe('NAI preset illustration', () => {
           handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '停用插件后继续合成对话' }], source: { kind: 'user' } }));
           await handle.agent.whenIdle();
           expect(handle.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' });
-          expect(requests).toHaveLength(2);
-          expect(JSON.stringify(requests[1].messages)).not.toContain('当前角色对话已启用每轮自动配图');
+          expect(requests).toHaveLength(4);
+          expect(JSON.stringify(requests[2].messages)).not.toContain('当前角色对话已启用每轮自动配图');
         }
         return;
       }
       if (order === 'text-first') {
         expect(imageFinished).toBe(false);
-        expect(handle.agent.session.snapshotEvents().filter(event => event.type === 'eleckoi/illustration').map(event => event.data.status)).toEqual(['generating']);
+        const events = handle.agent.session.snapshotEvents();
+        const result = events.find(event => event.type === 'tool/result');
+        expect(result?.data, JSON.stringify(result?.data)).toMatchObject({ meta: { source: 'eleckoi-roleplay-reply', frames: [frame] } });
+        expect(events.filter(event => event.type === 'eleckoi/illustration').map(event => event.data.status)).toEqual(['generating']);
         finishImage();
       }
       const published = await imageReady;
@@ -193,13 +207,14 @@ describe('NAI preset illustration', () => {
       const ended = events.find(event => event.type === 'turn/end');
       expect(result.seq < ended.seq).toBe(order === 'image-first');
       expect(result.data.frames[0].status).toBe('ready');
+      expect(findGeneratedImage(events, result.data.batchId, 1).frame).toMatchObject(frame);
       expect(JSON.stringify(events.filter(event => event.type === 'eleckoi/illustration'))).not.toContain('synthetic scene');
       const attachment = result.data.frames[0].attachment;
       expect((await ctx.attachments.readImage(attachment)).data.byteLength).toBeGreaterThan(0);
-      expect(events.filter(event => event.type === 'assistant/message')).toHaveLength(1);
-      expect(events.some(event => event.type === 'tool/call')).toBe(false);
-      expect(requests).toHaveLength(1); expect(remote.requests).toHaveLength(1);
+      expect(events.filter(event => event.type === 'tool/call')).toHaveLength(1);
+      expect(requests).toHaveLength(2); expect(remote.requests).toHaveLength(1);
       expect(bodyStreamed).toBe(true);
+      expect(requests[0].tools.find(tool => tool.name === 'eleckoi_roleplay_reply').parameters.properties.frames.type).toBe('array');
       expect(previews.map(request => request.messages)).toEqual(requests.map(request => request.messages));
       expect(JSON.stringify(events.filter(event => event.type === 'system/message'))).toContain('当前角色对话已启用每轮自动配图');
       expect(JSON.stringify(events.filter(event => !['request/header', 'system/message'].includes(event.type)))).not.toContain('当前角色对话已启用每轮自动配图');
@@ -209,21 +224,22 @@ describe('NAI preset illustration', () => {
       expect((await ctx.systemPrompt.assemble({ agent: handle.agent, scope: handle.agent })).tools.some(tool => tool.name === 'generate_image')).toBe(false);
       handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '关闭配图后的合成场景' }], source: { kind: 'user' } }));
       await handle.agent.whenIdle();
-      expect(requests).toHaveLength(2);
-      expect((requests[1].tools || []).some(tool => tool.name === 'generate_image')).toBe(false);
-      expect(JSON.stringify(requests[1].messages)).not.toContain('当前角色对话已启用每轮自动配图');
+      expect(requests).toHaveLength(4);
+      expect((requests[2].tools || []).some(tool => tool.name === 'generate_image')).toBe(false);
+      expect(requests[2].tools.find(tool => tool.name === 'eleckoi_roleplay_reply').parameters.properties.frames).toBeUndefined();
+      expect(JSON.stringify(requests[2].messages)).not.toContain('当前角色对话已启用每轮自动配图');
       expect(remote.requests).toHaveLength(1);
       const peer = await ctx.agents.create({ sessionId: SessionId('synthetic-independent-studio'), agentOptions: { provider: 'synthetic', model: 'synthetic' } });
       peer.agent.followup(createUserMessage({ content: [{ type: 'text', text: '合成独立会话请求' }], source: { kind: 'user' } }));
       await peer.agent.whenIdle();
       expect(peer.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' });
-      expect(requests).toHaveLength(3);
+      expect(requests).toHaveLength(5);
       expect(remote.requests).toHaveLength(1);
       rmSync(join(snapshotRoot, `${sessionId}.json`));
       handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: '合成所属会话缺失快照' }], source: { kind: 'user' } }));
       await handle.agent.whenIdle();
       expect(handle.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toMatchObject({ kind: 'error', error: { message: expect.stringContaining('ENOENT') } });
-      expect(requests).toHaveLength(3);
+      expect(requests).toHaveLength(5);
     } finally { await ctx.fiber.dispose(); }
   }, 30000);
 

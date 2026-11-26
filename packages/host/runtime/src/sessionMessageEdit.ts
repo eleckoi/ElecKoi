@@ -2,11 +2,13 @@ import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { ELECKOI_FAILURE_CODES, productFailure } from '@eleckoi/dsh-product-api'
+import { ELECKOI_FAILURE_CODES, productFailure, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from '@eleckoi/dsh-product-api'
+import type { ConversationMessageEdit } from '@eleckoi/dsh-product-api/types'
 import { readDshSessionLog } from './trajectory'
 import { retainSessionModelPreferences } from './sessionModelPreferences'
 import { interruptedTurnClosers, Session, SessionId, SessionLogOffset, SessionSeq, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
 import { buildForkSeed } from '@deepseek-ai/dsh-session/fork'
+import { ROLEPLAY_REPLY_TOOL } from '@eleckoi/dsh-client-roleplay/host/roleplay-reply-tool.mjs'
 
 type MessageRole = 'user' | 'assistant'
 
@@ -16,10 +18,17 @@ export function deleteDshSessionMessagesFrom(
 ): void {
   if (!Number.isSafeInteger(eventSeq) || eventSeq < 0) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '消息删除参数不正确。', { field: '消息删除参数' })
   const log = readEditableDshSessionLog(sessionRoot, sessionId)
+  const type = role === 'user' ? 'user/message' : 'assistant/message'
   const index = log.events.findIndex(event => event.seq === eventSeq
-    && event.type === (role === 'user' ? 'user/message' : 'assistant/message') && event.surfaceOp === 'append')
+    && ((event.type === type && event.surfaceOp === 'append') || (role === 'assistant' && isToolBackedRoleplayReply(event))))
   if (index < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到要删除的消息；原聊天记录未修改。', { what: '要删除的消息' })
-  const events = log.events.slice(0, index)
+  const output = role === 'assistant' ? replyOutputMarker(log.events, eventSeq) : undefined
+  const toolBacked = output && !output.fallback
+  const firstBatch = toolBacked ? log.events.findIndex(event => event.type === 'assistant/message'
+    && event.data.turn === output.turn && event.data.message.content.some(block => block.type === 'tool-call' && block.name === ROLEPLAY_REPLY_TOOL)) : -1
+  if (toolBacked && (firstBatch < 0 || firstBatch >= index)) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch,
+    '角色正文缺少对应的回复工具记录，未修改对话。', { what: '角色正文的回复工具记录' })
+  const events = log.events.slice(0, toolBacked ? firstBatch : index)
   // This is an explicit user edit, not recovery from a crashed Host.
   events.push(...interruptedTurnClosers(events).map(event => event.type === 'turn/end'
     ? { ...event, data: { ...event.data, reason: { kind: 'aborted', reason: { kind: 'user' } } } } as SessionEvent
@@ -30,10 +39,43 @@ export function deleteDshSessionMessagesFrom(
 
 /** Edit the selected persisted message while preserving every other Session event. */
 export function editDshSessionMessage(
-  sessionRoot: string, sessionId: string, eventSeq: number, role: MessageRole, content: string
+  sessionRoot: string, sessionId: string, eventSeq: number, role: MessageRole, content: ConversationMessageEdit
 ): void {
-  if (!Number.isSafeInteger(eventSeq) || eventSeq < 0 || !content.trim()) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '消息编辑参数不正确。', { field: '消息编辑参数' })
+  if (!Number.isSafeInteger(eventSeq) || eventSeq < 0
+    || (typeof content === 'string' ? !content.trim() : !Array.isArray(content))) {
+    throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '消息编辑参数不正确。', { field: '消息编辑参数' })
+  }
   const log = readEditableDshSessionLog(sessionRoot, sessionId)
+  const reply = role === 'assistant' ? log.events.find(event => event.type === ROLEPLAY_OUTPUT_EVENT
+    && (event.data.toolBacked ? event.seq : event.data.replySeq) === eventSeq) : undefined
+  if (reply?.type === ROLEPLAY_OUTPUT_EVENT) {
+    const blocks = reply.data.toolBacked ? roleplayReplyMessages(log.events).find(item => item.event === reply)?.blocks : undefined
+    const data = { ...reply.data }
+    if (Array.isArray(content)) {
+      if (!blocks || blocks.length < 2 || content.length !== blocks.length || blocks.some((block, index) => {
+        const edit = content[index]
+        return edit?.id !== block.id || typeof edit.text !== 'string' || !edit.text.trim()
+      })) {
+        throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '请提交原有各段的正文。', { field: '回复段落' })
+      }
+      data.editedBlocks = content.map(({ id, text }) => ({ id, text }))
+      data.editedText = blocks.map((block, index) => {
+        const text = content[index]!.text
+        return block.speakerName ? `${block.speakerName}：${text}` : text
+      }).join('\n\n')
+    } else {
+      if (blocks && blocks.length > 1 && (data.editedText === undefined || data.editedBlocks)) {
+        throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '请按段编辑这条回复。', { field: '回复段落' })
+      }
+      data.editedText = content
+    }
+    // This is a user edit to the product reply. The model event, tool call
+    // arguments and tool result remain exactly as originally recorded.
+    const events = log.events.map(event => event === reply ? { ...reply, data } : event)
+    rewriteDshSessionEvents(sessionRoot, log, events)
+    return
+  }
+  if (typeof content !== 'string') throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '这条消息只接受一段正文。', { field: '消息正文' })
   const type = role === 'user' ? 'user/message' : 'assistant/message'
   const matches = log.events.filter((event) => event.seq === eventSeq && event.type === type
     && event.surfaceOp === 'append'
@@ -45,7 +87,7 @@ export function editDshSessionMessage(
   if (message.role !== role || !Array.isArray(message.content)) {
     throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '消息角色或内容与编辑目标不一致；原聊天记录未修改。', { what: '消息角色或内容' })
   }
-  if (role === 'assistant') {
+  if (role === 'assistant' && !replyOutputMarker(log.events, eventSeq)) {
     const raw = message.content.filter(isRecord).filter(block => block.type === 'text').map(block => String(block.text || '')).join('')
     const bodyStart = raw.indexOf('<FINAL>')
     const bodyEnd = raw.lastIndexOf('</FINAL>')
@@ -67,6 +109,13 @@ export function editDshSessionMessage(
   const events = log.events.map((event) => event === selected
     ? { ...event, data: editedData } as typeof event : event)
   rewriteDshSessionEvents(sessionRoot, log, events)
+}
+
+function replyOutputMarker(events: SessionEvent[], replySeq: number): { turn: number; fallback?: true } | undefined {
+  for (const event of events) {
+    if (event.type !== ROLEPLAY_OUTPUT_EVENT) continue
+    if ((event.data.toolBacked ? event.seq : event.data.replySeq) === replySeq) return event.data
+  }
 }
 
 export function readEditableDshSessionLog(sessionRoot: string, sessionId: string): NonNullable<ReturnType<typeof readDshSessionLog>> {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Menu, SegmentedTabs } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Copy, DotsThree, FileCode, Play, Trash } from '../../../ui/icons/interfaceIcons.jsx';
+import { Copy, GearSix, FileCode, Play, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { REGEX_TARGETS } from '../model/regexRulesEditing.js';
 import { EditorField as Field, EditorSwitch as Switch } from '../../../ui/ui/EditorLibraryFields.jsx';
 import { EditorSelect } from '../../../ui/ui/EditorSelect.jsx';
@@ -31,7 +31,7 @@ export function RegexDocument({ item, onChange, onDuplicate, onDelete, dirty, bu
   useEffect(() => { if (item.runOnEdit && input && view === 'test') { const timer = setTimeout(run, 220); return () => clearTimeout(timer); } }, [item.pattern, item.replacement, item.targets, item.enabled, item.displayOnly, item.promptOnly, item.runOnEdit, input, target, surface, variables, view]);
   return <>
     <header className="setting-entry-heading"><div className="setting-document-heading"><div className="setting-document-title"><FileCode size={21} /><input ref={nameInputRef} disabled={busy} aria-label={tUi("规则名称")} value={item.name} onChange={event => onChange({ name: event.target.value })} /></div>
-      <Menu portal dense open={more} onClose={() => setMore(false)} anchor={<Button disabled={busy} data-dsh-control variant="outline" className="setting-folder-more" aria-label={tUi("当前规则操作")} icon={<DotsThree size={18} />} aria-haspopup="menu" aria-expanded={more} onClick={() => setMore(!more)} />} items={[{ id: 'copy', label: tUi("复制规则"), icon: <Copy size={15} /> }, ...(scopes || []).filter(value => value.id !== scope).map(value => ({ id: value.id, label: tUi('移至{value0}', { value0: value.label }) })), { id: 'delete', label: tUi("删除规则"), icon: <Trash size={15} />, danger: true }]} onSelect={id => { setMore(false); id === 'copy' ? onDuplicate() : id === 'delete' ? onDelete() : onMoveScope(id); }} />
+      <Menu portal dense open={more} onClose={() => setMore(false)} anchor={<Button disabled={busy} data-dsh-control variant="outline" className="setting-folder-more" aria-label={tUi("当前规则操作")} icon={<GearSix size={18} />} aria-haspopup="menu" aria-expanded={more} onClick={() => setMore(!more)} />} items={[{ id: 'copy', label: tUi("复制规则"), icon: <Copy size={15} /> }, ...(scopes || []).filter(value => value.id !== scope).map(value => ({ id: value.id, label: tUi('移至{value0}', { value0: value.label }) })), { id: 'delete', label: tUi("删除规则"), icon: <Trash size={15} />, danger: true }]} onSelect={id => { setMore(false); id === 'copy' ? onDuplicate() : id === 'delete' ? onDelete() : onMoveScope(id); }} />
     </div><div className="setting-editor-tools"><SegmentedTabs size="sm" className="rs-view-tabs" label={tUi("正则编辑视图")} value={view} onChange={setView} items={[{ value: 'edit', label: tUi("编辑") }, { value: 'test', label: tUi("测试") }]} />
       {view === 'test' && <Button disabled={testing || busy} data-dsh-control variant="outline" className="rs-run" icon={<Play size={14} />} onClick={run}>{testing ? tUi('运行中…') : tUi("运行测试")}</Button>}
     </div></header>

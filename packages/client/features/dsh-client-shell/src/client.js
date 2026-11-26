@@ -484,6 +484,7 @@ window.__ModuleLoader__.load({
         setViewportWidth: layout.setViewportWidth,
         setWidth: layout.setRightbar,
         close: () => { if (sidebarRight.isExpanded()) sidebarRight.toggleExpanded() },
+        openWorkspaceResource: (sessionId, address) => sidebarRight.openResourceIn(sessionId, address),
         render: owner => renderSlot('rightbar', owner)
       }), [layout, renderSlot, sidebarRight])
 
@@ -814,6 +815,7 @@ window.__ModuleLoader__.load({
             'eleckoi.character.page.list': { kind: 'chain', scope: 'root' },
             'eleckoi.character.page.profile': { kind: 'chain', scope: 'root' },
             'eleckoi.character.editor.card': { kind: 'chain', scope: 'root' },
+            'eleckoi.character.editor.cast': { kind: 'chain', scope: 'root' },
             'eleckoi.character.editor.openings': { kind: 'chain', scope: 'root' },
             'eleckoi.character.editor.lore': { kind: 'chain', scope: 'root' },
             'eleckoi.character.editor.variables': { kind: 'chain', scope: 'root' },

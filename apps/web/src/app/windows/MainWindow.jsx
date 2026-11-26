@@ -220,7 +220,7 @@ export function MainWindow({ nativeFrame, conversations, characters, characterCo
         onClose={chat.closeHistory}
         onLoadChat={chat.loadChat}
         onDeleteChat={chat.removeHistoryChat}
-        onHistoryPolicyChange={() => chat.refreshSessionsOnly({ keepSection: true })}
+        onHistoryImported={() => chat.refreshSessionsOnly({ keepSection: true })}
       />
       <ChatBackgroundModal
         open={chatBackgroundOpen}

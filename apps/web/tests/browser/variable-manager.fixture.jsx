@@ -3,8 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { VariableViewerDialog } from '../../src/modules/chat/components/VariableViewerDialog.jsx';
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { installBrowserIconSprite } from '../helpers/browserIconSprite.js';
-import '../../src/modules/chat/styles/variable-viewer.css';
-import '../../src/mobile/mobile-conversation-overlays.css';
+import '../../src/app/windows/styles/index.css';
+import '../../src/mobile/mobile.css';
 installBrowserIconSprite();
 const previous = { 场景: { 时间: '19:15', 删除项: '旧值' }, 角色: { 同行者: { 好感度: 35 } } };
 const current = { 场景: { 时间: '19:30', 目标: '找到遗落在候车室的信件。', 数组: [{ 名称: '钥匙', 详情: { 可用: false, 备注: null } }] },
@@ -22,7 +22,9 @@ function Fixture() {
   const [key, setKey] = useState(0);
   window.variableCalls = [];
   window.remountVariables = ({ mobile = false, theme = 'light', missing = false } = {}) => {
-    document.documentElement.dataset.eleckoiMobile = String(mobile);document.body.toggleAttribute('data-ds-dark-theme', theme === 'dark');
+    document.documentElement.dataset.eleckoiMobile = String(mobile);
+    document.documentElement.dataset.theme = theme;
+    document.body.toggleAttribute('data-ds-dark-theme', theme === 'dark');
     snapshot = { ...snapshot, timeline: missing ? { ...timeline, current: doc({}), floors: [] } : timeline };
     configuration = { ...configuration, versionId: '' }; window.rejectVariableSelection = false;setKey(++sequence);
   };

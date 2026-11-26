@@ -1,9 +1,10 @@
 import { useProductTranslation } from "../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useRef, useState } from 'react';
-import { Button, Input, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Copy, ListChecks, MagnifyingGlass, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
+import { Button, Menu, Modal } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Copy, ListChecks, Plus, SlidersHorizontal, Trash } from '../icons/interfaceIcons.jsx';
 import { useEditorPresentation } from './EditorPresentationContext.jsx';
 import { EditorDirectoryActions, EditorDirectoryHeading } from './EditorDirectoryHeading.jsx';
+import { EditorSearchInput } from './EditorDirectorySearch.jsx';
 import './editor-collection-controls.css';
 import './editor-collection-material.css';
 
@@ -18,6 +19,7 @@ export function EditorCollectionToolbar({ query, onQueryChange, placeholder, cre
   const [createOpen, setCreateOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const { compact, sectionTitleInHeader } = useEditorPresentation();
+  const search = <EditorSearchInput className="editor-collection-search" label={placeholder} query={query} onQueryChange={onQueryChange} />;
   if (compact) {
     const moreItems = [
       ...(selection ? [{ id: 'selection', label: tUi(selection.active ? '完成' : '多选'), icon: <ListChecks size={16} />, disabled, run: selection.toggle }] : []),
@@ -30,9 +32,6 @@ export function EditorCollectionToolbar({ query, onQueryChange, placeholder, cre
         items={moreItems} onClose={() => setMoreOpen(false)} onSelect={id => { setMoreOpen(false); moreItems.find(item => item.id === id)?.run?.(); }} />}
       {children}
     </EditorDirectoryActions>;
-    const search = <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
-      value={query} onChange={event => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />;
-
     return <div className={`editor-collection-toolbar is-mobile-collection editor-heading-surface ${className}`} onMouseDown={event => event.stopPropagation()}>
       {sectionTitleInHeader && !leading && actions ? (
         <div className="editor-collection-search-row">{search}{actions}</div>
@@ -45,8 +44,7 @@ export function EditorCollectionToolbar({ query, onQueryChange, placeholder, cre
   }
   const items = createItems.map((item, index) => ({ ...item, id: item.id ?? String(index), icon: item.Icon ? <item.Icon size={16} /> : undefined }));
   return <header className={`editor-collection-toolbar ${className}`} onMouseDown={event => event.stopPropagation()}>
-    <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
-      value={query} onChange={event => onQueryChange(event.target.value)} placeholder={placeholder} aria-label={placeholder} />
+    {search}
     <div className="editor-collection-actions">
       {!compact && items.length > 0 && <Menu open={createOpen} portal dense anchor={<Button data-dsh-control className="editor-collection-action" variant="primary" icon={<Plus size={16} />} disabled={disabled || selection?.active}
         aria-label={tUi("新建")} aria-haspopup="menu" aria-expanded={createOpen} onClick={() => setCreateOpen(value => !value)}>{tUi("新建")}</Button>}

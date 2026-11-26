@@ -1,7 +1,46 @@
-.character-editor-workspace.is-setting-library:has(.setting-workspace) { padding: 0 8px 8px 0; overflow: hidden; background: var(--list); border-radius: 0; }
 .qq-character-editor-window-shell:has(.setting-workspace) { --blue: var(--dsw-static-deepseek-500, #3d75e8); --blue-hover: var(--dsw-static-deepseek-600, #3266d5); }
 .setting-workspace { display: grid; grid-template-columns: var(--setting-directory-width, 480px) 8px minmax(0,1fr); height: 100%; min-height: 0; min-width: 0; color: var(--text); font-size: 14px; line-height: 1.5; }
 .setting-workspace.is-resizing, .setting-workspace.is-resizing * { cursor: col-resize !important; user-select: none !important; }
+.setting-workspace.is-character-studio {
+  --character-studio-divider: 1px solid var(--line);
+  grid-template-columns: var(--setting-directory-width) 1px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--chat);
+}
+.character-studio-toolbar {
+  position: relative;
+  grid-column: 1 / -1;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 8px 14px;
+  min-height: 60px;
+  padding: 12px 28px;
+  margin: 0;
+  border-block-end: var(--character-studio-divider);
+}
+.character-studio-toolbar .editor-page-title :is(h1,h2) { margin: 0; font-size: 18px; line-height: 26px; font-weight: 500; }
+.character-studio-toolbar .setting-toolbar-group { align-items: center; gap: 8px; border: 0; }
+.character-studio-toolbar .setting-toolbar-group .setting-toolbar-button {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding-inline: 12px;
+  min-height: 34px;
+}
+.character-studio-toolbar .setting-toolbar-group .setting-toolbar-icon { width: 34px; min-width: 34px; padding: 0; }
+.character-studio-toolbar .setting-toolbar-group .setting-document-save { color: var(--chat); background: var(--text); border-color: transparent; }
+.character-studio-toolbar .setting-toolbar-group .setting-document-save:disabled { opacity: .4; }
+.is-character-studio > :is(.setting-directory,.setting-document) { border-radius: 0; }
+.is-character-studio > .setting-directory { --pane-inset: 14px; padding: 16px var(--pane-inset) 0; }
+.is-character-studio .setting-directory-search { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.is-character-studio .setting-directory-search .setting-search-input { flex: 1; width: auto; }
+.editor-directory-select { flex: none; width: 34px; min-width: 34px; min-height: 32px; padding-inline: 0; }
+.editor-directory-select[aria-pressed="true"] { background: var(--list); }
+.is-character-studio .setting-pane-resizer { border-inline-start: var(--character-studio-divider); }
+.is-character-studio .setting-pane-resizer::before { content: ''; position: absolute; inset: 0 -4px; z-index: 1; }
+.is-character-studio .setting-pane-resizer::after { inset: 0; width: 1px; }
+@media (min-resolution: 1.25dppx) {
+  .setting-workspace.is-character-studio { --character-studio-divider: .5px solid var(--line); }
+}
 .setting-directory { --pane-inset: var(--editor-heading-inset-inline,16px); container-type: inline-size; position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: var(--editor-heading-inset-top,16px) var(--pane-inset) 0; background: var(--chat); border-radius: 16px; overflow: hidden; }
 .setting-directory-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 8px; min-height: 34px; margin-bottom: 12px; }
 .setting-view-switch { width: 132px; flex-shrink: 0; }
@@ -9,7 +48,6 @@
 .setting-directory .editor-directory-topline { align-items: center; }
 .setting-directory-search { margin-bottom: 18px; }
 .setting-search-input { width: 100%; min-width: 0; height: 32px; font-size: 13px; }
-.setting-search-input input::placeholder { color: var(--dsw-alias-label-secondary, var(--muted)); opacity: 1; }
 .setting-pane-resizer { position: relative; cursor: col-resize; touch-action: none; outline: none; }
 .setting-pane-resizer::after { content: ''; position: absolute; top: 12px; bottom: 12px; width: 2px; left: 3px; border-radius: 2px; background: transparent; transition: background-color 120ms; }
 .setting-pane-resizer:is(:hover,:focus-visible,.is-dragging)::after { background: var(--blue); }
@@ -22,6 +60,25 @@
 .setting-directory .setting-library-tree-row-content { width: 100%; }
 .setting-version { display: flex; align-items: center; flex-shrink: 0; width: 100%; margin-top: 12px; min-height: 58px; padding: 12px 0; }
 .setting-version > * { width: 100%; }
+.setting-directory-actions:has(.setting-toolbar-version-manage) { align-items: center; }
+
+@container (max-width: 380px) {
+  .setting-directory-actions:has(.setting-toolbar-version-manage) .setting-toolbar-button {
+    width: 32px;
+    min-width: 32px;
+    padding-inline: 0;
+  }
+  .setting-directory-actions:has(.setting-toolbar-version-manage) .setting-toolbar-button > span { display: none; }
+  .editor-directory-scopebar:has(.setting-toolbar-version-manage) .editor-scope-tabs { width: 76px; }
+}
+
+@container (max-width: 244px) {
+  .editor-directory-scopebar:has(.setting-toolbar-version-manage) .setting-directory-actions .setting-toolbar-button {
+    width: 30px;
+    min-width: 30px;
+  }
+  .editor-directory-scopebar:has(.setting-toolbar-version-manage) { flex-wrap: wrap; }
+}
 .setting-version-button { width: 100%; min-width: 0; height: 34px; min-height: 34px; justify-content: flex-start; gap: 10px; padding-inline: 10px; }
 .setting-version-label { flex-shrink: 0; color: var(--muted); font-size: 12px; }
 .setting-version-value { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; font-size: 12px; }
@@ -159,6 +216,19 @@
 @media (prefers-reduced-motion: reduce) { .setting-pane-resizer::after { transition: none; } }
 .setting-workspace .setting-library-browser { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .setting-workspace .setting-library-tree { flex: 1; min-height: 0; overflow: auto; padding: 0; margin: 0; }
+.is-character-studio .setting-directory .sidebar-scroll-area {
+  --directory-scroll-gap: 4px;
+  flex: 1;
+  height: auto;
+  margin-inline-end: calc(var(--directory-scroll-gap) - var(--pane-inset));
+}
+.is-character-studio .setting-directory .sidebar-scroll-viewport {
+  box-sizing: border-box;
+  margin: 0;
+  padding-inline-end: calc(var(--pane-inset) - var(--directory-scroll-gap));
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
 .setting-workspace .role-setting-library-container, .setting-workspace .global-setting-libraries { width: 100%; }
 .setting-workspace .setting-library-tree-row-content { width: 100%; }
 .setting-workspace .global-setting-library { border: 0; border-radius: 0; background: transparent; margin-bottom: 20px; box-shadow: none; }

@@ -592,6 +592,106 @@ describe('DSH ElecKoi conversation client model', () => {
     } finally { mounted.dispose() }
   })
 
+  it('shows the selected speaker before native text and keeps multiple speakers in one reply', async () => {
+    const animationFrames = new Map<number, () => void>()
+    let nextFrame = 0
+    vi.stubGlobal('requestAnimationFrame', (callback: () => void) => { animationFrames.set(++nextFrame, callback); return nextFrame })
+    vi.stubGlobal('cancelAnimationFrame', (id: number) => animationFrames.delete(id))
+    const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
+    const paint = () => {
+      for (let frame = 0; frame < 3; frame++) {
+        const callbacks = [...animationFrames.values()]
+        animationFrames.clear()
+        callbacks.forEach(callback => callback())
+      }
+    }
+    const catalog = mounted.catalog as any, fixture = officialChatFixture()
+    let running = true
+    const eventEntries: any[] = []
+    let window = { revision: 0, entries: eventEntries, change: { kind: 'append', entries: [] as any[] } }
+    const listeners = new Set<() => void>()
+    const state = { getSnapshot: () => ({ running }), subscribe: () => () => {} }
+    const binding = { session: state, eventSource: { getSnapshot: () => window, subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    } } }
+    const officialBinding = fixture.bind(binding.eventSource)
+    const append = (type: string, seq: number, data: any, surfaceOp?: string) => {
+      const event = { type, seq, time: seq * 10, data, ...(surfaceOp ? { surfaceOp } : {}) }
+      const record = { type: type === 'assistant/live-chunk' ? 'transient' : 'event', event }
+      eventEntries.push(record)
+      window = { revision: window.revision + 1, entries: eventEntries, change: { kind: 'append', entries: [record] } }
+      for (const listener of listeners) listener()
+    }
+    const select = (seq: number, step: number, callId: string, speakerName: string) => {
+      append('tool/call', seq, { turn: 1, step, callId, name: 'eleckoi_roleplay_reply', arguments: JSON.stringify({ name: speakerName }) })
+      append('tool/result', seq + 1, { turn: 1, step, meta: { source: 'eleckoi-roleplay-reply', speaker: { kind: 'speech', speakerName } },
+        message: { id: 'result-' + callId, role: 'tool', toolCallId: callId, source: { kind: 'tool', callId }, content: [{ type: 'text', text: '已选定角色' }] } }, 'append')
+      append('step/end', seq + 2, { turn: 1, step })
+    }
+    const stream = (seq: number, step: number, text: string) => append('assistant/live-chunk', seq, { turn: 1, step, attemptId: 'attempt-' + step,
+      chunk: { type: 'text-delta', index: 0, text } })
+    const message = (seq: number, step: number, text: string, callId?: string, speakerName?: string) => append('assistant/message', seq, {
+      turn: 1, step, stream: [], message: { id: 'assistant-' + step, role: 'assistant',
+        source: { kind: 'model', provider: 'synthetic', model: 'synthetic' }, content: [
+          ...(text ? [{ type: 'text', text }] : []),
+          ...(callId ? [{ type: 'tool-call', id: callId, name: 'eleckoi_roleplay_reply', arguments: JSON.stringify({ name: speakerName }) }] : [])] }
+    }, 'append')
+    const liveSpeaker = (seq: number, step: number, callId: string, speakerName: string) => append('assistant/live-chunk', seq, {
+      turn: 1, step, attemptId: 'attempt-' + step, chunk: { type: 'tool-call-delta', index: 1, id: callId,
+        name: 'eleckoi_roleplay_reply', argumentsDelta: JSON.stringify({ name: speakerName }) }
+    })
+    const latest = () => catalog.getDetailsSnapshot().details.messages.at(-1)
+    try {
+      await settle()
+      catalog.detailsSnapshot = { id: 'synthetic-chat', status: 'ready', runtimeSessionId: 'synthetic-session', error: '',
+        details: { conversation: { id: 'synthetic-chat' }, metadata: {}, messages: [], hasMore: false } }
+      catalog.sessionReference = { sessionId: 'synthetic-session', release: vi.fn(), binding, ready: Promise.resolve(binding) }
+      catalog.uiConversation = { binding: () => officialBinding }
+      await catalog.bindOfficialSession('synthetic-chat', 'synthetic-session')
+      append('turn/start', 1, { turn: 1 })
+      append('user/message', 2, { id: 'user', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '你好' }] }, 'append')
+      append('eleckoi/roleplay-output', 3, { turn: 1, nativeText: true })
+      append('step/start', 4, { turn: 1, step: 1 })
+      liveSpeaker(4.1, 1, 'first', '合成发言甲')
+      const first = { id: 'first:0', kind: 'speech', speakerName: '合成发言甲' }
+      paint()
+      expect(latest().roleplayBlocks).toEqual([{ ...first, text: '' }])
+      message(5, 1, '', 'first', '合成发言甲')
+      select(6, 1, 'first', '合成发言甲')
+      append('step/start', 9, { turn: 1, step: 2 })
+      stream(9.1, 2, '<合成')
+      paint()
+      expect(latest().displayContent).toBe('')
+      stream(9.2, 2, '发言甲>他说 "')
+      paint()
+      expect(latest().roleplayBlocks).toEqual([{ ...first, text: '他说 "' }])
+      stream(9.3, 2, '继续"。</合成')
+      paint()
+      expect(latest().roleplayBlocks).toEqual([{ ...first, text: '他说 "继续"。' }])
+      stream(9.4, 2, '发言甲>')
+      liveSpeaker(9.5, 2, 'second', '合成发言乙')
+      const second = { id: 'second:0', kind: 'speech', speakerName: '合成发言乙' }
+      paint()
+      expect(latest().roleplayBlocks).toEqual([{ ...first, text: '他说 "继续"。' }, { ...second, text: '' }])
+      message(10, 2, '<合成发言甲>他说 "继续"。</合成发言甲>', 'second', '合成发言乙')
+      select(11, 2, 'second', '合成发言乙')
+      append('step/start', 14, { turn: 1, step: 3 })
+      stream(14.1, 3, '<合成发言乙>第二段。')
+      paint()
+      expect(latest().roleplayBlocks).toEqual([{ ...first, text: '他说 "继续"。' }, { ...second, text: '第二段。' }])
+      message(15, 3, '<合成发言乙>第二段。</合成发言乙>')
+      append('step/end', 16, { turn: 1, step: 3 })
+      append('eleckoi/roleplay-output', 17, { turn: 1, replySeq: 15, toolBacked: true, nativeText: true })
+      running = false
+      append('turn/end', 18, { turn: 1, reason: { kind: 'completed' } })
+      expect(catalog.getDetailsSnapshot().details.messages).toHaveLength(2)
+      expect(latest()).toMatchObject({ renderKey: 'dsh-reply-synthetic-session-1', status: 'complete', sessionEventSeq: 17,
+        roleplayBlocks: [{ ...first, text: '他说 "继续"。' }, { ...second, text: '第二段。' }] })
+      expect(catalog.getStreamSnapshot().status).toBe('idle')
+    } finally { mounted.dispose(); officialBinding.dispose(); vi.unstubAllGlobals() }
+  })
+
   it('keeps official child-triggered parent turns separate from human input and regeneration', async () => {
     const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
     const catalog = mounted.catalog as any

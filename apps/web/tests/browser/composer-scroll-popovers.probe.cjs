@@ -9,7 +9,7 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.whenReady().then(async () => {
   const win = new BrowserWindow({ show: false, webPreferences: { sandbox: true, backgroundThrottling: false } });
-  const errors = [], scenarios = [], streaming = [];
+  const errors = [], scenarios = [], streaming = [], roleplayStatus = [];
   win.webContents.on('console-message', (...args) => {
     const event = args[0];
     if (event.level === 'error') errors.push(event.message);
@@ -29,6 +29,39 @@ app.whenReady().then(async () => {
     ['context', "document.querySelector('[data-composer-stats] > span:last-child button')", 'dialog', 8],
   ];
   try {
+    const statusGeometry = () => evaluate(`(() => {
+      const scroll = document.querySelector('[data-conversation-scroll]');
+      const seat = document.querySelector('[data-composer-seat]');
+      const reply = document.querySelector('article.roleplay-reply-turn');
+      const background = element => getComputedStyle(element, '::before').content !== 'none';
+      const parts = [...reply.querySelectorAll('.message-roleplay')];
+      const [first, second] = parts.map(part => part.getBoundingClientRect());
+      return { replyBottom: reply.getBoundingClientRect().bottom, scrollTop: scroll.scrollTop,
+        composerHeight: seat.offsetHeight, clearance: document.querySelector('[data-composer-clearance]').offsetHeight,
+        inputTop: seat.querySelector('[data-composer-card]').getBoundingClientRect().top,
+        turnBubble: background(reply), speakerBubbles: parts.filter(background).length,
+        speakers: parts.map(part => part.querySelector('.message-author')?.textContent),
+        gap: second.top - first.bottom,
+        floors: parts.map(part => part.querySelector('.message-floor')?.textContent),
+        timestampCount: reply.querySelectorAll('.message-timestamp').length,
+        scrollBottom: scroll.scrollHeight - scroll.clientHeight };
+    })()`);
+    for (const [width, bubbles] of [[1200, true], [390, false]]) {
+      win.setContentSize(width, 800);
+      const url = pathToFileURL(html); url.search = `mobile=${width < 768}`;
+      await win.loadURL(url.href);
+      await wait('!!window.scrollPopoverFixture');
+      await evaluate(`window.scrollPopoverFixture.setCount(24);window.scrollPopoverFixture.roleplayRunning(true,${bubbles})`);
+      await wait('!!document.querySelector(".roleplay-composer-process") && !!document.querySelector("article.roleplay-reply-turn .roleplay-reply-followups")');
+      await evaluate(`(() => { const scroll = document.querySelector('[data-conversation-scroll]');
+        scroll.scrollTop = scroll.scrollHeight; scroll.dispatchEvent(new Event('scroll')); scroll.dispatchEvent(new Event('scrollend')); })()`);
+      await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+      const before = await statusGeometry();
+      await evaluate(`window.scrollPopoverFixture.roleplayRunning(false,${bubbles})`);
+      await wait('!document.querySelector(".roleplay-composer-process")');
+      await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+      roleplayStatus.push({ width, bubbles, before, after: await statusGeometry() });
+    }
     for (const width of [320, 390, 1200]) for (const theme of ['light', 'dark']) {
       win.setContentSize(width, 800);
       const url = pathToFileURL(html); url.search = `mobile=${width < 768}`;
@@ -97,7 +130,7 @@ app.whenReady().then(async () => {
     const historyOpened = await evaluate('window.scrollPopoverFixture.historyOpened === true');
     await evaluate('window.scrollPopoverFixture.selectView("chat")'); await wait('!!document.querySelector(".view-chat")');
     const trajectoryKeepsDraft = await evaluate('document.querySelector("textarea") === window.retainedDraftElement && window.retainedDraftElement.value === "Synthetic edited draft"');
-    writeFileSync(report, JSON.stringify({ chromium: process.versions.chrome, scenarios, streaming, errors, moreGap, historyOpened, trajectoryKeepsDraft }, null, 2));
+    writeFileSync(report, JSON.stringify({ chromium: process.versions.chrome, scenarios, streaming, roleplayStatus, errors, moreGap, historyOpened, trajectoryKeepsDraft }, null, 2));
     win.destroy(); app.exit(0);
   } catch (error) { console.error(error); win.destroy(); app.exit(1); }
 });

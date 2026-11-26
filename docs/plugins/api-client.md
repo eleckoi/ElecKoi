@@ -577,7 +577,7 @@ selectOpening(conversationId: string, openingId: string): Promise<ConversationCl
 /**
  * 修改聊天开场白并刷新消息。
  * @param conversationId - ElecKoi 聊天编号。
- * @param content - 要保存的消息文本。
+ * @param content - 完整正文，或按原顺序提交的多人回复各段正文。
  * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
  */
 updateOpening(conversationId: string, content: string): Promise<ConversationClientDetails | null>
@@ -628,7 +628,7 @@ replaceAuthorVariableState(conversationId: string, state: Record<string, Variabl
  * @param content - 要保存的消息文本。
  * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
  */
-editMessage(conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: string): Promise<ConversationClientDetails | null>
+editMessage(conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: ConversationMessageEdit): Promise<ConversationClientDetails | null>
 
 /**
  * 从指定消息起回退聊天并刷新显示。

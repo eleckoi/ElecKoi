@@ -1,5 +1,8 @@
-import { characterOpeningsSchema } from '@shared/contracts/characterOpenings/schemas'
+import { characterOpeningMessageSchema, characterOpeningsSchema } from '@shared/contracts/characterOpenings/schemas'
+import { characterCastMemberSchema, type CharacterCastMember } from '@shared/contracts/characters/cast'
+import { characterAssetId } from '@shared/contracts/characterAssets'
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { z } from 'zod'
 import { parse } from '@babel/parser'
 import type { Context } from '@deepseek-ai/cordis'
@@ -20,6 +23,27 @@ export { creatorToolsets, creatorAuthoringInstructions } from './guides'
 const id = z.string().min(1)
 const empty = z.object({}).strict()
 const entity = z.object({ id }).strict()
+const castMemberId = id.describe('从 character.read 返回的本卡 cast 读取准确编号，改名时沿用原编号。')
+const castMemberFields = characterCastMemberSchema.omit({ id: true }).extend({
+  name: characterCastMemberSchema.shape.name.describe('登场角色名。单人和多人都使用这份名单。需要分别发言的角色使用不同名字。'),
+  portraitAssetId: characterCastMemberSchema.shape.portraitAssetId.describe('本卡资产库内的立绘图片编号，来自 assets.list 或导入结果；null 清除立绘。更换立绘时重置未提交的头像与取景。'),
+  circleAssetId: characterCastMemberSchema.shape.circleAssetId.describe('本卡资产库内的圆形头像图片编号，null 清除。'),
+  squareAssetId: characterCastMemberSchema.shape.squareAssetId.describe('本卡资产库内的方形头像图片编号，null 清除。'),
+  crop: characterCastMemberSchema.shape.crop.describe('圆形头像使用立绘的取景，null 恢复默认。填写时清除未指定的独立圆形头像；只修改名字时省略图片及取景字段。'),
+})
+const openingMessageFields = characterOpeningMessageSchema.omit({ content: true, segments: true })
+const creatorOpeningMessage = z.union([
+  openingMessageFields.extend({ content: characterOpeningMessageSchema.shape.content.describe('整段使用卡片封面时，直接提交完整正文；可为空。') }),
+  openingMessageFields.extend({
+    segments: characterOpeningMessageSchema.shape.segments.unwrap().describe('按顺序写正文段落。每段有 id、kind、text。cover 使用卡片封面；speech 额外填写 character.read 的 cast 中的准确 speakerId。台词、动作、环境描写均写入 text。已有段落保留 id，新段落使用本开场白内未使用的 id。'),
+    content: characterOpeningMessageSchema.shape.content.optional().describe('有 segments 时可省略，本字段由段落正文生成。修改已有分段开场白时修改 segments 中的 text。'),
+  }),
+])
+const creatorOpenings = z.strictObject({
+  enabled: characterOpeningsSchema.shape.enabled.describe('开场白配置的保留字段，沿用读取值。主开场白正文为空时，新对话不显示开场白。'),
+  openingMessages: z.array(creatorOpeningMessage).min(1).describe('全部主开场白和备用开场白，保留未修改项的标题、顺序、分段和变量版本绑定。已有开场白沿用 id，新建时使用本卡内未使用的 id。'),
+  defaultOpeningMessageId: characterOpeningsSchema.shape.defaultOpeningMessageId.describe('主开场白的 id，必须在 openingMessages 中。将某条设为主项时，也把它移到列表首位；删除主项时填写新的主项 id。'),
+})
 const configurationTarget = z.discriminatedUnion('scope', [
   z.object({ scope: z.literal('character') }).strict(),
   z.object({ scope: z.literal('global') }).strict(),
@@ -170,16 +194,80 @@ export function creatorCapabilities(data: Context['eleckoiProductData']): Creato
     const characterId = `character-${randomUUID()}`
     return find(data.createCharacter({ id: characterId, name: input.name, group: input.group ?? '' }).items, characterId)
   }, 'new-character')
-  operation('character', 'read', '读取角色资料', 'read', empty, characterId => find(data.readCharacters().items, characterId))
-  operation('character', 'update', '修改角色名称、所属分组和基础资料', 'write', changes(z.object({ name: z.string().min(1), group: z.string().describe('角色所属分组名称；空字符串表示移到未分组。仅在用户要求调整角色分组时提交，普通资料修改省略此字段以保留原归属。'), assistantName: z.string().min(1), profileAge: z.string(), profileSex: z.string(), profileHeight: z.string(), profileBirthday: z.string(), profileLike: z.string() })), (characterId, { assistantName, ...patch }) => {
-    const current = find(data.readCharacters().items, characterId)
+  const readCharacter = (characterId: string) => find(data.readCharacters().items, characterId)
+  const saveCast = (characterId: string, cast: CharacterCastMember[]) => find(data.updateCharacter({ id: characterId, cast }).items, characterId).cast ?? []
+  const readCardImage = (characterId: string, assetId: string | null, field: string) => {
+    if (assetId === null) return ''
+    const { asset, path } = data.characterAssets().readAsset(characterId, assetId)
+    if (asset.type !== 'image') throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid, '请选择本卡资产库里的图片。', { field })
+    return `data:${asset.mimeType};base64,${readFileSync(path).toString('base64')}`
+  }
+  operation('character', 'read', '读取卡片资料和登场角色名单', 'read', empty, readCharacter)
+  operation('character', 'update', '修改角色卡名称、所属分组和基础资料', 'write', changes(z.object({
+    name: z.string().min(1).describe('卡片名称，用于角色列表和封面正文；登场角色改名使用 character.update_cast_member。'),
+    group: z.string().describe('角色所属分组名称；空字符串表示移到未分组。仅在用户要求调整角色分组时提交，普通资料修改省略此字段以保留原归属。'),
+    authorName: z.string().describe('卡片作者名字；空字符串清除。'),
+    authorAvatarAssetId: characterAssetId.nullable().describe('作者头像。填写本卡资产库中现成的 PNG、JPEG、WebP 或 GIF 图片编号，或传 null 清除。'),
+    coverAssetId: characterAssetId.nullable().describe('卡片封面立绘。填写本卡资产库中现成的 PNG、JPEG、WebP 或 GIF 图片编号，或传 null 清除。登场角色的立绘在登场名单中修改。'),
+    assistantName: z.string().min(1).describe('卡片默认对话名称。单独修改登场角色时使用 character.update_cast_member。'),
+    profileAge: z.string(), profileSex: z.string(), profileHeight: z.string(), profileBirthday: z.string(),
+    profileLike: z.string().describe('角色卡基本信息页的简介。'),
+  })), (characterId, { assistantName, authorAvatarAssetId, coverAssetId, ...patch }) => {
+    const { cast: _cast, ...current } = readCharacter(characterId)
     if (!current.persona) throw new DesktopError(ELECKOI_FAILURE_CODES.dataShapeInvalid, '角色资料缺少正式身份配置。', { what: '角色资料的身份配置' })
-    data.updateCharacter({ ...current, ...defined(patch), persona: { ...current.persona, ...(assistantName === undefined ? {} : { assistant_name: assistantName }) } })
-    return find(data.readCharacters().items, characterId)
+    if (assistantName !== undefined) current.persona.assistant_name = assistantName
+    if (coverAssetId !== undefined) current.persona.assistant_cover = readCardImage(characterId, coverAssetId, 'coverAssetId')
+    if (authorAvatarAssetId !== undefined) current.authorAvatar = readCardImage(characterId, authorAvatarAssetId, 'authorAvatarAssetId')
+    return find(data.updateCharacter({ ...current, ...defined(patch) }).items, characterId)
   })
-  operation('character', 'read_openings', '读取角色的全部开场白及默认选择', 'read', empty, characterId => data.readCharacterOpenings(characterId))
-  operation('character', 'save_openings', '保存角色独立开场白、备用开场白和变量关联', 'write',
-    z.object(characterOpeningsSchema.shape).omit({ characterId: true }).strict(), (characterId, input) => data.saveCharacterOpenings(characterId, { ...input, characterId }))
+  operation('character', 'create_cast_member', '在当前角色卡新增登场角色，返回固定编号', 'write', z.strictObject({
+    name: castMemberFields.shape.name, portraitAssetId: castMemberFields.shape.portraitAssetId.optional(),
+  }), (characterId, input) => {
+    const member = { id: randomUUID(), name: input.name, portraitAssetId: input.portraitAssetId ?? null, circleAssetId: null, squareAssetId: null, crop: null }
+    return find(saveCast(characterId, [...(readCharacter(characterId).cast ?? []), member]), member.id)
+  })
+  operation('character', 'update_cast_member', '修改本卡指定登场角色的名字、图片或取景', 'write', z.strictObject({
+    id: castMemberId, changes: changes(castMemberFields),
+  }), (characterId, input) => {
+    const cast = readCharacter(characterId).cast ?? []
+    const member = find(cast, input.id)
+    const portraitChanged = input.changes.portraitAssetId !== undefined && input.changes.portraitAssetId !== member.portraitAssetId
+    const updated = { ...member,
+      ...(portraitChanged ? { squareAssetId: null, crop: null } : {}),
+      ...(portraitChanged || input.changes.crop !== undefined ? { circleAssetId: null } : {}),
+      ...defined(input.changes),
+    }
+    return find(saveCast(characterId, cast.map(item => item.id === member.id ? updated : item)), member.id)
+  })
+  operation('character', 'remove_cast_member', '从登场名单移除指定角色，保留资产和开场白正文', 'write', z.strictObject({ id: castMemberId }), (characterId, input) => {
+    const cast = readCharacter(characterId).cast ?? []
+    const member = find(cast, input.id)
+    if (cast.length === 1) throw new DesktopError(ELECKOI_FAILURE_CODES.statePrecondition, '登场名单至少保留一位角色。', { what: '登场角色名单' })
+    saveCast(characterId, cast.filter(item => item.id !== member.id))
+    return { removedId: member.id, name: member.name }
+  })
+  operation('character', 'read_openings', '读取全部开场白、正文段落、主开场白和变量绑定', 'read', empty, characterId => data.readCharacterOpenings(characterId))
+  operation('character', 'save_openings', '保存角色卡的主开场白、备用开场白和分段发言', 'write', creatorOpenings, (characterId, input) => {
+    let castIds: Set<string> | undefined
+    let savedSpeakerReferences: Set<string> | undefined
+    const openingMessages = input.openingMessages.map(message => {
+      if (!('segments' in message)) return message
+      for (const segment of message.segments) {
+        if (segment.kind !== 'speech') continue
+        castIds ??= new Set(readCharacter(characterId).cast?.map(member => member.id))
+        if (castIds.has(segment.speakerId)) continue
+        // Copying an opening in the editor also copies its existing segment IDs.
+        savedSpeakerReferences ??= new Set(data.readCharacterOpenings(characterId).openingMessages.flatMap(opening =>
+          opening.segments?.flatMap(item => item.kind === 'speech' ? [JSON.stringify([item.id, item.speakerId])] : []) ?? []))
+        if (savedSpeakerReferences.has(JSON.stringify([segment.id, segment.speakerId]))) continue
+        throw new DesktopError(ELECKOI_FAILURE_CODES.inputInvalid,
+          `开场白「${message.title || message.id}」的段落「${segment.id}」引用了不在本卡登场名单中的角色编号「${segment.speakerId}」。请先用 character.read 核对 cast，或把该段改为 cover。`,
+          { field: 'openingMessages.segments.speakerId' })
+      }
+      return { ...message, content: message.content ?? '' }
+    })
+    return data.saveCharacterOpenings(characterId, { ...input, characterId, openingMessages })
+  })
   operation('settings', 'list', '列出当前角色或全局设定库的条目和文件夹', 'read', z.object({ target: settingListTarget.optional() }).strict(), (characterId, input) => {
     if (input.target?.scope === 'global') {
       const collection = data.readGlobalSettingLibraries()

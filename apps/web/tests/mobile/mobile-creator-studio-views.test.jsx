@@ -10,7 +10,7 @@ import { renderNativeConversationContent } from '../helpers/NativeConversationPr
 vi.stubGlobal('React', React); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 let root, node, header;
 afterEach(async () => { if (root) await act(() => root.unmount()); node?.remove(); header?.remove(); });
-async function mount(initialView = 'chat', Component = MobileCreatorStudioConversation, blank = false) {
+async function mount(initialView = 'chat', Component = MobileCreatorStudioConversation, blank = false, withMenu = false) {
   let store = { view: initialView, viewRequest: null };
   const listeners = new Set(), snapshot = () => store, subscribe = listener => { listeners.add(listener); return () => listeners.delete(listener); };
   const openView = vi.fn((view, focus) => { store = { view, viewRequest: { view, focus } }; listeners.forEach(listener => listener()); });
@@ -23,14 +23,14 @@ async function mount(initialView = 'chat', Component = MobileCreatorStudioConver
   let session = { running: false, blank }, editing = false;
   const sessionSnapshot = () => session;
   const presetsSnapshot = { catalog: { activePresetIds: { creator: 'synthetic-creator-a' }, presets: [
-    { id: 'synthetic-creator-a', name: '合成创作甲', purpose: 'creator' }, { id: 'synthetic-creator-b', name: '合成创作乙', purpose: 'creator' },
+    { id: 'synthetic-creator-a', name: '合成创作甲', purpose: 'creator', profile: {} }, { id: 'synthetic-creator-b', name: '合成创作乙', purpose: 'creator' },
     { id: 'synthetic-roleplay', name: '合成扮演', purpose: 'roleplay' },
   ] } };
   const presets = { subscribe: () => () => {}, getSnapshot: () => presetsSnapshot, setActive: vi.fn(async () => {}) };
   const models = { subscribe: () => () => {}, getSnapshot: () => modelsSnapshot }, modelsSnapshot = { configs: [] };
   const renderSlot = vi.fn((name, owner, options) => name === 'eleckoi.creator-studio.view'
     ? <div data-slot={name} data-view={options.only}>合成 {options.only}</div>
-    : name === 'eleckoi.creator-studio.composer.bar' ? <input data-composer-input="" aria-label="合成输入" /> : null);
+    : name === 'eleckoi.creator-studio.composer.bar' ? <>{withMenu && owner.leadingAccessory}<input data-composer-input="" aria-label="合成输入" /></> : null);
   header = document.createElement('header'); document.body.append(header);
   const headerTarget = document.createElement('span'), cornerTarget = document.createElement('span');
   header.append(headerTarget, cornerTarget);
@@ -50,13 +50,32 @@ async function mount(initialView = 'chat', Component = MobileCreatorStudioConver
     renderSlot, renderSlotChain: (_name, _owner, options) => options.fallback };
   node = document.createElement('div'); document.body.append(node); root = createRoot(node);
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
-  const render = () => root.render(<MainPageContext.Provider value={{ models, presets, registerBackHandler: () => () => {} }}><Component {...props} editing={editing} /></MainPageContext.Provider>);
+  const pushRoute = vi.fn();
+  const render = () => root.render(<MainPageContext.Provider value={{ models, presets, pushRoute, registerBackHandler: () => () => {} }}><Component {...props} editing={editing} /></MainPageContext.Provider>);
   await act(render);
-  return { openView, completeViewRequest, inspectCall, model, presets, renderSlot, renderHeaderSlot, headerTarget, cornerTarget, getStore: snapshot,
+  return { openView, completeViewRequest, inspectCall, model, presets, pushRoute, renderSlot, renderHeaderSlot, headerTarget, cornerTarget, getStore: snapshot,
     setPhase(blank, nextEditing = false) { session = { ...session, blank }; editing = nextEditing; render(); },
     publishTabs(next) { tabs = next; listeners.forEach(listener => listener()); }, getTabs: tabSnapshot,
     unpin(id) { unpinned = [...unpinned, id]; listeners.forEach(listener => listener()); } };
 }
+it.each(['android', 'desktop', 'web'])('gates the workspace file menu on the %s platform', async kind => {
+  const previous = globalThis.__ELECKOI_CLIENT_PLATFORM__;
+  globalThis.__ELECKOI_CLIENT_PLATFORM__ = { kind };
+  try {
+    const f = await mount('chat', MobileCreatorStudioConversation, false, true);
+    await act(() => node.querySelector('[aria-label="工作室菜单"]').click());
+    await act(() => document.querySelector('.composer-menu-next').click());
+    const item = [...document.querySelectorAll('[role="menuitem"]')].find(button => button.textContent === '工作区文件');
+    if (kind === 'android') {
+      expect(item).toBeTruthy();
+      await act(() => item.click());
+      expect(f.pushRoute).toHaveBeenCalledWith({ kind: 'creator-workspace-files', sessionId: 'synthetic-studio-session' });
+    } else {
+      expect(item).toBeUndefined();
+      expect(f.pushRoute).not.toHaveBeenCalled();
+    }
+  } finally { globalThis.__ELECKOI_CLIENT_PLATFORM__ = previous; }
+});
 async function select(label) { await act(() => [...node.querySelectorAll('[role=tab]')].find(button => button.textContent === label).click()); }
 it('shows the mobile welcome design with shared workspace and creator preset actions, preserving the input through the first turn', async () => {
   const f = await mount('chat', MobileCreatorStudioConversation, true), input = node.querySelector('[data-composer-input]');

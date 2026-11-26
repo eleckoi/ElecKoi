@@ -37,7 +37,7 @@ function fixture() {
 }
 function downgrade(path: string) {
   const db = new Database(path)
-  db.exec('DROP TABLE character_catalog_activity; ALTER TABLE chat_session_variable_states DROP COLUMN identityJson; ALTER TABLE conversation_state_snapshots DROP COLUMN variableIdentityJson; PRAGMA user_version=16;')
+  db.exec('DROP TABLE character_cast_members; DROP TABLE character_catalog_activity; ALTER TABLE chat_session_variable_states DROP COLUMN identityJson; ALTER TABLE conversation_state_snapshots DROP COLUMN variableIdentityJson; PRAGMA user_version=16;')
   return db
 }
 describe('variable identity storage evolution', () => {

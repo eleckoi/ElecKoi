@@ -56,6 +56,18 @@ export const characterCatalogActivity = sqliteTable('character_catalog_activity'
   editedAtEpochMs: integer('editedAtEpochMs').notNull(),
 })
 
+export const characterCastMembers = sqliteTable('character_cast_members', {
+  characterId: text('characterId').notNull(),
+  id: text('id').notNull(),
+  name: text('name').notNull(),
+  sortIndex: integer('sortIndex').notNull(),
+  portraitAssetId: text('portraitAssetId'),
+  circleAssetId: text('circleAssetId'),
+  squareAssetId: text('squareAssetId'),
+  cropJson: text('cropJson').notNull().default(sql.raw("'null'")),
+  pendingLegacyMedia: integer('pendingLegacyMedia').notNull().default(sql.raw("0")),
+}, (table) => [primaryKey({ columns: [table.characterId, table.id] })])
+
 export const characterOpenings = sqliteTable('character_openings', {
   characterId: text('characterId').notNull().primaryKey(),
   configurationJson: text('configurationJson').notNull(),
@@ -427,4 +439,4 @@ export const globalSettingLibraryState = sqliteTable('global_setting_library_sta
   revision: integer('revision').notNull(),
 })
 
-export const commonTables = { chatSessions, chatSessionCharacterSnapshots, chatSessionVariableStates, characters, characterCatalogActivity, characterOpenings, characterTextContents, characterMeta, userProfile, variableConfigs, variableConfigVersions, variableConfigVersionContents, variableConfigObjects, variableConfigVariables, globalRegexRules, characterRegexRules, regexEnablementVersions, regexState, agentConversations, agentBranches, conversationSpeakers, agentTurns, agentPendingInputs, agentResponses, agentBranchTurns, agentOpenings, conversationStateSnapshots, settingLibraries, settingEntryContents, settingLibraryEntryLinks, settingLibraryGroups, settingLibraryVersions, settingLibraryVersionEntryLinks, settingLibraryVersionGroups, conversationSettingChanges, agentPresetState, agentPresetLibraryGroups, agentPresets, agentPresetContents, agentPresetEntries, agentPresetGroups, agentPresetVersions, agentPresetVersionContents, agentPresetVersionEntries, agentPresetVersionGroups, scriptLibraries, editorLibraryVersions, regexLibraries, globalSettingLibraries, globalSettingLibraryState }
+export const commonTables = { chatSessions, chatSessionCharacterSnapshots, chatSessionVariableStates, characters, characterCatalogActivity, characterCastMembers, characterOpenings, characterTextContents, characterMeta, userProfile, variableConfigs, variableConfigVersions, variableConfigVersionContents, variableConfigObjects, variableConfigVariables, globalRegexRules, characterRegexRules, regexEnablementVersions, regexState, agentConversations, agentBranches, conversationSpeakers, agentTurns, agentPendingInputs, agentResponses, agentBranchTurns, agentOpenings, conversationStateSnapshots, settingLibraries, settingEntryContents, settingLibraryEntryLinks, settingLibraryGroups, settingLibraryVersions, settingLibraryVersionEntryLinks, settingLibraryVersionGroups, conversationSettingChanges, agentPresetState, agentPresetLibraryGroups, agentPresets, agentPresetContents, agentPresetEntries, agentPresetGroups, agentPresetVersions, agentPresetVersionContents, agentPresetVersionEntries, agentPresetVersionGroups, scriptLibraries, editorLibraryVersions, regexLibraries, globalSettingLibraries, globalSettingLibraryState }

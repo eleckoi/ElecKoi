@@ -15,7 +15,7 @@ type Upload = { characterId: string; name: string; size: number; folderId: strin
 /** Character-owned immutable blobs plus an atomic metadata catalog. Shared by both Host profiles. */
 export class CharacterAssetRepository {
   private uploads = new Map<string, Upload>()
-  constructor(readonly root: string, private readonly characterExists: (id: string) => boolean, private readonly onChanged: (id: string) => void = () => {}) {
+  constructor(readonly root: string, private readonly characterExists: (id: string) => boolean, private readonly onChanged: (id: string) => void = () => {}, private readonly canDelete: (owner: string, ids: Set<string>) => boolean = () => true) {
     mkdirSync(root, { recursive: true }); this.ordinary(root)
     const staging = join(root, 'uploads'); mkdirSync(staging, { recursive: true }); this.ordinary(staging)
     for (const entry of readdirSync(staging)) this.remove(join(staging, entry))
@@ -96,7 +96,7 @@ export class CharacterAssetRepository {
     const format = characterAssetFormat(item.name)!, digest = createHash('sha256'), block = Buffer.alloc(1024 * 1024)
     const file = openSync(item.path, 'r')
     try { for (;;) { const size = readSync(file, block, 0, block.length, null); if (!size) break; digest.update(block.subarray(0, size)) } } finally { closeSync(file) }
-    const asset = characterAssetSchema.parse({ id: randomUUID(), name: item.name, ...format, size: item.size, hash: digest.digest('hex'), createdAt: new Date().toISOString(), folderId: item.folderId })
+    const asset = characterAssetSchema.parse({ id, name: item.name, ...format, size: item.size, hash: digest.digest('hex'), createdAt: new Date().toISOString(), folderId: item.folderId })
     const catalog = this.list(characterId), target = this.blob(characterId, asset.hash)
     this.requireFolder(catalog, item.folderId)
     mkdirSync(join(this.directory(characterId), 'blobs'), { recursive: true })
@@ -129,6 +129,7 @@ export class CharacterAssetRepository {
     for (const id of folderIds) this.requireFolder(catalog, id)
     const folders = folderDescendants(catalog.folders, folderIds)
     for (const item of catalog.items) if (item.folderId && folders.has(item.folderId)) removing.add(item.id)
+    if (!this.canDelete(characterId, removing)) fail('这张图片仍被登场角色使用。请先更换角色头像并保存，再删除图片。')
     const items = catalog.items.filter(item => !removing.has(item.id))
     const referenced = new Set(items.map(item => item.hash)), removingHashes = [...new Set(catalog.items.filter(item => !referenced.has(item.hash)).map(item => item.hash))]
     const removed = join(this.directory(characterId), 'removed'); this.ordinary(removed)
@@ -175,7 +176,7 @@ export class CharacterAssetRepository {
     this.write({ ...catalog, revision: catalog.revision + 1, items: catalog.items.map(item => assets.has(item.id) ? { ...item, folderId: destination } : item), folders: catalog.folders.map(folder => folders.has(folder.id) ? { ...folder, parentId: destination } : folder) })
     return this.list(characterId)
   }
-  withMergedAssets<T>(characterId: string, assets: PortableCharacterAsset[], operation: () => T, folders: CharacterAssetFolder[] = []): T {
+  withMergedAssets<T>(characterId: string, assets: PortableCharacterAsset[], operation: () => T, folders: CharacterAssetFolder[] = [], notify = true): T {
     const before = this.list(characterId), additions: CharacterAsset[] = [], created: string[] = []
     if (new Set(folders.map(folder => folder.id)).size !== folders.length) fail('前端包文件夹编号重复。')
     const mergedFolders = [...before.folders]
@@ -200,7 +201,7 @@ export class CharacterAssetRepository {
       const changed = additions.length || mergedFolders.length !== before.folders.length
       if (changed) this.write({ ...before, revision: before.revision + 1, items: [...before.items, ...additions], folders: mergedFolders }, false)
       const result = operation()
-      if (changed) this.onChanged(characterId)
+      if (changed && notify) this.onChanged(characterId)
       return result
     } catch (error) {
       if (additions.length || mergedFolders.length !== before.folders.length) this.write(before, false)
@@ -257,6 +258,10 @@ export class CharacterAssetRepository {
   close() { for (const [id, item] of this.uploads) this.cancel(item.characterId, id) }
 }
 export function decodeAssetBase64(data: string): Buffer {
-  if (typeof data !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data)) fail('资产二进制编码损坏。')
-  const bytes = Buffer.from(data, 'base64'); if (bytes.toString('base64') !== data) fail('资产二进制编码损坏。'); return bytes
+  if (typeof data !== 'string') fail('资产二进制编码损坏。')
+  const bytes = Buffer.from(data, 'base64')
+  // Buffer's decoder tolerates malformed input. Comparing the canonical encoding
+  // rejects it without a repeating regexp that can exhaust the stack on large files.
+  if (bytes.toString('base64') !== data) fail('资产二进制编码损坏。')
+  return bytes
 }

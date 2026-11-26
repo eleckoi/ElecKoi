@@ -30,29 +30,12 @@
 }
 .preset-home-detail .preset-summary {
   box-sizing: border-box;
-  grid-template-columns: 36px 56px minmax(0, 1fr);
-  gap: 14px;
   width: 100%;
   margin: 0;
   padding: 14px var(--preset-overview-inset);
   border: 0;
   border-block-end: 1px solid var(--line);
   border-radius: 0;
-}
-.preset-overview-back-slot { grid-area: 1 / 1; }
-.preset-home-detail .preset-summary-avatar.avatar { grid-area: 1 / 2; width: 56px; height: 56px; border-radius: 10px; }
-.preset-home-detail .preset-summary-identity { grid-area: 1 / 3; }
-.preset-home-detail .preset-overview-back {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border-radius: 50%;
-  background: var(--dsw-alias-button-elevated-fill);
-}
-@media (hover: hover) {
-  .preset-home-detail .preset-overview-back:hover {
-    background: var(--dsw-alias-button-floating-hover);
-  }
 }
 .preset-home-detail .preset-workspace-body { overscroll-behavior-y: contain; }
 .preset-home-detail .preset-overview-reading { padding: 16px var(--preset-overview-inset) 28px; }
@@ -78,7 +61,8 @@
 }
 @container (max-width: 660px) { .preset-summary-actions { grid-column: 2 / -1; justify-content: flex-start; } }
 .qq-shell.preset-editor-window { grid-template-columns: var(--character-editor-sidebar-width,220px) minmax(0,1fr); grid-template-rows: minmax(0,1fr); height: 100%; background: var(--list); --blue: var(--dsw-static-deepseek-500,#3d75e8); --blue-hover: var(--dsw-static-deepseek-600,#3266d5); }
-.preset-editor-canvas { min-height: 0; min-width: 0; padding: 0 8px 8px 0; background: var(--list); overflow: hidden; }
+.preset-editor-canvas { min-height: 0; min-width: 0; overflow: hidden; }
+.preset-editor-canvas.is-profile { padding: 0 8px 8px 0; background: var(--list); }
 .preset-editor-page { height: 100%; min-height: 0; min-width: 0; }
 .preset-editor-window .character-editor-side-panel { grid-template-rows: 40px minmax(0,1fr); }
 .preset-editor-window .character-editor-navigation { justify-content: flex-start; overflow: auto; }
@@ -88,6 +72,8 @@
 .preset-basic-scroll { flex: 1; min-height: 0; overflow: auto; }
 .preset-editor-window .preset-basic-document { padding: 0; overflow: hidden; }
 .preset-editor-window .preset-basic-scroll {
+  display: flex;
+  flex-direction: column;
   margin-right: var(--window-resize-edge-inset, 2px);
   padding: 16px calc(24px - var(--window-resize-edge-inset, 2px) - var(--dsh-scrollbar-width, 5px)) 20px 24px;
   scrollbar-gutter: stable;
@@ -110,7 +96,27 @@
 .preset-basic-introduction .preset-content-section-heading h2 { font-size: 16px; line-height: 24px; }
 .preset-basic-introduction .preset-usage-copy { font-size: 14px; line-height: 22px; }
 .preset-basic-introduction .preset-updates { margin-top: 16px; }
-.preset-prompt-directory-title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; }
+.preset-editor-window .preset-basic-card { flex: none; }
+/* The DSH slot anchor uses display: contents around the usage section. */
+.preset-editor-window .preset-basic-introduction:has(.preset-usage-content) { display: flex; flex: 1 0 auto; }
+.preset-editor-window .preset-basic-introduction .preset-usage-content,
+.preset-editor-window .preset-usage-section:has(> .preset-content-composer),
+.preset-editor-window .preset-usage-section > .preset-content-composer { display: flex; flex-direction: column; }
+.preset-editor-window .preset-usage-section:has(> .preset-content-composer),
+.preset-editor-window .preset-usage-section > .preset-content-composer,
+.preset-editor-window .preset-usage-section > .preset-content-composer > fieldset { flex: 1 0 auto; }
+.preset-editor-window .preset-usage-section .preset-composer-writing { flex: 1 0 150px; height: auto; min-height: 150px; }
+.preset-editor-window .preset-basic-introduction .preset-updates-empty { min-height: 72px; }
+@media (max-height: 860px) {
+  .preset-editor-window .preset-basic-scroll { padding-block: 12px; }
+  .preset-editor-window .preset-basic-card { margin-bottom: 12px; }
+  .preset-editor-window .preset-basic-card,
+  .preset-editor-window .preset-basic-introduction .preset-content-section { padding-block: 14px; }
+  .preset-editor-window .preset-basic-card-heading,
+  .preset-editor-window .preset-basic-introduction .preset-content-section-heading { margin-bottom: 12px; }
+  .preset-editor-window .preset-basic-introduction .preset-updates { margin-top: 12px; }
+  .preset-editor-window .preset-basic-introduction .preset-updates-empty { min-height: 48px; padding-block: 8px; }
+}
 .preset-prompt-workspace .setting-library-browser { display: flex; flex: 1; min-height: 0; flex-direction: column; }
 .preset-prompt-workspace .preset-prompt-tree { flex: 1; min-height: 0; overflow: auto; padding: 0; }
 .preset-tools-workspace .preset-tools-list { flex: 1; min-height: 0; overflow: auto; padding: 0; }

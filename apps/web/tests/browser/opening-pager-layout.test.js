@@ -19,6 +19,20 @@ it('aligns long opening arrows with the body and clears the avatar/floor for sho
     const evidence = resolve('build/opening-management-check'); await mkdir(evidence, { recursive: true });
     await copyFile(resolve(directory, 'report.json'), resolve(evidence, 'pager.json'));
     expect(report.errors).toEqual([]);
+    expect(report.portraits).toHaveLength(6);
+    for (const { layout, rows } of report.portraits) {
+      const [first, second, normal] = rows;
+      expect(first).toEqual(normal);
+      expect(second).toEqual(normal);
+      expect(normal.visible).toBe(true);
+      expect(normal.clipped).toBe(false);
+      if (layout === 'roleplay') {
+        expect(normal.height / normal.width).toBeCloseTo(4 / 3, 2);
+        expect(normal.beforeBody).toBe(true);
+      } else {
+        expect(normal.height).toBeCloseTo(normal.width);
+      }
+    }
     expect(report.layouts).toHaveLength(36);
     for (const data of report.layouts) {
       const detail = JSON.stringify(data);

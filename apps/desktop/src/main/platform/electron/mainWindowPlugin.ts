@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { readFile } from 'node:fs/promises'
-import { app, BrowserWindow, ipcMain, nativeTheme, protocol, screen, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeTheme, protocol, screen, session, shell, type BrowserWindowConstructorOptions, type IpcMainInvokeEvent, type Rectangle } from 'electron'
 import { windowsAppUserModelId } from './windowsAppIdentity'
 import type { Context, Plugin } from '@deepseek-ai/cordis'
 import { assertTrustedDshClientFrame, isAllowedExternalUrl, isAppRendererUrl, isDshAppUrl, isDshChildUrl } from './validateSender'
@@ -10,7 +10,7 @@ import { installTextContextMenu } from './textContextMenu'
 import { installWindowsNativeFrame } from './windowsNativeFrame'
 import { DesktopBrowserGuests } from './desktopBrowserGuests'
 import { installMainWindowConsole } from './mainWindowConsole'
-import { editorWindowSize, isEditorFrame, MAIN_WINDOW_SIZE, matchEditorWindowSize } from './editorWindowSizing'
+import { editorWindowBounds, isEditorFrame, MAIN_WINDOW_SIZE } from './editorWindowSizing'
 import { authenticateDshClientHost, DSH_CLIENT_ORIGIN, forwardDshClientRequest, isDshClientAsset, removeLegacyDshHostCookies, serveDshClientAsset } from './dshClientDocument'
 import { DESKTOP_SHELL_IPC } from '@shared/contracts/desktopShell'
 import { LOG_ACTIONS } from '@shared/contracts/logActions'
@@ -123,7 +123,7 @@ export const mainWindowPlugin = {
         const frameName = (payload as { frameName?: unknown })?.frameName
         return typeof frameName === 'string' ? frameName : ''
       },
-      options: (payload) => windowOptions(appPaths, true, payload, mainWindow),
+      options: (payload) => windowOptions(appPaths, true, payload),
       load: async (window, payload) => {
         const url = (payload as { url?: unknown })?.url
         if (typeof url !== 'string' || (!isAppRendererUrl(url) && !isDshChildUrl(url))) {
@@ -145,7 +145,7 @@ export const mainWindowPlugin = {
           appLog.error({ code, description, url }, 'ElecKoi child window failed to load')
         })
         window.once('ready-to-show', () => window.show())
-        configureWindowNavigation(appLog, windows, window, true, () => mainWindow)
+        configureWindowNavigation(appLog, windows, window, true)
       }
     })
     protocol.handle('dsh-app', async (request) => {
@@ -350,14 +350,15 @@ export const mainWindowPlugin = {
   }
 } satisfies Plugin.Object
 
-function windowOptions(appPaths: Context['appPaths'], child: boolean, payload?: unknown, mainWindow?: BrowserWindow): BrowserWindowConstructorOptions {
-  const size = child ? initialChildWindowSize(payload, mainWindow) : initialWindowSize()
+function windowOptions(appPaths: Context['appPaths'], child: boolean, payload?: unknown): BrowserWindowConstructorOptions {
+  const bounds = child ? (payload as { editorBounds?: Rectangle } | undefined)?.editorBounds : undefined
+  const size = bounds ?? (child ? initialChildWindowSize(payload) : initialWindowSize())
   return {
     title: child ? 'ElecKoi' : 'ElecKoi',
     ...size,
-    minWidth: 900,
-    minHeight: 600,
-    center: true,
+    minWidth: bounds ? Math.min(900, bounds.width) : 900,
+    minHeight: bounds ? Math.min(600, bounds.height) : 600,
+    center: !bounds,
     show: false,
     ...(process.platform === 'win32'
       ? { titleBarStyle: 'hidden' as const, titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT,
@@ -389,18 +390,19 @@ function configureMainWindow(appPaths: Context['appPaths'], appLog: Context['app
     if (!isMainFrame && code === -3) return
     appLog.error({ code, description, url, isMainFrame }, 'DSH client renderer failed to load')
   })
-  configureWindowNavigation(appLog, windows, window, true, () => window)
+  configureWindowNavigation(appLog, windows, window, true)
 }
 
-function configureWindowNavigation(appLog: Context['appLog'], windows: ElectronWindowHost, window: BrowserWindow, allowDshClient = false, mainWindow: () => BrowserWindow | undefined = () => undefined): void {
+function configureWindowNavigation(appLog: Context['appLog'], windows: ElectronWindowHost, window: BrowserWindow, allowDshClient = false): void {
   window.webContents.on('will-navigate', (event, url) => {
     if (!isAppRendererUrl(url) && !(allowDshClient && isDshAppUrl(url))) event.preventDefault()
   })
   window.webContents.setWindowOpenHandler(({ url, frameName }) => {
     if (isAppRendererUrl(url) || isDshChildUrl(url)) {
-      void windows.open('child', { url, frameName }).then(child => {
-        if (isEditorFrame(frameName)) matchEditorWindowSize(child, mainWindow())
-      }).catch(error => appLog.error({ error, frameName }, 'ElecKoi child window failed to open'))
+      const opener = isEditorFrame(frameName) ? window.getBounds() : undefined
+      const editorBounds = opener ? editorWindowBounds(opener, screen.getDisplayMatching(opener).workArea) : undefined
+      void windows.open('child', { url, frameName, editorBounds })
+        .catch(error => appLog.error({ error, frameName }, 'ElecKoi child window failed to open'))
     }
     else if (isAllowedExternalUrl(url)) {
       void shell.openExternal(url).catch((error: unknown) => {
@@ -438,9 +440,8 @@ function initialWindowSize(): { width: number; height: number } {
   return { ...MAIN_WINDOW_SIZE }
 }
 
-function initialChildWindowSize(payload?: unknown, mainWindow?: BrowserWindow): { width: number; height: number } {
+function initialChildWindowSize(payload?: unknown): { width: number; height: number } {
   const frameName = (payload as { frameName?: unknown } | undefined)?.frameName
-  if (isEditorFrame(frameName)) return editorWindowSize(mainWindow)
   if (frameName === 'creator-studio') {
     return fitWindowSize(1536, 1070)
   }

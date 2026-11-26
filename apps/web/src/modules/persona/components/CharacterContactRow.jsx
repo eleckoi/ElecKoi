@@ -24,7 +24,7 @@ export function CharacterContactRow({ character, active, artworkMode, onClick, o
     <button
       className={`character-contact-row is-${resolvedArtworkMode}-artwork ${active ? "active" : ""}`}
       type="button"
-      onClick={() => onClick(character.id)}
+      onClick={event => onClick(character.id, event.currentTarget)}
       onDoubleClick={onDoubleClick && (() => onDoubleClick(character.id))}
       onContextMenu={(event) => onContextMenu?.(event, character)}
       draggable={drag ? true : undefined}

@@ -18,11 +18,24 @@ save 提供 kind、配置对象数组 documents 和版本库数组 versions：�
 
 新建角色默认只提供 name，省略 group 或传空字符串，角色进入未分组。分组是角色列表的可选整理方式，建卡不需要先创建或选择分组，也无需主动询问用户分组。仅在用户要求指定归属或整理分组时填写 group；用户指定已有分组时沿用准确名称，只有要求新分组时才建立，不按题材、世界观或角色名自行分类。角色列表分组与卡内设定、脚本及资产的文件夹分别归属，不能互相替代。
 
-读取和修改已有资料仍要求当前工作室明确选择角色，先读后改；不能按目录顺序或名称猜测编辑对象。character.update 的 group 是所属角色分组名称，空字符串表示未分组；仅在用户要求调整分组时提交，普通资料修改省略 group，保留原归属。修改它只调整当前角色归属，保留其他角色和资料。角色是编辑对象，不是工作室要扮演的身份。
+编辑已有角色卡时，调用可显式提供 character.list 查得的准确 character_id，也可省略编号使用工作室当前快捷目标。先用 character.read 读取实际资料。character.update 可修改卡片名称、作者名字和简介（profileLike）。更换封面立绘或作者头像时，先在同一张卡用 assets.list 或 assets.import_file 取得图片编号，再填写 coverAssetId 或 authorAvatarAssetId；可先在工作区裁好图片，清除时传 null。group 仅在用户要求调整分组时提交，空字符串表示未分组。
 
-开场白在角色编辑器的独立页面维护，通过 character.read_openings 读取、character.save_openings 保存。保存参数为 enabled、openingMessages、defaultOpeningMessageId；enabled 是保留字段，不控制显示，主开场白正文留空时新对话不显示开场白，有正文才显示。openingMessages 是全部不同开场白的列表，每项包含 id、title、content 和可选 variableVersionId，主开场由 defaultOpeningMessageId 指定。保留未修改的其他开场白和字段。开场白没有命名版本，不传 versions 或 activeVersionId，也不传由工作室选择确定的 characterId。
+### 登场角色
 
-每条开场白可以分别关联变量版本，准确编号从 variables.list 的 versions 读取。开局使用所选开场白关联版本的初始值。清空 variableVersionId 可解除关联；无关联或版本缺失时不自动选择编辑器当前版本，也不填写开场白独立初值。版本缺失不阻断聊天，已存在的变量值和历史保留；恢复相同编号的版本后继续读取该配置。修改开场白不修改设定库，切换设定库版本不改变开场白。
+登场角色是同一张卡里可以出场和发言的人。单人卡可以只登记一位引路人，让他的发言都带自己的头像。多人卡可以同时登记店主和旅客，让他们在同一场景里各用自己的名字和头像。新卡默认有一位同名的登场角色。名单告诉回复工具有哪些人，实际谁开口由剧情决定。需要区分发言者时取不同的名字。人物性格、关系和说话方式写在角色设定里。
+
+- 用 character.read 查看 cast。建卡用 character.create，在已有卡里添加一位用 character.create_cast_member，至少提交 name，由工具生成固定编号。可同时填写本卡图片编号 portraitAssetId。
+- 用 character.update_cast_member 提交 cast 中的准确 id 和 changes，修改姓名、立绘或头像取景。改名沿用原编号，开场白继续指向同一位。换立绘时重置未指定的头像与取景。给圆形头像设置 crop 使用立绘取景，传 null 恢复默认取景。可通过 circleAssetId 或 squareAssetId 指定本卡已导入的图片。
+- 用 character.remove_cast_member 按准确 id 从名单移除指定角色，名单至少保留一位。资产和开场白原文仍保留。旧段落若引用这位角色，编辑器会显示「角色已移除」，可以改用封面或换为在册角色。已保存的对话继续使用开局快照。
+
+### 开场白
+
+先用 character.read_openings 读取，再用 character.save_openings 保存。openingMessages 提交完整列表。可新增、复制、修改、删除或排序，保留未修改的条目、段落编号和变量绑定。每条有 id、title 和可选 variableVersionId。defaultOpeningMessageId 填列表中实际存在的主开场白编号。enabled 是保留字段，沿用读取值。主开场白正文留空时，新对话不显示开场白。
+
+- 通篇使用卡片封面时，直接填写 content。清空正文时保留这条开场白的编号和其他字段，提交 content 为空字符串。
+- 需要安排一位或多位角色发言时，提交有序的 segments。每段填写 id、kind 和 text。kind 为 cover 时使用卡片封面，为 speech 时再填 character.read 返回的本卡 cast 成员编号 speakerId。台词、动作、环境和 Markdown 都写入 text。已有分段开场白改正文时编辑对应的 text，保存时由工具把各段合成完整 content。
+
+每条开场白可以分别关联变量版本，准确编号从 variables.list 的 versions 读取。开局使用所选开场白关联版本的初始值。清空 variableVersionId 可解除关联。版本缺失时按未绑定开局，恢复相同编号的版本后继续读取该配置。切换至未绑定的开场白会清空本次开局的绑定和初值。修改角色卡上的开场白原稿后，已有对话保留自己的开场白和变量。开场白和设定库分别维护。
 
 ## 设定库
 

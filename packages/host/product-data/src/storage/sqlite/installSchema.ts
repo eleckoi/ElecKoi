@@ -24,6 +24,7 @@ import { migration0015 } from './migrations/0015OpeningVariableState'
 import { migration0016 } from './migrations/0016CreatorPrompts'
 import { migration0018 } from './migrations/0018CharacterCatalogActivity'
 import { migration0019 } from './migrations/0019SettingReferences'
+import { migration0020 } from './migrations/0020CharacterCast'
 import { migration0017 } from './migrations/0017VariableIdentity'
 import { legacySettingSnapshotsSql } from './migrations/conversationStateStorage'
 import { addRegexLibraryEnablement } from './migrations/regexLibraryEnablement'
@@ -37,7 +38,7 @@ const PRE_RELEASE_V2_BASELINES = [BASELINE_ID, 'eleckoi-common-v1-2026-09-14-run
 // 出发的步骤，并同步删除 import、登记和 tests/database.test.ts 中对应旧库 fixture。
 // 当前仍支持 v1 连续升级至 v19；已升级的本机数据库不能证明其他旧安装已完成迁移。
 // 剩余受支持版本必须仍有连续原子迁移链，当前 SQL、版本常量和完整性检查始终保留。
-const migrations = [migration0002, migration0003, migration0004, migration0005, migration0006, migration0007, migration0008, migration0009, migration0010, migration0011, migration0012, migration0013, migration0014, migration0015, migration0016, migration0017, migration0018, migration0019] as const
+const migrations = [migration0002, migration0003, migration0004, migration0005, migration0006, migration0007, migration0008, migration0009, migration0010, migration0011, migration0012, migration0013, migration0014, migration0015, migration0016, migration0017, migration0018, migration0019, migration0020] as const
 // RETIRE WHEN: 停止支持 v12 及更早结构和已登记的旧开发结构直接升级后，连同两个校验器的 beforeV13 分支删除。
 const schemaV13Tables = new Set(['character_openings', 'global_setting_libraries', 'global_setting_library_state'])
 const unreleasedGenerationTableSql = 'CREATE TABLE IF NOT EXISTS `conversation_generation_results` (`operationId` TEXT NOT NULL, `conversationId` TEXT NOT NULL, `resultJson` TEXT NOT NULL, PRIMARY KEY(`operationId`), FOREIGN KEY(`conversationId`) REFERENCES `chat_sessions`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )'
@@ -63,6 +64,8 @@ function validateSchema(database: Database.Database, previousChatSessionsSql?: s
     }
     // RETIRE WHEN: direct upgrades from v17 and earlier are no longer supported.
     if (name === 'character_catalog_activity' && Number(database.pragma('user_version', { simple: true })) < 18) continue
+    // RETIRE WHEN: remove with the v19→v20 character cast migration.
+    if (name === 'character_cast_members' && Number(database.pragma('user_version', { simple: true })) < 20) continue
     if (name && schemaV13Tables.has(name) && beforeV13) continue
     if (name === 'characters' && beforeV13) sql = sql.replace(', `chatBackground`', ', `showOpening` INTEGER NOT NULL, `chatBackground`')
     if (name === 'editor_library_versions' && previousEditorVersions) continue
@@ -101,11 +104,17 @@ function requiredTableNames(): string[] {
     .map((match) => match[1]!)
 }
 
+// RETIRE WHEN: remove with the v19→v20 character cast migration.
+function requiredBeforeCastMigration(name: string, version: number): boolean {
+  return version >= 20 || name !== 'character_cast_members'
+}
+
 function validateTableInventory(database: Database.Database, unreleasedGenerationResults = false, previousScripts = false, previousDisplayTemplates = false, previousEditorVersions = false, previousRuntimeStates = false, previousRegexLibraries = false, retiredTemplates = false): void {
   const installed = database.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
     .all() as { name: string }[]
   const beforeV13 = Number(database.pragma('user_version', { simple: true })) < 13 || retiredTemplates
-  const required = [...(retiredTemplates ? ['display_template_libraries'] : []), ...requiredTableNames().filter(name => (Number(database.pragma('user_version', { simple: true })) >= 18 || name !== 'character_catalog_activity') && (!beforeV13 || !schemaV13Tables.has(name)) && (!previousScripts || name !== 'script_libraries') && (!previousDisplayTemplates || name !== 'display_template_libraries') && (!previousEditorVersions || name !== 'editor_library_versions') && (!previousRuntimeStates || name !== 'conversation_state_snapshots') && (!(previousDisplayTemplates || previousRuntimeStates || previousRegexLibraries) || name !== 'regex_libraries')), ...(unreleasedGenerationResults ? ['conversation_generation_results'] : []), ...(previousRuntimeStates ? ['agent_setting_snapshots'] : [])]
+  const version = Number(database.pragma('user_version', { simple: true }))
+  const required = [...(retiredTemplates ? ['display_template_libraries'] : []), ...requiredTableNames().filter(name => requiredBeforeCastMigration(name, version) && (version >= 18 || name !== 'character_catalog_activity') && (!beforeV13 || !schemaV13Tables.has(name)) && (!previousScripts || name !== 'script_libraries') && (!previousDisplayTemplates || name !== 'display_template_libraries') && (!previousEditorVersions || name !== 'editor_library_versions') && (!previousRuntimeStates || name !== 'conversation_state_snapshots') && (!(previousDisplayTemplates || previousRuntimeStates || previousRegexLibraries) || name !== 'regex_libraries')), ...(unreleasedGenerationResults ? ['conversation_generation_results'] : []), ...(previousRuntimeStates ? ['agent_setting_snapshots'] : [])]
   if (required.some((name) => !installed.some((table) => table.name === name)) || installed.length !== required.length) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, '数据库业务表不完整或包含未知表，拒绝启动。', { what: '业务表清单' })
   }

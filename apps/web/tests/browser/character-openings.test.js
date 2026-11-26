@@ -27,7 +27,7 @@ it('keeps the standalone opening editor usable across themes, short windows and 
     expect(reports).toHaveLength(4);
     for (const { actions, layout } of reports) {
       expect(Object.values(actions).every(Boolean)).toBe(true);
-      expect(layout.navigation.slice(0, 3)).toEqual(['基础资料', '开场白', '设定库']);
+      expect(layout.navigation.slice(0, 4)).toEqual(['基础资料', '登场角色', '开场白', '设定库']);
     }
     const evidence=resolve('build/opening-workspace-check');await mkdir(evidence,{recursive:true});
     await copyFile(reportPath,resolve(evidence,'report.json'));

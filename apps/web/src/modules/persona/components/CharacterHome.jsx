@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Star } from '@phosphor-icons/react';
-import { Button, Menu, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, focusWithoutRing, Menu, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { ChevronRightIcon, CopyIcon, ExportIcon, PencilIcon, TrashIcon } from '../../../ui/icons/index.jsx';
 import { useDshDisplayPreferences } from '../../../ui/state/DisplayPreferencesContext.jsx';
@@ -77,7 +77,7 @@ export function CharacterHome({ view }) {
   const [deleteError, setDeleteError] = useState(null);
   const [savingFavorites, setSavingFavorites] = useState(false);
   const operation = useRef(false);
-  const returnFocus = useRef(null);
+  const restoreDetailFocus = useRef(null);
   const sidebarScroll = useRef(null);
   const groupTabs = useRef(null);
   const context = useEditorContextMenu();
@@ -102,9 +102,18 @@ export function CharacterHome({ view }) {
     if (node) node.inert = showDetail;
   }, [showDetail]);
 
+  useLayoutEffect(() => {
+    if (showDetail || !restoreDetailFocus.current) return;
+    const { trigger, previousFocus } = restoreDetailFocus.current;
+    restoreDetailFocus.current = null;
+    if (!trigger?.isConnected) return;
+    const { activeElement, body } = trigger.ownerDocument;
+    if (activeElement === body || activeElement === previousFocus) focusWithoutRing(trigger, { preventScroll: true });
+  }, [showDetail]);
+
   useEffect(() => {
-    if (!showDetail) groupTabs.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [selectedGroup, characters.groups, showDetail]);
+    groupTabs.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [selectedGroup, characters.groups]);
 
   function reportError(error) {
     const resolved = resolveFailure(error);
@@ -123,22 +132,21 @@ export function CharacterHome({ view }) {
     finally { setSavingFavorites(false); }
   }
 
-  function openCharacter(id, focusBack = true) {
-    const trigger = document.activeElement;
-    returnFocus.current = trigger === document.body ? null : trigger;
+  function openCharacter(id, trigger) {
+    const previousFocus = document.activeElement;
     chat.selectCharacter(id);
-    setDetail({ id, focusBack: focusBack && Boolean(returnFocus.current) });
+    setDetail(current => current?.id === id ? current : { id, trigger, previousFocus });
   }
 
-  function openSidebarCharacter(id) {
+  function openSidebarCharacter(id, trigger) {
     setSidebarCharacterId(id);
-    openCharacter(id, false);
+    openCharacter(id, trigger);
   }
 
   function leaveDetail() {
-    const trigger = returnFocus.current;
+    // Restore the trigger after React removes both the portal and feed inertia.
+    restoreDetailFocus.current = detail;
     setDetail(null);
-    requestAnimationFrame(() => trigger?.focus({ preventScroll: true }));
   }
 
   async function createInGroup(group) {
@@ -243,7 +251,7 @@ export function CharacterHome({ view }) {
     characters,
     activeCharacterId: sidebarCharacterId,
     artworkMode: appearance.sidebarCharacterArtwork,
-    onSelectCharacter: openSidebarCharacter,
+    onSelectCharacter: id => openSidebarCharacter(id),
     onOpenCharacterChat: chat.openCharacterChat,
     onSaveCharacterGroups: chat.saveCharacterGroups,
     onImportPreparedCharacters: chat.importPreparedCharacters,
@@ -254,7 +262,7 @@ export function CharacterHome({ view }) {
     onExportCharacters: exportCharacters,
   };
   const profileOwner = {
-    characters, selectedCharacterId, onSelectCharacter: openCharacter,
+    characters, selectedCharacterId, onSelectCharacter: id => openCharacter(id),
     onStartConversation: chat.openCharacterChat,
     onEditCharacter: openCharacterEditorWindow,
     onCreateFirstCharacter: async () => {
@@ -315,7 +323,7 @@ export function CharacterHome({ view }) {
         }} />
     </div>
     {detailCharacter && <CharacterDetailPanel key={detailCharacter.id} character={detailCharacter}
-      onBack={leaveDetail} focusBack={detail.focusBack}
+      onClose={leaveDetail} trigger={detail.trigger}
       onStartConversation={profileOwner.onStartConversation} onEditCharacter={profileOwner.onEditCharacter} />}
     {context.menu && <Menu open anchor={null} contextual portal autoFocus
       anchorPoint={{ x: context.menu.x, y: context.menu.y }} returnFocus={() => context.menu?.trigger} onClose={context.close} onSelect={chooseCardAction}

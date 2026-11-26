@@ -25,10 +25,17 @@ export function useBottomSheetDismiss(onClose) {
     let active = true;
     const animations = (overlayRef.current?.getAnimations?.({ subtree: true }) || [])
       .filter(animation => animation.animationName === 'mobile-sheet-out' || animation.animationName === 'mobile-sheet-scrim-out');
-    Promise.allSettled(animations.map(animation => animation.finished)).then(() => {
-      if (active) onCloseRef.current();
-    });
-    return () => { active = false; };
+    const finish = () => {
+      if (!active) return;
+      active = false;
+      window.clearTimeout(timer);
+      onCloseRef.current();
+    };
+    // WebView can finish the CSS exit without settling a captured animation promise.
+    const endTime = Math.max(0, ...animations.map(animation => animation.effect?.getComputedTiming().endTime ?? 180));
+    const timer = window.setTimeout(finish, endTime);
+    Promise.allSettled(animations.map(animation => animation.finished)).then(finish);
+    return () => { active = false; window.clearTimeout(timer); };
   }, [closing]);
 
   return { overlayRef, sheetRef, closing, dismiss };

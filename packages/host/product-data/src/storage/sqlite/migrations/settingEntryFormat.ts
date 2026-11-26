@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import {
-  DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT,
+  LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT,
   HIDDEN_TOOL_TIMELINE_ENTRY_ID,
   HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID
 } from '@shared/contracts/presets/builtIns'
@@ -13,7 +13,7 @@ import {
 type Entry = Record<string, unknown>
 type Style = 'camel' | 'snake'
 
-const previousHiddenTimelineContent = DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT
+const previousHiddenTimelineContent = LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT
   .replace(/^  reasoning_channel:.*\n/m, '')
 const legacyHiddenTimelineContent = previousHiddenTimelineContent
   .replace(/^  mandatory:.*\n/m, '')
@@ -46,7 +46,7 @@ function normalizeEntry(raw: string, style: Style, source: string): string {
   const oldDefaultContent = typeof entryContent === 'string'
     && [previousHiddenTimelineContent, legacyHiddenTimelineContent]
       .some((content) => entryContent.trim().replace(/\r\n/g, '\n') === content.trim())
-  const content = hiddenTimeline && oldDefaultContent ? DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT : entryContent
+  const content = hiddenTimeline && oldDefaultContent ? LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT : entryContent
   const position = hiddenTimeline && entry.promptPositionId === HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID
     && entry.position === 'insert_point_4' ? 'insert_point_5' : entry.position
   if (entry[strategyKey] === strategy && entry[dynamicKey] === dynamic && entry[contentKey] === contentMode

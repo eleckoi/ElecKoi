@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+export const ROLEPLAY_REPLY_GROUP_ID = 'builtin:roleplay-reply'
+
 export const agentToolGroupSourceSchema = z.enum(['built_in', 'mcp', 'extension'])
 
 export const agentToolMemberSchema = z.object({

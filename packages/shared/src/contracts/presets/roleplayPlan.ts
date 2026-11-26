@@ -1,8 +1,8 @@
 import { z } from 'zod'
 
 export const DEFAULT_ROLEPLAY_PLAN_STEPS = [
-  '必须先并行调用工具调研阅读设定，这里不扮演回复，禁止未阅读设定直接回复',
-  '等前置任务都完成，直接输出 <FINAL> 正文，不要再次调用 update_roleplay_plan；应用检测到正文后会自动完成最终项的标记。'
+  '使用可用的设定库和变量工具，确认这轮扮演需要的设定和状态。',
+  '前置任务完成后，调用 eleckoi_roleplay_reply 选择发言角色。下一步必须用 <角色名>对应的角色扮演内容</角色名> 把正文直接发给玩家。'
 ] as const
 
 function compactSteps(steps: string[]): string[] {

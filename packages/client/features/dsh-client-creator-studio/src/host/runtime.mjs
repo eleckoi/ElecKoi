@@ -169,6 +169,18 @@ export async function installCreatorStudioRuntime(ctx) {
     await serialized(async () => bindCurrent(agent, state, await prepareDefinition({})))
   }
   const service = {
+    async workspaceDirectory(sessionId, signal) {
+      const observation = await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none', signal })
+      try {
+        if (!observation.events.some(item => item.type === CREATOR_STUDIO_EVENT)) {
+          throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '这不是 AI 创作工作室会话。', { what: 'AI 创作工作室会话' })
+        }
+        const cwd = observation.header.cwd
+        if (!cwd) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '创作会话未绑定工作区目录。', { what: '工作区目录' })
+        const workspace = ctx.workspaceRegistry.list().find(item => item.sessionIds.includes(sessionId))
+        return { cwd, ...(workspace ? { registeredPath: workspace.path } : {}) }
+      } finally { observation[Symbol.dispose]() }
+    },
     async list() {
       const { items } = await ctx.sessionController.list({})
       const characters = ctx.eleckoiProductData.readCharacters().items

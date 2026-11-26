@@ -17,17 +17,21 @@ app.whenReady().then(async () => {
     throw new Error(`Timed out: ${source}; ${await evaluate('document.body.innerText.slice(0, 180)')}`);
   }
   const measure = () => evaluate(`(() => {
-    const scroller = document.querySelector('[data-conversation-scroll]'), composer = document.querySelector('[data-composer-seat]');
+    const scroller = document.querySelector('[data-conversation-scroll]'), composer = document.querySelector('[data-composer-card]');
     const button = document.querySelector('[data-chat-to-bottom] button'), rect = button?.getBoundingClientRect();
+    const status = document.querySelector('.roleplay-composer-process button'), statusRect = status?.getBoundingClientRect();
     return { composerTop: composer.getBoundingClientRect().top, buttonTop: rect?.top, buttonBottom: rect?.bottom,
+      buttonHit: !!rect && button.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.bottom - 2)),
+      statusBottom: statusRect?.bottom,
+      statusHit: !!statusRect && status.contains(document.elementFromPoint(statusRect.left + statusRect.width / 2, statusRect.top + statusRect.height / 2)),
       scrollTop: scroller.scrollTop, floor: scroller.scrollHeight - scroller.clientHeight,
       following: Boolean(document.querySelector('[data-chat-following-tail]')) };
   })()`);
   try {
     const reports = [];
-    for (const [width, height] of [[1200, 800], [400, 760]]) {
+    for (const [width, height, query] of [[1200, 800, 'layout=agent'], [1200, 800, ''], [1200, 800, 'running'], [400, 760, 'mobile&running']]) {
       win.setContentSize(width, height);
-      await win.loadURL(pathToFileURL(htmlPath).href);
+      await win.loadURL(pathToFileURL(htmlPath).href + '?' + query);
       await waitFor('Boolean(document.querySelector("[data-chat-following-tail]"))');
       await evaluate(`(() => { const element = document.querySelector('[data-conversation-scroll]'); element.scrollTop = 0; element.dispatchEvent(new Event('scroll')); element.dispatchEvent(new Event('scrollend')); })()`);
       await waitFor('Boolean(document.querySelector("[data-chat-to-bottom] button"))');
@@ -43,7 +47,7 @@ app.whenReady().then(async () => {
       await evaluate('document.querySelector("[data-chat-to-bottom] button").click()');
       await waitFor('Boolean(document.querySelector("[data-chat-following-tail]"))');
       const returned = await measure();
-      reports.push({ width, height, long, shortened, restored, returned });
+      reports.push({ width, height, query, long, shortened, restored, returned });
     }
     const alignment = [];
     for (const [width, query] of [[1600, 'reading=680'], [1600, 'reading=900&theme=dark'], [860, 'reading=680'],

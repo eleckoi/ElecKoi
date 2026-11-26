@@ -41,10 +41,8 @@
   .conversation-character-picker-empty,
   .conversation-main span,
   .conversation-meta,
-  .character-list-tabs button,
   .character-group-row em,
   .character-contact-row span,
-  .character-empty-groups,
   .model-group-row em,
   .model-provider-copy em,
   .model-detail-form label > span,
@@ -65,9 +63,6 @@
   .chat-model-panel > header span,
   .chat-model-empty,
   .history-empty,
-  .history-retention b,
-  .history-retention button,
-  .history-actions button,
   .history-item b,
   .history-item time,
   .history-confirm span
@@ -77,10 +72,6 @@
 
 :root[data-theme="dark"] .model-monochrome-icon {
   filter: invert(1);
-}
-
-:root[data-theme="dark"] .character-list-tabs button:is(:hover, .active) {
-  color: var(--text);
 }
 
 :root[data-theme="dark"] :is(
@@ -209,18 +200,8 @@
   background: var(--surface-raised);
 }
 
-:root[data-theme="dark"] :is(.history-toolbar, .history-day h3, .history-item) {
+:root[data-theme="dark"] :is(.history-day h3, .history-item) {
   border-color: var(--line);
-}
-
-:root[data-theme="dark"] .history-retention button span {
-  border-color: var(--line-strong);
-  background: var(--surface-raised);
-}
-
-:root[data-theme="dark"] .history-retention button.active span {
-  box-shadow: inset 0 0 0 4px var(--surface-raised);
-  background: var(--blue);
 }
 
 :root[data-theme="dark"] .model-detail-hero {

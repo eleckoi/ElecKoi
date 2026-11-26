@@ -32,6 +32,7 @@ async function main(): Promise<void> {
   process.chdir(prepared.profileDirectory)
   const application = startPluginHostApplication({
     profileDirectory: prepared.profileDirectory,
+    workspaceRoot: config.workspaceRoot,
     patchFiles: prepared.patchFiles,
     clientDirectory: config.clientDirectory,
     packageManager: nodeHostPackageManager(config)

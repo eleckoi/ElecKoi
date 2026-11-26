@@ -9,6 +9,7 @@ import {
   chatDisplayCssVariables,
   chatTextColorCssVariables,
   messageFloorNumber,
+  roleplayFloorNumbers,
   resolveChatAvatar,
   resolveChatAvatarShape,
   resolveChatDisplayProfile,
@@ -213,6 +214,16 @@ describe("chat display preferences", () => {
     expect(page.map((_, index) => messageFloorNumber(page, index))).toEqual([48, 49, 50]);
     const withOlderPage = [{ messageIndex: 46 }, { messageIndex: 47 }, ...page];
     expect(withOlderPage.map((_, index) => messageFloorNumber(withOlderPage, index))).toEqual([46, 47, 48, 49, 50]);
+  });
+
+  it("continues the visible floor count for each change of avatar within a reply", () => {
+    const first = { kind: 'speech', speakerId: 'speaker-a', speakerName: '合成角色甲', text: '正文。' };
+    const second = { kind: 'speech', speakerName: '合成角色乙', text: '后续正文。' };
+    const reply = { messageIndex: 6, roleplayBlocks: [first, { ...first, speakerId: undefined }, second] };
+    expect(roleplayFloorNumbers([{ messageIndex: 5 }, reply, { messageIndex: 7 }]))
+      .toEqual({ numbers: [5, 6, 8], next: 9 });
+    expect(roleplayFloorNumbers([{ id: 'opening' }, { messageIndex: 5 }, reply]))
+      .toEqual({ numbers: [0, 5, 6], next: 8 });
   });
 
   it("refreshes untouched Agent defaults while preserving a customized profile", () => {

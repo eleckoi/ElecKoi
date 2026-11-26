@@ -11,6 +11,8 @@ import { characterMeta, characters, characterTextContents, userProfile } from '@
 import type { LocalMediaStore, PreparedLocalMedia } from '@product-data/storage/media/LocalMediaStore'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
+import type { CharacterAssetRepository } from '@product-data/domain/characterAssets'
+import { readCharacterCast, writeCharacterCast } from './characterCastStorage'
 
 const string = (value: unknown, fallback = ''): string => typeof value === 'string' ? value : fallback
 const number = (value: unknown, fallback = 0): number => typeof value === 'number' && Number.isFinite(value) ? value : fallback
@@ -45,7 +47,8 @@ export class CharacterRepository {
     private readonly store: ElecKoiSqliteStore,
     private readonly conversationCleanup: CharacterConversationCleanup,
     private readonly mediaAssets: LocalMediaStore,
-    private readonly defaultChatBackground: () => string = () => ''
+    private readonly defaultChatBackground: () => string = () => '',
+    private readonly assets?: CharacterAssetRepository
   ) {}
 
   get(db: ElecKoiDatabase = this.store.db): CharacterCollection {
@@ -54,6 +57,7 @@ export class CharacterRepository {
     const profile = db.select().from(userProfile).where(eq(userProfile.id, 'default')).get()
     const texts = db.select().from(characterTextContents).all()
     const activity = readCharacterActivity(db)
+    const casts = readCharacterCast(db)
     return {
       active_character_id: rows.some((row) => row.id === state?.activeCharacterId) ? state!.activeCharacterId : rows[0]?.id ?? '',
       groups: state ? normalizedGroups(parseJsonArray<string>(state.groupsJson)) : [],
@@ -62,7 +66,7 @@ export class CharacterRepository {
         const primary = openings.openingMessages.find(message => message.id === openings.defaultOpeningMessageId)!
         const content = Object.fromEntries(texts.filter((item) => item.characterId === row.id).map((item) => [item.kind, item.content]))
         return {
-          ...row, group: normalizedGroup(row.groupName),
+          ...row, group: normalizedGroup(row.groupName), cast: casts.get(row.id) ?? [],
           authorName: content.author_name ?? '', authorAvatar: content.author_avatar ?? '',
           addedAtEpochMs: activity.get(row.id)?.addedAtEpochMs ?? 0, editedAtEpochMs: activity.get(row.id)?.editedAtEpochMs ?? 0,
           chatBackgroundCustom: customChatBackgroundFromCharacter({ ...row,
@@ -115,6 +119,15 @@ export class CharacterRepository {
   }
 
   update(character: CharacterRecord): CharacterCollection {
+    if (character.cast !== undefined && Object.keys(character).every(key => key === 'id' || key === 'cast')) {
+      this.store.withWriteTx(db => {
+        if (!db.select({ id: characters.id }).from(characters).where(eq(characters.id, character.id)).get()) {
+          throw new DesktopError(ELECKOI_FAILURE_CODES.characterNotFound, '找不到对应的角色卡。', { what: '角色卡' })
+        }
+        if (writeCharacterCast(db, character.id, character.cast, this.assets)) recordCharacterEdit(db, character.id)
+      })
+      return this.get()
+    }
     try {
       this.store.withWriteTx((database) => {
         const previous = database.select().from(characters).where(eq(characters.id, character.id)).get()
@@ -238,6 +251,11 @@ export class CharacterRepository {
       const cardContent = ({ orderIndex: _order, groupViewOrder: _view, groupName: _group, ...content }: typeof row) => JSON.stringify(content)
       if (previous && cardContent(previous) !== cardContent(row)) recordCharacterEdit(db, input.id)
     }
+    const cast = input.cast ?? (previous ? undefined : [{
+      id: 'primary', name: row.assistantName.trim() || row.name.trim() || '未命名角色',
+      portraitAssetId: null, circleAssetId: null, squareAssetId: null, crop: null
+    }])
+    if (cast !== undefined && writeCharacterCast(db, input.id, cast, this.assets) && previous) recordCharacterEdit(db, input.id)
     const custom = customChatBackgroundFromCharacter(input)
     if (custom.image) {
       const content = JSON.stringify(custom)

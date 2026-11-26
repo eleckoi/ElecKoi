@@ -337,6 +337,9 @@
   line-height: 34px;
 }
 
+.setting-library-tree .headless-tree-surface { --tree-arrow-center: 17px; }
+.setting-library-tree .headless-tree-surface:has(.editor-selection-checkbox) { --tree-arrow-center: 47px; }
+
 .setting-library-tree-row:hover .setting-library-tree-row-content {
   background: color-mix(in srgb, var(--active) 66%, transparent);
 }
@@ -452,41 +455,18 @@
   flex: 0 0 16px;
   padding: 0;
   place-items: center;
-  color: var(--tree-folder-fg);
+  color: var(--tree-chevron-fg);
   background: transparent;
   border: 0;
-}
-
-.setting-library-tree-folder,
-.setting-library-tree-arrow {
-  grid-area: 1 / 1;
-}
-
-.setting-library-tree-arrow {
-  display: none;
-  color: var(--tree-chevron-fg);
-  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.setting-library-tree-arrow.is-expanded {
-  transform: rotate(90deg);
 }
 
 .setting-library-tree-folder {
   display: grid;
   width: 16px;
   height: 20px;
+  flex: 0 0 16px;
+  color: var(--tree-folder-fg);
   place-items: center;
-}
-
-.setting-library-tree-row:hover .setting-library-tree-folder,
-.setting-library-tree-expander:focus-visible .setting-library-tree-folder {
-  display: none;
-}
-
-.setting-library-tree-row:hover .setting-library-tree-arrow,
-.setting-library-tree-expander:focus-visible .setting-library-tree-arrow {
-  display: block;
 }
 
 .setting-library-tree-row.is-nested {

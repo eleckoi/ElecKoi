@@ -2,6 +2,7 @@ import { FileCode, FolderSimple, CaretRight } from '../../../ui/icons/interfaceI
 import { EditorSwitch } from '../../../ui/ui/EditorLibraryFields.jsx';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { libraryKey } from '../model/scriptEditing.js';
+import { isNativeAuthorScript } from '@eleckoi/author-sdk';
 
 export function ScriptWorkspaceList({ library, label, query, selection, multi, collapsed, onCollapse, busy, onSelect, onToggle, onToggleLibrary, onContextMenu, dragProps, nameDragProps, rootDragProps }) {
   const tUi = useProductTranslation(), key = libraryKey(library.scope, library.ownerId), search = query.trim().toLocaleLowerCase();
@@ -13,7 +14,12 @@ export function ScriptWorkspaceList({ library, label, query, selection, multi, c
       data-enabled={library.enabled && item.enabled && parentEnabled} {...dragProps(key, item, parentId)} onClick={() => onSelect({ key, id: item.id })} onContextMenu={event => onContextMenu(event, { key, id: item.id })}>
       {multi.active && <input type="checkbox" disabled={busy} checked={multi.selected.has(address)} aria-label={tUi('选择{value0}', { value0: item.name })} onClick={event => event.stopPropagation()} onChange={() => onSelect({ key, id: item.id })} />}
       {folder ? <button className="rs-folder-toggle" type="button" aria-label={closed ? tUi('展开{value0}', { value0: item.name }) : tUi('收起{value0}', { value0: item.name })} onClick={event => { event.stopPropagation(); onCollapse(address); }}><CaretRight size={12} className={closed ? '' : 'is-expanded'} /></button> : <span className="rs-row-indent" />}
-      <button className="rs-row-main script-list-name" type="button" disabled={busy} {...nameDragProps(key, item)}>{folder ? <FolderSimple size={17} /> : <FileCode size={17} />}<span className="rs-row-name">{item.name || tUi('未命名脚本')}</span></button>
+      <button className="rs-row-main script-list-name" type="button" disabled={busy} {...nameDragProps(key, item)}>
+        {folder ? <FolderSimple size={17} /> : <FileCode size={17} />}
+        <span className="rs-card-copy"><span className="rs-row-name">{item.name || tUi('未命名脚本')}</span>
+          {!folder && <span className="rs-card-meta" title={item.info}>{isNativeAuthorScript(item) ? tUi('原生脚本') : tUi('兼容脚本')}</span>}
+        </span>
+      </button>
       {!multi.active && <EditorSwitch disabled={busy} label={tUi('启用{value0}', { value0: item.name })} checked={item.enabled} onChange={enabled => onToggle(key, item.id, enabled)} />}
     </div>;
   }

@@ -31,6 +31,13 @@ function Fixture() {
   }, setQueueCount(count) {
     setQueue(Array.from({ length: count }, (_, index) => ({ id: `queued-${index}`, source: { kind: 'user' },
       content: [{ type: 'text', text: `合成待发送消息 ${index + 1}` }] })));
+  }, selectDraft(text, start, end) {
+    runtime.setDraft(text);
+    const input = editor.getRootElement();
+    input.focus();
+    const walker = document.createTreeWalker(input, NodeFilter.SHOW_TEXT);
+    const textNode = walker.nextNode();
+    window.getSelection().setBaseAndExtent(textNode, start, textNode, end);
   } };
   React.useEffect(() => { runtime.setDraft('合成草稿'); }, []);
   const input = { draft: '合成草稿', attachmentIds: attachments.map(item => item.id), queue: [], phase: 'plain' };

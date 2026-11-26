@@ -1,5 +1,6 @@
 
 import type { GeneratedImageFrame } from '@eleckoi/dsh-product-data'
+import type { ConversationMessageEdit } from './types.js'
 
 /** 修改同一个官方 Session 的消息和回退位置，保留 Session 编号。 */
 export interface ElecKoiSessionEditor {
@@ -17,10 +18,10 @@ export interface ElecKoiSessionEditor {
    * @param sessionId - 官方 Session 编号。
    * @param eventSeq - 消息事件序号。
    * @param role - 消息角色。
-   * @param content - 新的完整消息文本。
+   * @param content - 完整正文，或按原顺序提交的多人回复各段正文。
    * @returns 消息修改和投影刷新完成。
    */
-  editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', content: string): Promise<void>
+  editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', content: ConversationMessageEdit): Promise<void>
   /**
    * 删除指定消息及之后的事件，保留其前的完整历史并闭合开放轮次。
    * @param sessionId - 官方 Session 编号。

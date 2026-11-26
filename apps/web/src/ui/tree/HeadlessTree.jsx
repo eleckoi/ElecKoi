@@ -45,6 +45,7 @@ export function HeadlessTree({
   selectedId = "",
   expandedIds = [],
   indent = 18,
+  branchGuides = false,
   ariaLabel,
   dragLineClassName,
   onSelectedIdChange,
@@ -178,52 +179,74 @@ export function HeadlessTree({
   const generatedContainerProps = tree.getContainerProps(ariaLabel);
   const { onDragOver: generatedContainerDragOver, ...containerProps } = generatedContainerProps;
   const visualDragLine = nestedDrop || dragLine;
+  const items = tree.getItems();
+
+  function renderRow(item) {
+    const generatedProps = item.getProps();
+    const { onClick: _generatedClick, onDragOver: generatedItemDragOver, ...itemProps } = generatedProps;
+    const data = item.getItemData();
+    const meta = item.getItemMeta();
+    const parent = item.getParent();
+    return renderItem({
+      key: item.getKey(),
+      item,
+      data,
+      level: meta.level,
+      isSelected: item.isSelected(),
+      isExpanded: item.isExpanded(),
+      isDropTarget: item.isUnorderedDragTarget(),
+      isDragging: touch.preview?.dragId === item.getId() || Boolean(tree.getState().dnd?.draggedItems?.some((dragged) => dragged.getId() === item.getId())),
+      itemProps: {
+        ...itemProps,
+        'data-reorder-id': item.getId(),
+        'data-reorder-parent': parent.getId() === HEADLESS_TREE_ROOT_ID ? '' : parent.getId(),
+        'data-reorder-fixed': String(Boolean(data.fixed)),
+        'data-reorder-target': touch.preview?.targetId === item.getId() ? (touch.preview.after ? 'after' : 'before') : undefined,
+        draggable: dragEnabled && !query.trim() && !data.fixed,
+        onDragOver: (event) => {
+          generatedItemDragOver?.(event);
+          updateNestedDropFromPointer(event.clientX, event.clientY);
+        },
+        onClick: (event) => {
+          event.stopPropagation();
+          item.setFocused();
+          tree.setSelectedItems([item.getId()]);
+        },
+      },
+      style: branchGuides ? undefined : { paddingLeft: meta.level * indent },
+    });
+  }
+
+  function renderBranches() {
+    let cursor = 0;
+    function renderSiblings(level) {
+      const children = [];
+      while (cursor < items.length && items[cursor].getItemMeta().level === level) {
+        const item = items[cursor++];
+        children.push(renderRow(item));
+        if (items[cursor]?.getItemMeta().level === level + 1) {
+          children.push(<div key={`${item.getKey()}-children`} role="presentation" className="headless-tree-branch">
+            {renderSiblings(level + 1)}
+          </div>);
+        }
+      }
+      return children;
+    }
+    return renderSiblings(0);
+  }
 
   return (
     <div
       {...containerProps}
       {...touch.handlers}
-      className="headless-tree-surface"
+      className={`headless-tree-surface${branchGuides ? ' has-branch-guides' : ''}`}
+      style={branchGuides ? { '--tree-branch-indent': `${indent}px` } : undefined}
       onDragOver={(event) => {
         generatedContainerDragOver?.(event);
         updateNestedDropFromPointer(event.clientX, event.clientY, true);
       }}
     >
-      {tree.getItems().map((item) => {
-        const generatedProps = item.getProps();
-        const { onClick: _generatedClick, onDragOver: generatedItemDragOver, ...itemProps } = generatedProps;
-        const data = item.getItemData();
-        const meta = item.getItemMeta();
-        const parent = item.getParent();
-        return renderItem({
-          key: item.getKey(),
-          item,
-          data,
-          level: meta.level,
-          isSelected: item.isSelected(),
-          isExpanded: item.isExpanded(),
-          isDropTarget: item.isUnorderedDragTarget(),
-          isDragging: touch.preview?.dragId === item.getId() || Boolean(tree.getState().dnd?.draggedItems?.some((dragged) => dragged.getId() === item.getId())),
-          itemProps: {
-            ...itemProps,
-            'data-reorder-id': item.getId(),
-            'data-reorder-parent': parent.getId() === HEADLESS_TREE_ROOT_ID ? '' : parent.getId(),
-            'data-reorder-fixed': String(Boolean(data.fixed)),
-            'data-reorder-target': touch.preview?.targetId === item.getId() ? (touch.preview.after ? 'after' : 'before') : undefined,
-            draggable: dragEnabled && !query.trim() && !data.fixed,
-            onDragOver: (event) => {
-              generatedItemDragOver?.(event);
-              updateNestedDropFromPointer(event.clientX, event.clientY);
-            },
-            onClick: (event) => {
-              event.stopPropagation();
-              item.setFocused();
-              tree.setSelectedItems([item.getId()]);
-            },
-          },
-          style: { paddingLeft: meta.level * indent },
-        });
-      })}
+      {branchGuides ? renderBranches() : items.map(renderRow)}
       {visualDragLine ? (
         <div
           className={`headless-tree-drop-cursor${dragLineClassName ? ` ${dragLineClassName}` : ""}`}

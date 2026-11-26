@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, IconChevronDownOutlineRegular, Menu, Modal, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Button, focusWithoutRing, IconChevronDownOutlineRegular, Menu, Modal, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
 import { CheckCircle, SortAscending } from '@phosphor-icons/react';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { CopyIcon, ExportIcon, ImportIcon, PencilIcon, TrashIcon } from '../../../ui/icons/index.jsx';
@@ -67,6 +67,7 @@ export function PresetHome({ renderLayout, requestedTab, onRequestedTabHandled }
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
+  const restoreDetailFocus = useRef(null);
   const fileInput = useRef(null);
   const importSource = useRef(null);
   const context = useEditorContextMenu();
@@ -87,6 +88,15 @@ export function PresetHome({ renderLayout, requestedTab, onRequestedTabHandled }
   const targetValid = moveTarget === '' || groups.some(item => item.id === moveTarget);
   const selectedVisible = visible.length > 0 && visible.every(preset => currentSelection?.ids.includes(preset.id));
   const setFeed = useCallback(node => { if (node) node.inert = showDetail; }, [showDetail]);
+
+  useLayoutEffect(() => {
+    if (showDetail || !restoreDetailFocus.current) return;
+    const { trigger, previousFocus } = restoreDetailFocus.current;
+    restoreDetailFocus.current = null;
+    if (!trigger?.isConnected) return;
+    const { activeElement, body } = trigger.ownerDocument;
+    if (activeElement === body || activeElement === previousFocus) focusWithoutRing(trigger, { preventScroll: true });
+  }, [showDetail]);
 
   useEffect(() => {
     if (!requestedTab || !selectedPresetId) return;
@@ -109,15 +119,15 @@ export function PresetHome({ renderLayout, requestedTab, onRequestedTabHandled }
     finally { pending.current = false; setBusy(false); }
   }
 
-  function open(id, trigger, focusBack = false) {
+  function open(id, trigger) {
     if (busy) return;
     setSelectedPresetId(id);
-    setOpened({ id, purpose, trigger, focusBack });
+    setOpened({ id, purpose, trigger, previousFocus: document.activeElement });
     setSelection(null);
   }
   function back() {
+    restoreDetailFocus.current = opened;
     setOpened(null);
-    requestAnimationFrame(() => opened.trigger?.focus({ preventScroll: true }));
   }
   function chooseGroup(id) {
     setGroupsByPurpose(current => ({ ...current, [purpose]: id }));
@@ -260,7 +270,7 @@ export function PresetHome({ renderLayout, requestedTab, onRequestedTabHandled }
         empty={purposeCatalog && <p className="preset-home-empty" role="status">{t('没有匹配的预设')}</p>}>
         {preset => {
           const active = purposeCatalog.activePresetIds[purpose] === preset.id;
-          const onSelect = event => currentSelection ? pick(preset) : open(preset.id, event?.currentTarget, true);
+          const onSelect = event => currentSelection ? pick(preset) : open(preset.id, event?.currentTarget);
           const onOpenMenu = currentSelection ? undefined : event => openPresetMenu(event, preset, 'pc-manager');
           const checked = currentSelection?.ids.includes(preset.id) ?? false;
           return render('eleckoi.preset.library.item', { surface: 'pc-manager', preset, active, selecting: Boolean(currentSelection), selected: Boolean(checked), onSelect, onOpenMenu },
@@ -269,7 +279,7 @@ export function PresetHome({ renderLayout, requestedTab, onRequestedTabHandled }
         }}
       </VirtualMasonry>
     </section>
-    {showDetail && <PresetOverview key={opened.id} onBack={back} focusBack={opened.focusBack} />}
+    {showDetail && <PresetOverview key={opened.id} onBack={back} trigger={opened.trigger} />}
     <input hidden type="file" ref={fileInput} onChange={importFile} />
     {importOpen && <PresetImportDialog onSelect={chooseImport} onClose={() => setImportOpen(false)} />}
     {groupDraft !== null && <GroupNameDialog title={t(groupEdit ? '重命名该组' : '新建分组')} value={groupDraft} onChange={setGroupDraft} busy={busy} error={error}

@@ -1,7 +1,12 @@
 /** Discovery routes to bundled skills; detailed authoring knowledge loads on demand. */
 export const creatorToolsets = [
-  { id: 'character', title: '角色资料', description: '新建空角色，维护当前角色资料和独立开场白。', skill: 'eleckoi-character-authoring',
-    guide: ['character.list 可发现或按名称搜索角色，调用 eleckoi_call_capability 时可显式提供 character_id；省略时使用当前快捷定位角色，绑定不是前提。character.create 可从零创建，默认省略 group，创建在未分组。角色分组是可选的列表整理，仅按用户要求指定或新建，不按角色题材自行分类。开场白用 character.read_openings／character.save_openings，与设定版本独立。常规楼层界面加载 eleckoi-message-frontends；角色配置与配套脚本加载 eleckoi-character-authoring。'] },
+  { id: 'character', title: '角色卡', description: '查找或创建角色卡，编辑基础资料、单人或多人登场名单及开场白。', skill: 'eleckoi-character-authoring',
+    guide: [
+      'character.list 查找角色卡，调用时可用 character_id 指定准确目标；省略时用当前快捷目标。character.create 创建一张新卡，默认未分组；按用户要求整理分组。',
+      '登场角色是卡片里可以出场和发言的人。单人卡用一位，多人卡登记多位；每位可有自己的名字、立绘和头像。角色对话的回复工具用名单中的名字区分发言者，开场白段落用固定编号选择头像。名单告诉模型谁可以出场，当轮谁开口由剧情决定。人物性格和关系写在角色设定里。',
+      'character.read 返回 cast 名单。character.create_cast_member 在这张卡里新增一位并返回固定编号；character.update_cast_member 用编号改名字、立绘或头像取景；character.remove_cast_member 用编号移除一位，最后一位保留。卡片名称、作者、封面和简介用 character.update。',
+      '主开场白与备用开场白用 character.read_openings／character.save_openings。只有卡片封面的单段直接写 content；要指定或切换发言者就按顺序提交 segments。cover 用卡片封面，speech 用 cast 中的 speakerId。台词、动作和环境都写进段落的 text。保存完整列表并保留未修改项和绑定。',
+    ] },
   { id: 'settings', title: '设定库', description: '读写角色卡或共享全局的设定原稿、EJS、文件夹和配置。', skill: 'eleckoi-character-authoring',
     guide: [
       '省略 target 读取当前角色。target={scope:"global",libraryId} 指定全局库，无需选择角色。list 是目录，read 是原稿。仅改一段用 settings.edit，无需重传整条正文。全局写入带 expectedRevision，角色完整配置用 read_library/save_library。',

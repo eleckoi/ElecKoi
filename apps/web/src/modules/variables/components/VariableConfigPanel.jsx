@@ -6,6 +6,7 @@ import { ConfirmationDialog, SaveControl } from "../../settingLibraries/index.js
 import { EditorSidebarLayout } from "../../../ui/ui/EditorSidebarLayout.jsx";
 import { EditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
+import { SidebarScrollArea } from '../../../ui/ui/SidebarScrollArea.jsx';
 import { MobileEditorActions } from '../../../ui/ui/MobileEditorActions.jsx';
 import { EditorCollectionToolbar, EditorSelectionBar, useEditorMultiSelect } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { selectableTreeIds, selectedTreeRootIds, visibleTreeSelectionIds } from '../../../ui/ui/editorCollectionSelection.js';
@@ -26,6 +27,7 @@ import {
   withGeneratedInitialState,
 } from "../model/variableConfigEditing.js";
 import { hasVariableSearchResults, variableTreeNodes } from "../model/variableConfigTree.js";
+import { importVariableConfig } from '../model/variableConfigTransfer.js';
 import { VariableConfigDocument } from './VariableConfigDocument.jsx';
 import { VariableConfigWorkspace } from './VariableConfigWorkspace.jsx';
 import { VariableConfigManager } from "./VariableConfigManager.jsx";
@@ -44,7 +46,8 @@ function destinationParent(config, selected) {
 
 export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ characterId, variables, onDirtyChange }, ref) {
   const tUi = useProductTranslation();
-  const { compact } = useEditorPresentation();
+  const { compact, characterStudio } = useEditorPresentation();
+  const TreeViewport = characterStudio && !compact ? SidebarScrollArea : 'div';
   const [config, setConfig] = useState(null);
   const [persisted, setPersisted] = useState(null);
   const [selectedKey, setSelectedKey] = useState("");
@@ -53,6 +56,8 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
   const [expandedIds, setExpandedIds] = useState([]);
   const [query, setQuery] = useState("");
   const [managerOpen, setManagerOpen] = useState(false);
+  const [importNotice, setImportNotice] = useState('');
+  const [importError, setImportError] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [convertTarget, setConvertTarget] = useState(null);
@@ -65,6 +70,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
   const clipboardRef = useRef(null);
   const savePromiseRef = useRef(null);
   const nameInputRef = useRef(null);
+  const importInput = useRef(null);
 
   const dirty = useMemo(() => !editorValueEqual(config, persisted), [config, persisted]);
   const selected = useMemo(() => config ? selectedVariableNode(config, selectedKey) : { kind: "", value: null }, [config, selectedKey]);
@@ -372,10 +378,30 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
   const toggleSelection = () => { multi.toggle(); selectNode(''); setEditing(false); setContextMenu(null); };
   const saveControl = <SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} workspace={!compact} title={!compact ? tUi('保存全部变量修改') : undefined} />;
   const Layout = compact ? EditorSidebarLayout : VariableConfigWorkspace;
+  function chooseImport() {
+    setImportNotice('');
+    setImportError('');
+    importInput.current?.click();
+  }
+  async function importVersion(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const source = await file.text();
+      if (!configRef.current) return;
+      applyManagerChange(importVariableConfig(syncActiveVersion(configRef.current), source));
+      setImportNotice(tUi('已作为新版本导入，保存后生效。'));
+    } catch (cause) {
+      const failure = resolveFailure(cause, { fallback: tUi('导入变量配置失败') }).text;
+      setImportError(failure);
+      setError(failure);
+    }
+  }
   return (
     <Layout className={`variable-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("变量配置")}
       {...(!compact ? { config, query, onQueryChange: setQuery, createItems: [...createItems].reverse(), selection: { ...multi, toggle: toggleSelection }, saving, save: saveControl,
-        onManage: () => setManagerOpen(true), onVersionChange: applyManagerChange } : { documentLayout: true })}
+        onManage: () => setManagerOpen(true), onImport: chooseImport, onVersionChange: applyManagerChange } : { documentLayout: true })}
       inspectorTitle={selected.value?.id === VARIABLE_INITIALIZATION_OBJECT_ID ? tUi("变量运行配置") : selected.kind === 'object' ? tUi("编辑变量组") : tUi("编辑变量")}
       onCloseInspector={closeInspector}
       feedback={<SaveControl dirty={dirty} error={error} notice={notice} saving={saving} onSave={save} />}
@@ -394,7 +420,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
           onManage={() => setManagerOpen(true)} save={saveControl} />}
         <EditorSelectionBar selection={multi} visibleIds={visibleTreeSelectionIds(nodes, query)} disabled={saving} onCopy={copySelected}
           onDelete={() => setDeleteTarget({ kind: 'batch', ids: selectedTreeRootIds(nodes, multi.selected), title: tUi("删除选中的 {value0} 项？", {value0: multi.selected.size}), message: tUi("所选变量组及其内容会在保存后删除。") })} />
-        <div className={`variable-tree editor-sidebar-directory${!compact ? ' vv-tree' : ''}`} onContextMenu={openBackgroundMenu} onMouseDown={(event) => { if (event.button === 0 && !event.target.closest('[role="treeitem"]')) selectNode(''); }}>
+        <TreeViewport className={`variable-tree editor-sidebar-directory${!compact ? ' vv-tree' : ''}`} onContextMenu={openBackgroundMenu} onMouseDown={(event) => { if (event.button === 0 && !event.target.closest('[role="treeitem"]')) selectNode(''); }}>
           <VariableTreeActionsContext.Provider value={{ openContextMenu, toggleNode, selection: multi, saving, openEditor: compact && !multi.active ? openEditor : undefined }}>
             <VariableConfigTree
               key={characterId}
@@ -410,7 +436,7 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
             />
           </VariableTreeActionsContext.Provider>
           {!config ? error && <p className="variable-loading" role="alert">{error}</p> : !searchHasResults ? <p className="variable-empty">{tUi("没有匹配的变量")}</p> : null}
-        </div>
+        </TreeViewport>
         {compact && config && !multi.active && <MobileEditorActions label={tUi("变量操作")} selectionId={selectedKey} busy={saving} createItems={createItems}
           canEdit={Boolean(selected.value)} canModify={Boolean(selected.value) && selected.value.id !== VARIABLE_INITIALIZATION_OBJECT_ID}
           clipboard={clipboard} canPaste={Boolean(clipboard && canTransferVariableNode(config, clipboard.target, parentForNewNode()))}
@@ -422,8 +448,10 @@ export const VariableConfigPanel = forwardRef(function VariableConfigPanel({ cha
           ] : []} />}
       </div>
 
-      {managerOpen ? (
-        <VariableConfigManager config={config} onChange={applyManagerChange} onClose={() => setManagerOpen(false)} onError={setError} />
+      <input ref={importInput} type="file" accept="application/json,.json" hidden onChange={importVersion} />
+      {managerOpen && config ? (
+        <VariableConfigManager config={config} onChange={applyManagerChange} onClose={() => setManagerOpen(false)}
+          onImport={chooseImport} notice={importNotice} error={importError} />
       ) : null}
 
       {contextMenu ? <EditorContextMenu menu={contextMenu} label={tUi("变量操作")} onClose={() => setContextMenu(null)} actions={[

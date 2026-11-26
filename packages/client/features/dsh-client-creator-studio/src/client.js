@@ -86,6 +86,18 @@ window.__ModuleLoader__.load({
         const result = await this.remote.eleckoiCreatorStudioSessions[method](...args)
         return unwrapOrFail(result, 'AI 创作工作室操作失败。')
       }
+      listWorkspaceFiles(sessionId, path, signal) {
+        return this.call('listWorkspaceFiles', sessionId, path, signal)
+      }
+      editWorkspaceFiles(sessionId, path, edit, signal) {
+        return this.call('editWorkspaceFiles', sessionId, path, edit, signal)
+      }
+      importWorkspaceFile(sessionId, path, name, size, signal) {
+        return this.remote.eleckoiCreatorStudioSessions.importWorkspaceFile(sessionId, path, name, size, signal)
+      }
+      exportWorkspaceFiles(sessionId, path, entries, signal) {
+        return this.remote.eleckoiCreatorStudioSessions.exportWorkspaceFiles(sessionId, path, entries, signal)
+      }
       async refresh() {
         const generation = this.generation, sessionId = this.snapshot.active?.sessionId
         const items = await this.call('list')

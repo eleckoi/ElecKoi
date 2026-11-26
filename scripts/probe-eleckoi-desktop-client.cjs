@@ -19,9 +19,12 @@ documentModule._compile(buildSync({
   alias: { '@shared': resolve('packages/shared/src') },
 }).outputFiles[0].text, documentPath)
 const document = documentModule.exports
+const { loadNativeModule, installProbeDesktopNative } = require('./probe-desktop-native.cjs')
+const characterHomeProbe = process.argv.includes('--character-home-check')
+const mediaProbe = characterHomeProbe ? loadNativeModule('apps/desktop/src/main/platform/electron/mediaProtocol.ts') : null
 protocol.registerSchemesAsPrivileged([{ scheme: 'dsh-app', privileges: {
   standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true,
-} }])
+} }, ...(mediaProbe ? [mediaProbe.localMediaScheme] : [])])
 const root = mkdtempSync(join(tmpdir(), 'eleckoi-client-probe-'))
 app.setPath('userData', root)
 const errors = []
@@ -33,7 +36,7 @@ let modelRequests = 0
 let workspaceIsolationSetup = false
 let updateProbe
 let disposeNative
-const { loadNativeModule, installProbeDesktopNative } = require('./probe-desktop-native.cjs')
+let disposeMedia
 const { DesktopUpdateOverlays } = loadNativeModule('apps/desktop/src/main/platform/electron/dsh/update-overlay.ts')
 const updateOverlays = new DesktopUpdateOverlays()
 const modelBodies = []
@@ -50,6 +53,7 @@ async function main() {
   const { initProfile, readProfileManifest, writeProfileBundles } = await import('@deepseek-ai/dsh-app-boot')
   const { OPTIONAL_BUNDLES, PROFILE_TEMPLATES } = await import('@deepseek-ai/dsh-official-bundles')
   await app.whenReady()
+  disposeMedia = mediaProbe?.mediaProtocolPlugin.apply({ appPaths: { media: join(root, 'media') } })
   modelServer = createServer((_request, response) => {
     if (nativeAuthorMode || roleplayToolMode || pluginCreationMode) {
       let body = ''
@@ -189,8 +193,17 @@ async function main() {
     const headers = Object.fromEntries(Object.entries(details.requestHeaders).map(([key, value]) => [key.toLowerCase(), value]))
     callback({ requestHeaders: { ...headers, origin: new URL(ready.url).origin, cookie, 'sec-fetch-site': 'same-origin' } })
   })
-  window = new BrowserWindow({ show: false, width: Number(process.env.ELECKOI_CLIENT_PROBE_WIDTH || 1440), height: 1000,
+  const checkWindowsCaption = process.platform === 'win32' && characterHomeProbe
+  let captionFill
+  window = new BrowserWindow({ show: false, width: Number(process.env.ELECKOI_CLIENT_PROBE_WIDTH || 1440),
+    height: Number(process.env.ELECKOI_CLIENT_PROBE_HEIGHT || 1000),
+    ...(checkWindowsCaption ? { titleBarStyle: 'hidden', titleBarOverlay: { height: 40, color: '#f9fafb', symbolColor: '#111111' } } : {}),
     webPreferences: { preload: resolve('apps/desktop/out/preload/preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, offscreen: true, backgroundThrottling: false } })
+  if (checkWindowsCaption) ipcMain.on('eleckoi:dsh-native-theme', (event, _source, color, symbolColor) => {
+    if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || !color || !symbolColor) return
+    window.setTitleBarOverlay({ color, symbolColor })
+    captionFill = color
+  })
   disposeNative = installProbeDesktopNative({ window, root, getReady: () => ({ ...ready, cookie }), host, overlays: updateOverlays })
   window.webContents.on('console-message', ({ level, message }) => {
     if (level === 'error' || message.includes('initial Session restoration failed:')) errors.push(message)
@@ -339,8 +352,90 @@ async function main() {
     if (!response.ok || result.ok === false) throw new Error(`${method}: ${JSON.stringify(result)}`)
     return result.value ?? result
   }
-  if (process.argv.includes('--character-home-check')) {
-    await require('./probe-eleckoi-character-home.cjs')({ window, remoteCall, waitFor })
+  if (characterHomeProbe) {
+    await require('./probe-eleckoi-character-home.cjs')({ window, remoteCall, waitFor,
+      ...(checkWindowsCaption ? { readCaptionFill: () => captionFill } : {}) })
+    return
+  }
+  if (process.argv.includes('--character-editor-check')) {
+    const characterId = 'synthetic-cast-card'
+    const cast = ['合成登场角色', '合成第二角色'].map((name, index) => ({
+      id: `speaker-${index}`, name, portraitAssetId: null, circleAssetId: null, squareAssetId: null, crop: null
+    }))
+    await remoteCall('eleckoiCharacters/create', { character: {
+      id: characterId, name: '合成角色卡', cast,
+    } })
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
+    for (const [field, name] of [['portraitAssetId', 'portrait.png'], ['circleAssetId', 'circle.png']]) {
+      const { id: uploadId } = await remoteCall('eleckoiCharacterAssets/beginUpload', {
+        characterId, input: { name, size: Buffer.from(png, 'base64').length }
+      })
+      await remoteCall('eleckoiCharacterAssets/appendUpload', { characterId, uploadId, offset: 0, data: png })
+      await remoteCall('eleckoiCharacterAssets/finishUpload', { characterId, uploadId })
+      cast[1][field] = uploadId
+    }
+    await remoteCall('eleckoiCharacters/update', { character: { id: characterId, cast } })
+    await remoteCall('eleckoiCharacterConfiguration/saveCharacterOpenings', { characterId, value: {
+      characterId, enabled: true, defaultOpeningMessageId: 'scene', openingMessages: [
+        { id: 'scene', title: '合成多人开场', content: '', segments: [
+          { id: 'cover', kind: 'cover', text: '合成封面开场。' },
+          { id: 'speech', kind: 'speech', speakerId: 'speaker-1', text: '合成第一段。\n\n合成第二段。' }
+        ] },
+        { id: 'plain', title: '合成长文', content: '旧式开场正文。' }
+      ]
+    } })
+    await window.loadURL('dsh-app://app/?view=character-editor&character=synthetic-cast-card')
+    await waitFor(`Boolean(document.querySelector('.character-basic-content'))`, 'Character editor did not load')
+    await window.webContents.executeJavaScript(`document.querySelector('#character-editor-navigation [aria-label="登场角色"]').click()`)
+    await waitFor(`document.querySelector('.character-cast-card-name')?.textContent === '合成登场角色'`, 'Cast roster did not mount in the DSH slot')
+    const castHeading = await window.webContents.executeJavaScript(`(() => {
+      const toolbar = document.querySelector('.character-cast-topbar');
+      return toolbar.querySelector('h2')?.textContent.trim() === '登场角色'
+        && toolbar.textContent.trim() === '登场角色新建角色';
+    })()`)
+    if (!castHeading) throw new Error('The cast toolbar must show the title without a count')
+    await window.webContents.executeJavaScript(`document.querySelectorAll('.character-cast-card')[1].dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:220,clientY:160}))`)
+    await waitFor(`document.querySelector('.editor-context-menu [role=menuitem]')?.textContent.trim() === '删除'`, 'The cast card did not open its Delete action')
+    await window.webContents.executeJavaScript(`document.querySelector('.editor-context-menu [role=menuitem]').click()`)
+    await waitFor(`document.querySelector('[role=dialog]')?.textContent.includes('删除「合成第二角色」')`, 'Cast deletion addressed the wrong card')
+    await window.webContents.executeJavaScript(`[...document.querySelectorAll('[role=dialog] button')].find(button => button.textContent.trim() === '取消').click()`)
+    const castActions = await window.webContents.executeJavaScript(`[...document.querySelectorAll('.character-cast-inspector-head-actions button')].map(button => button.textContent.trim()).join(' / ')`)
+    if (castActions !== '保存更改 / 删除') throw new Error(`Unexpected cast inspector actions: ${castActions}`)
+    await window.webContents.executeJavaScript(`document.querySelector('#character-editor-navigation [aria-label="开场白"]').click()`)
+    await waitFor(`Boolean(document.querySelector('.opening-writing'))`, 'Opening page did not load after leaving the cast roster')
+    const toolbarMatches = await window.webContents.executeJavaScript(`(() => {
+      const header = getComputedStyle(document.querySelector('.character-studio-toolbar'));
+      const divider = getComputedStyle(document.querySelector('.setting-pane-resizer'));
+      const save = document.querySelector('.setting-document-save');
+      return header.borderBottomWidth === divider.borderInlineStartWidth
+        && header.borderBottomColor === divider.borderInlineStartColor
+        && save.textContent.trim() === '保存更改' && !save.querySelector('svg')
+        && !document.querySelector('[aria-label="预览开场白"]')
+        && document.querySelector('.opening-body-toolbar .opening-add-button')?.textContent.trim() === '添加段落';
+    })()`)
+    if (!toolbarMatches) throw new Error('Character editor divider or save control does not match the toolbar design')
+    await remoteCall('eleckoiConversations/create', { input: { title: '合成开场聊天', metadata: { characterId } } })
+    await window.loadURL('dsh-app://app/')
+    await waitFor(`document.querySelector('button[aria-label="消息"]')`, 'Product chat navigation did not mount')
+    await window.webContents.executeJavaScript(`document.querySelector('button[aria-label="消息"]').click()`)
+    await waitFor(`Array.from(document.querySelectorAll('.conversation-main b')).some(node => node.innerText === '合成角色卡')`, 'Synthetic cast conversation did not appear')
+    await window.webContents.executeJavaScript(`(() => {
+      const row = [...document.querySelectorAll('.conversation-item')].find(item => item.querySelector('b')?.innerText === '合成角色卡');
+      if (!row.classList.contains('active')) row.click();
+    })()`)
+    await waitFor(`document.querySelector('.message[data-opening-segment="speech"] .bubble')?.textContent.includes('合成第二段。') &&
+      document.querySelector('.message[data-opening-segment="speech"] .message-author')?.textContent === '合成第二角色'`, 'The new chat did not render the speaker and both paragraphs')
+    await waitFor(`(() => {
+      const reply = document.querySelector('.message-roleplay.avatar-shape-portrait[data-opening-segment="speech"]');
+      const portrait = reply?.querySelector(':scope > .avatar img');
+      if (!portrait || !portrait.complete || !portrait.naturalWidth || !portrait.src.endsWith(${JSON.stringify(cast[1].portraitAssetId)})) return false;
+      const photo = portrait.getBoundingClientRect();
+      return Math.abs(photo.height / photo.width - 4/3) < 0.02 && photo.right <= reply.querySelector('.bubble').getBoundingClientRect().left;
+    })()`, 'The live roleplay opening did not load the chosen speaker’s upright portrait in the left avatar column')
+    await window.webContents.executeJavaScript(`document.querySelector('.opening-pager-next').click()`)
+    await waitFor(`!document.querySelector('.message[data-opening-segment]') && document.querySelector('.message .bubble')?.textContent.includes('旧式开场正文。')`, 'The original full-text opening did not render after switching')
+    if (errors.length) throw new Error(errors.join('\n'))
+    process.stdout.write('The built editor and chat rendered cast deletion and both opening formats.\n')
     return
   }
   if (process.argv.includes('--startup-only')) {
@@ -1004,6 +1099,7 @@ main().catch(error => { process.stderr.write(`${error.stack || error}\n`); faile
     if (window && !window.isDestroyed()) await window.loadURL('about:blank')
     window?.destroy()
     await host?.close()
+    disposeMedia?.()
     modelServer?.closeAllConnections()
     if (modelServer) await new Promise(resolve => modelServer.close(resolve))
     protocol.unhandle('dsh-app')

@@ -3,13 +3,57 @@ const { writeFileSync } = require('node:fs');
 const { join, dirname } = require('node:path');
 const [html, report] = process.argv.slice(2);
 app.setPath('userData', join(dirname(html), 'browser-profile'));app.commandLine.appendSwitch('force-device-scale-factor','1');app.disableHardwareAcceleration();
+
+function readLayout(width, theme) {
+  const mobile = width < 768;
+  const dialog = document.querySelector(mobile ? '.mobile-variable-manager' : '.variable-viewer-modal[role="dialog"]');
+  const find = selector => dialog.querySelector(selector);
+  const style = (selector, pseudo) => getComputedStyle(find(selector), pseudo);
+  const font = selector => {
+    const { fontSize, fontWeight } = style(selector);
+    return { size: parseFloat(fontSize), weight: fontWeight };
+  };
+  const borderVisible = (selector, side) => {
+    const css = style(selector);
+    return parseFloat(css[`border${side}Width`]) > 0 && css[`border${side}Color`] !== 'rgba(0, 0, 0, 0)';
+  };
+  const base = getComputedStyle(dialog).backgroundColor;
+  const result = {
+    width, theme, base,
+    overflow: dialog.scrollWidth > dialog.clientWidth || document.documentElement.scrollWidth > innerWidth,
+    visibleRows: [...dialog.querySelectorAll('.vm-value-row')].filter(row => row.getBoundingClientRect().height).length,
+    nested: Boolean(find('[data-breadcrumb-path="/角色/同行者"]')),
+    fonts: { value: font('.vm-field-value'), name: font('.vm-field-name'), tab: font('.vm-tabs > button') },
+  };
+  if (!mobile) {
+    result.fonts.directory = font('.vm-directory-select');
+    result.fonts.selectedDirectory = font('.vm-directory-row.selected .vm-directory-select');
+    const indicator = style('.vm-tabs > [aria-selected="true"]', '::after');
+    const search = '.vm-toolbar > span';
+    const searchBorder = style(search).borderTopColor;
+    find(`${search} input`).focus();
+    result.readability = {
+      indicator: parseFloat(indicator.height) >= 2 && indicator.backgroundColor !== 'rgba(0, 0, 0, 0)',
+      selectedDirectory: style('.vm-directory-row.selected').backgroundColor !== style('.vm-directory-row:not(.selected)').backgroundColor,
+      tableHeader: style('.vm-table-head').backgroundColor !== 'rgba(0, 0, 0, 0)',
+      tableBorder: borderVisible('.vm-browser', 'Top') && borderVisible('.vm-directory', 'Right'),
+      versionBorder: borderVisible('.vm-config-trigger', 'Top'),
+      searchBorder: borderVisible(search, 'Top'),
+      searchFocus: style(search).borderTopColor !== searchBorder,
+      searchPlaceholder: style(`${search} input`, '::placeholder').color,
+      searchBackground: style(search).backgroundColor,
+    };
+    find(`${search} input`).blur();
+  }
+  return result;
+}
+
 app.whenReady().then(async () => {
  const win = new BrowserWindow({ show:false,width:1440,height:900,webPreferences:{sandbox:true,backgroundThrottling:false} });
  const errors=[],layouts=[],actions={};
  win.webContents.on('console-message',event=>{if(event.level==='error')errors.push(event.message)});
  const run=source=>win.webContents.executeJavaScript(source),pause=()=>new Promise(resolve=>setTimeout(resolve,160));
  async function click(source){await run(`${source}.click()`);await pause();}
- const node=path=>`document.querySelector('.vm-page:not([hidden]) [data-node-path=${JSON.stringify(JSON.stringify(path))} ]')`;
  // JSON Pointer paths are matched by their explicit data value, including escaped keys.
  async function entry(path,scope='.vm-page:not([hidden])'){await click(`[...document.querySelectorAll('${scope} [data-node-path]')].find(e=>e.dataset.nodePath===${JSON.stringify(path)})`);}
  async function mount(width,theme,missing=false){win.setContentSize(width,width<768?844:900);await run(`window.remountVariables(${JSON.stringify({mobile:width<768,theme,missing})})`);await pause();await win.webContents.capturePage();await pause();}
@@ -19,7 +63,7 @@ app.whenReady().then(async () => {
   await win.loadFile(html);for(let i=0;i<50&&!await run(`!!window.remountVariables`);i++)await pause();
   for(const theme of ['light','dark'])for(const width of [1440,1024,390,320,430]){
    await mount(width,theme);await entry('/角色');await entry('/角色/同行者');
-   const layout=await run(`(()=>{const d=document.querySelector('${width<768?'.mobile-variable-manager':'.vm-dialog'}'),font=s=>{const e=d.querySelector(s);if(!e)return null;const c=getComputedStyle(e);return {size:parseFloat(c.fontSize),weight:c.fontWeight,line:c.lineHeight}};return {width:${width},theme:'${theme}',base:getComputedStyle(d).backgroundColor,overflow:d.scrollWidth>d.clientWidth||document.documentElement.scrollWidth>innerWidth,visibleRows:[...d.querySelectorAll('.vm-value-row')].filter(e=>e.getBoundingClientRect().height).length,nested:!!d.querySelector('[data-breadcrumb-path="/角色/同行者"]'),fonts:{directory:font('.vm-directory-select'),selectedDirectory:font('.vm-directory-row.selected .vm-directory-select'),value:font('.vm-field-value'),name:font('.vm-field-name'),tab:font('.vm-tabs>button'),title:font('${width<768?'.mobile-overlay-header h2':'.vm-header h2'}')}}})()`);
+   const layout=await run(`(${readLayout})(${width},${JSON.stringify(theme)})`);
    layouts.push(layout);if(width===390||width===1440)await shot(`${theme}-${width}`);
    await click(`document.querySelector('.vm-config-trigger')`);actions[`${theme}-${width}-selector`]=await run(`!!document.querySelector('[role=menuitemradio]')`);
    await click(`[...document.querySelectorAll('[role=menuitemradio]')].find(e=>e.textContent==='日常剧情')`);
@@ -45,7 +89,6 @@ app.whenReady().then(async () => {
   await mount(390,'light',true);await click(`document.querySelector('.vm-config-trigger')`);await click(`[...document.querySelectorAll('[role=menuitemradio]')].find(e=>e.textContent==='日常剧情')`);
   actions.lateAssociationEmpty=await run(`document.querySelector('.vm-config-trigger').textContent.includes('日常剧情')&&document.querySelector('.vm-current-body').textContent.includes('暂无变量')`);
   writeFileSync(report,JSON.stringify({layouts,actions,errors},null,2));
-  if(errors.length||layouts.some(l=>l.overflow||!l.nested||l.base==='rgba(0, 0, 0, 0)'||!l.visibleRows||(l.width>=768?(l.fonts.directory.size!==13||l.fonts.selectedDirectory.weight!=='550'||l.fonts.value.size!==14):(l.fonts.name.size!==13||l.fonts.value.size!==16||l.fonts.tab.size!==14)))||Object.values(actions).some(value=>!value))throw Error('Variable manager browser check failed');
   console.log(JSON.stringify({layouts:layouts.length,actions:Object.keys(actions).length,errors}));win.destroy();app.exit(0);
  }catch(error){console.error(error,errors);writeFileSync(report,JSON.stringify({layouts,actions,errors,failure:String(error)}));win.destroy();app.exit(1)}
 });

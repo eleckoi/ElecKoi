@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS `chat_session_variable_states` (`sessionId` TEXT NOT 
 CREATE TABLE IF NOT EXISTS `characters` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `avatar` TEXT NOT NULL, `squareImage` TEXT NOT NULL, `coverImage` TEXT NOT NULL, `groupName` TEXT NOT NULL, `orderIndex` INTEGER NOT NULL, `groupViewOrder` INTEGER NOT NULL, `folder` TEXT NOT NULL, `frontendBeautyEnabled` INTEGER NOT NULL, `assistantName` TEXT NOT NULL, `assistantAvatar` TEXT NOT NULL, `profileAge` TEXT NOT NULL, `profileSex` TEXT NOT NULL, `profileHeight` TEXT NOT NULL, `profileBirthday` TEXT NOT NULL, `profileLike` TEXT NOT NULL, `chatBackground` TEXT NOT NULL, `chatBackgroundOpacity` REAL NOT NULL, `chatBackgroundBlur` REAL NOT NULL, `chatBackgroundScrim` REAL NOT NULL, PRIMARY KEY(`id`));
 
 CREATE TABLE IF NOT EXISTS `character_catalog_activity` (`characterId` TEXT NOT NULL, `addedAtEpochMs` INTEGER NOT NULL, `editedAtEpochMs` INTEGER NOT NULL, PRIMARY KEY(`characterId`), FOREIGN KEY(`characterId`) REFERENCES `characters`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE );
+CREATE TABLE IF NOT EXISTS `character_cast_members` (`characterId` TEXT NOT NULL, `id` TEXT NOT NULL, `name` TEXT NOT NULL, `sortIndex` INTEGER NOT NULL, `portraitAssetId` TEXT, `circleAssetId` TEXT, `squareAssetId` TEXT, `cropJson` TEXT NOT NULL DEFAULT 'null', `pendingLegacyMedia` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(`characterId`, `id`), FOREIGN KEY(`characterId`) REFERENCES `characters`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , CHECK (json_valid(`cropJson`)));
 CREATE TABLE IF NOT EXISTS `character_openings` (`characterId` TEXT NOT NULL, `configurationJson` TEXT NOT NULL, PRIMARY KEY(`characterId`), FOREIGN KEY(`characterId`) REFERENCES `characters`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , CHECK (json_valid(`configurationJson`)));
 
 CREATE TABLE IF NOT EXISTS `character_text_contents` (`characterId` TEXT NOT NULL, `kind` TEXT NOT NULL, `content` TEXT NOT NULL, PRIMARY KEY(`characterId`, `kind`), FOREIGN KEY(`characterId`) REFERENCES `characters`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE );
@@ -184,6 +185,6 @@ CREATE TABLE IF NOT EXISTS `global_setting_libraries` (`id` TEXT NOT NULL, `sort
 
 CREATE TABLE IF NOT EXISTS `global_setting_library_state` (`id` INTEGER NOT NULL, `revision` INTEGER NOT NULL, PRIMARY KEY(`id`), CHECK (`id` = 1 AND `revision` >= 0));
 
-PRAGMA user_version = 19;
+PRAGMA user_version = 20;
 
 COMMIT;

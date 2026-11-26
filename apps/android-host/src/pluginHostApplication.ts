@@ -1,4 +1,6 @@
 import { timingSafeEqual } from 'node:crypto'
+import { createRequire } from 'node:module'
+import { isAbsolute } from 'node:path'
 import { loadLayeredEnv, loadProfileDirectory, reportSkippedBundles } from '@deepseek-ai/dsh-app-boot'
 import { runProfile } from '@deepseek-ai/dsh/profile-boot'
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
@@ -17,6 +19,7 @@ import { DesktopError } from '@shared/foundation/DesktopError'
 
 export interface PluginHostApplicationOptions {
   profileDirectory: string
+  workspaceRoot: string
   patchFiles: readonly string[]
   clientDirectory?: string
   packageManager?: NonNullable<Parameters<typeof runProfile>[0]['packageManager']>
@@ -61,13 +64,14 @@ export async function startPluginHostApplication(options: PluginHostApplicationO
     }
     const requiredServices = [
       'eleckoiCharacterConfigurationApi', 'eleckoiCharactersApi', 'eleckoiPersonaApi',
-      'eleckoiCreatorStudioApi', 'eleckoiWebSearchApi', 'eleckoiConversationModelsApi',
+      'eleckoiCreatorStudioApi', 'eleckoiCreatorStudioSessionsApi', 'eleckoiWebSearchApi', 'eleckoiConversationModelsApi',
       'eleckoiConversationsApi', 'eleckoiRoleplaySessions',
     ] as const
     const missingServices = requiredServices.filter(name => ctx.get(name) === undefined)
     if (missingServices.length > 0) {
       throw new DesktopError(ELECKOI_FAILURE_CODES.pluginLoadFailed, `ElecKoi Host 服务未正确装载：${missingServices.join(', ')}`, { what: 'ElecKoi Host 服务' })
     }
+    ctx.eleckoiCreatorStudioSessionsApi.mountWorkspaceFiles(options.workspaceRoot, androidWorkspacePublisher())
     const updateTasks = installUpdateTaskControl(ctx)
     const baseUrl = `http://127.0.0.1:${String(ctx.webServer.port)}`
     const url = ctx.connection.authenticatedUrl(baseUrl)
@@ -102,6 +106,28 @@ export async function startPluginHostApplication(options: PluginHostApplicationO
     try { await running.shutdown.shutdown(1) }
     catch (cleanupError) { throw new AggregateError([error, cleanupError], 'ElecKoi Host startup and shutdown failed') }
     throw error
+  }
+}
+
+/** Reuse the native no-replace primitive shipped for Android file publication. */
+function androidWorkspacePublisher() {
+  function bind() {
+    const library = process.env.ELECKOI_GLIBC_EXEC_SHIM
+    if (!library || !isAbsolute(library)) {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, 'Android native file publication helper is unavailable', { what: '安卓文件发布' })
+    }
+    const koffi = createRequire(import.meta.url)('koffi') as typeof import('koffi')
+    return koffi.load(library).func('const char *eleckoi_publish_file(const char *source, const char *destination)')
+  }
+  let publish: ReturnType<typeof bind> | undefined
+  return (source: string, destination: string): void => {
+    const code = (publish ??= bind())(source, destination) as string | null
+    if (code === 'EEXIST') {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, 'Android workspace publication destination exists', { what: '工作区文件', path: destination })
+    }
+    if (code !== null) {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.ioFailed, `Android workspace publication failed (${code}): ${source} -> ${destination}`, { operation: '发布工作区文件', path: destination })
+    }
   }
 }
 

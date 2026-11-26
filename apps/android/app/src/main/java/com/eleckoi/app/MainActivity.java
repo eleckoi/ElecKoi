@@ -30,6 +30,7 @@ import java.util.concurrent.*;
 /** Platform UI only. The real Host owns pages, accounts, products and conversations. */
 public final class MainActivity extends Activity implements HostRuntimeService.Listener {
     private static final int PICK_FILES = 20, SAVE_FILE = 21, NOTIFICATIONS = 22, SAVE_DIAGNOSTICS = 23;
+    private static final int PICK_PLUGIN_ARCHIVE = 24;
     private AndroidDiagnostics diagnostics;
     private File pendingDiagnosticExport;
     private boolean diagnosticExportBusy;
@@ -64,6 +65,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
     private AlertDialog diagnosticsDialog;
     private TextView backgroundStatusText;
     private Consumer<Uri[]> fileChoice;
+    private Consumer<Uri> pluginArchiveChoice;
     private PendingSave pendingSave;
     private String platformSource;
     private SystemSpeech systemSpeech;
@@ -621,8 +623,54 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
             .setType(request.mimeType).putExtra(Intent.EXTRA_TITLE, request.name), SAVE_FILE); }
         catch (Exception error) { pendingSave = null; discardSource(request); platformResult(request.requestId, false, error.toString()); }
     }
+    private void pickPluginArchive(String id) {
+        runOnUiThread(() -> {
+            if (web == null || !sameHost(web.getUrl()) || pluginArchiveChoice != null) {
+                platformResult(id, false, "File picker is unavailable");
+                return;
+            }
+            long generation = pageLoadGeneration;
+            pluginArchiveChoice = source -> {
+                if (generation != pageLoadGeneration || isDestroyed()) return;
+                if (source == null) {
+                    platformResult(id, true, "cancelled");
+                    return;
+                }
+                files.execute(() -> {
+                    try {
+                        deliverPluginArchive(id, generation, true, PluginArchiveImport.stage(this, source));
+                    } catch (PluginArchiveImport.UnsupportedArchive error) {
+                        deliverPluginArchive(id, generation, false, error.getMessage());
+                    } catch (Exception error) {
+                        deliverPluginArchive(id, generation, false, error.toString());
+                    }
+                });
+            };
+            try {
+                // Providers can label compressed tarballs as generic binary files. Check the name after selection.
+                startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                    .setType("*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), PICK_PLUGIN_ARCHIVE);
+            } catch (ActivityNotFoundException | SecurityException error) {
+                pluginArchiveChoice = null;
+                platformResult(id, false, error.toString());
+            }
+        });
+    }
+    private void deliverPluginArchive(String id, long generation, boolean success, Object result) {
+        ui.post(() -> {
+            if (generation == pageLoadGeneration && !isDestroyed() && web != null && sameHost(web.getUrl())) {
+                platformResult(id, success, result);
+            }
+        });
+    }
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
         super.onActivityResult(requestCode, resultCode, intent);
+        if (requestCode == PICK_PLUGIN_ARCHIVE) {
+            Consumer<Uri> completion = pluginArchiveChoice;
+            pluginArchiveChoice = null;
+            if (completion != null) completion.accept(resultCode == RESULT_OK && intent != null ? intent.getData() : null);
+            return;
+        }
         if(requestCode==SAVE_DIAGNOSTICS) {
             File report=pendingDiagnosticExport; pendingDiagnosticExport=null;
             if(resultCode!=RESULT_OK || intent==null || intent.getData()==null || report==null) { diagnosticExportBusy=false; return; }
@@ -707,6 +755,7 @@ public final class MainActivity extends Activity implements HostRuntimeService.L
                 case "readTtsAudio": return readTtsAudio(a.getString(0), a.getLong(1), a.getInt(2));
                 case "releaseTtsAudio": return releaseTtsAudio(a.getString(0));
                 case "saveText": saveText(a.getString(0), a.getString(1), a.getString(2), a.getString(3)); return null;
+                case "pickPluginArchive": pickPluginArchive(a.getString(0)); return null;
                 case "beginFile": return beginFile(a.getString(0), a.getString(1), a.getString(2));
                 case "writeFile": return writeFile(a.getString(0), a.getString(1));
                 case "finishFile": return finishFile(a.getString(0));

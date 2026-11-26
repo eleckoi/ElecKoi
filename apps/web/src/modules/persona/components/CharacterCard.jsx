@@ -21,7 +21,7 @@ export function CharacterCard({ character, active, artworkAspectRatio = 0.76, ar
       className={`character-card ${active ? "active" : ""} ${selectable ? "selectable" : ""} ${selected ? "selected" : ""}`}
       style={{ "--character-artwork-ratio": artworkAspectRatio }}
       type="button"
-      onClick={() => onClick(character.id)}
+      onClick={event => onClick(character.id, event.currentTarget)}
       onDoubleClick={onDoubleClick ? () => onDoubleClick(character.id) : undefined}
       onContextMenu={onContextMenu ? (event) => onContextMenu(event, character) : undefined}
       aria-pressed={selectable ? selected : undefined}

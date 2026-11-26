@@ -24,6 +24,34 @@ function NativeAssistant({ owner, ...overrides }) {
     usePresentation={select => select({ reasoning: 'collapsed', settledReasoningPreview: true })}
     renderSlot={(_name, body) => <OfficialReasoningContent {...body} t={t} />} />;
 }
+it('can reopen the mobile process when the exit animation promise never settles', async () => {
+  vi.useFakeTimers();
+  document.documentElement.dataset.eleckoiMobile = 'true';
+  const host = document.createElement('div'); document.body.append(host); const root = createRoot(host);
+  function Harness() {
+    const [open, setOpen] = useState(false);
+    return <><button onClick={() => setOpen(true)}>查看过程</button>
+      {open && <AgentProcessDialog message={{ status: 'complete' }} onClose={() => setOpen(false)} />}</>;
+  }
+  try {
+    await act(() => root.render(<Harness />));
+    const trigger = host.querySelector('button');
+    await act(() => trigger.click());
+    const first = document.querySelector('.roleplay-process-backdrop');
+    first.getAnimations = () => [{ animationName: 'mobile-sheet-out', finished: new Promise(() => {}),
+      effect: { getComputedTiming: () => ({ endTime: 180 }) } }];
+    await act(() => first.querySelector('[aria-label="关闭处理过程"]').click());
+    expect(first.isConnected).toBe(true);
+    await act(() => vi.advanceTimersByTime(180));
+    expect(first.isConnected).toBe(false);
+    await act(() => trigger.click());
+    expect(document.querySelector('.roleplay-process-backdrop:not([data-sheet-closing])')).not.toBeNull();
+  } finally {
+    await act(() => root.unmount());
+    delete document.documentElement.dataset.eleckoiMobile;
+    vi.useRealTimers();
+  }
+});
 it('keeps earlier replies and original reasoning in official renderers while excluding the final answer', async () => {
   const host = document.createElement('div'); document.body.append(host); const root = createRoot(host);
   const earlier = owner('earlier', 1, 3, 'Synthetic earlier reply', 'Synthetic earlier reasoning');

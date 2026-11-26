@@ -1,5 +1,5 @@
 /** Image positions use only the declared, standalone frame marker and exact frame ID. */
-export function generatedImageSegments(content, images, streaming = false) {
+export function generatedImageSegments(content, images, streaming = false, appendUnplaced = true) {
   let text = String(content || '');
   if (streaming) text = text.replace(/\[\[IMAGE:(?:\d+\]?)?$/, '');
   const segments = [], used = new Set();
@@ -20,6 +20,20 @@ export function generatedImageSegments(content, images, streaming = false) {
   const rest = text.slice(start);
   if (rest.trim()) segments.push({ type: 'text', content: rest });
   const remaining = images.filter(image => !used.has(image.id));
-  if (!streaming && remaining.length) segments.push({ type: 'images', images: remaining });
+  if (!streaming && appendUnplaced && remaining.length) segments.push({ type: 'images', images: remaining });
   return segments;
+}
+
+export function generatedImagesByBlock(blocks, images, streaming) {
+  if (!images?.length) return new Map();
+  const placed = new Set();
+  const byBlock = new Map(blocks.map(block => {
+    const available = images.filter(image => !placed.has(image.id));
+    const matched = generatedImageSegments(block.displayContent ?? block.text, available, streaming, false)
+      .flatMap(segment => segment.type === 'images' ? segment.images : []);
+    for (const image of matched) placed.add(image.id);
+    return [block.id, matched];
+  }));
+  if (!streaming && blocks.length) byBlock.get(blocks.at(-1).id).push(...images.filter(image => !placed.has(image.id)));
+  return byBlock;
 }

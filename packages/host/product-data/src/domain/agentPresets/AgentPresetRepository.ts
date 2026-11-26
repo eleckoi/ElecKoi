@@ -6,7 +6,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { AGENT_TOOL_GROUPS, CREATOR_AGENT_TOOL_GROUP_IDS, agentToolGroups } from '@product-data/domain/agentTools';
+import { AGENT_TOOL_GROUPS, CREATOR_AGENT_TOOL_GROUP_IDS, agentToolGroups, withRoleplayReplyGroup } from '@product-data/domain/agentTools';
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import type { LocalMediaStore } from '@product-data/storage/media/LocalMediaStore'
 import { ScriptLibraryRepository } from '@product-data/domain/scripts'
@@ -290,7 +290,7 @@ export class AgentPresetRepository {
       entries: prompts.entries,
       groups,
       promptPositions: prompts.promptPositions,
-      toolGroups: toolConfiguration.toolGroups,
+      toolGroups: withRoleplayReplyGroup(toolConfiguration.toolGroups, agentPresetPurposeSchema.parse(row.purpose)),
       subagentModelSelection: toolConfiguration.subagentModelSelection,
       toolModelConfigIds: toolConfiguration.toolModelConfigIds,
       autoIllustration: toolConfiguration.autoIllustration,
@@ -860,6 +860,7 @@ export class AgentPresetRepository {
   }
 
   private transferVersions(presetId: string): AgentPresetTransferVersion[] {
+    const { purpose } = this.get(presetId)
     return this.store.db.select().from(agentPresetVersions).where(eq(agentPresetVersions.presetId, presetId))
       .orderBy(asc(agentPresetVersions.versionNumber), asc(agentPresetVersions.createdAtEpochMs)).all()
       .map((version) => {
@@ -875,7 +876,7 @@ export class AgentPresetRepository {
           )).orderBy(asc(agentPresetVersionEntries.sortIndex)).all()
             .map((item) => currentEntrySchema.parse(parseObject(item.payloadJson, '预设版本提示词'))),
           parseList(contents.get(CONTENT_PROMPT_POSITIONS) ?? '[]', currentPromptPositionSchema, '预设版本提示词位置'),
-          this.get(presetId).purpose
+          purpose
         )
         return {
           id: version.versionId,
@@ -891,7 +892,7 @@ export class AgentPresetRepository {
           )).orderBy(asc(agentPresetVersionGroups.sortIndex)).all()
             .map((item) => settingLibraryGroupSchema.parse(parseObject(item.payloadJson, '预设版本提示词分组'))),
           promptPositions: prompts.promptPositions,
-          toolGroups: toolConfiguration.toolGroups,
+          toolGroups: withRoleplayReplyGroup(toolConfiguration.toolGroups, purpose),
           subagentModelSelection: toolConfiguration.subagentModelSelection,
           toolModelConfigIds: toolConfiguration.toolModelConfigIds,
           autoIllustration: toolConfiguration.autoIllustration,
@@ -985,11 +986,11 @@ function rebaseTransferContent(
       createdAt: timestamp,
       updatedAt: timestamp
     })),
-    toolGroups: [...agentToolGroups(enabledIds).map((group) => ({
+    toolGroups: withRoleplayReplyGroup([...agentToolGroups(enabledIds).map((group) => ({
       ...group,
       included: includedIds.has(group.id),
       enabled: includedIds.has(group.id) && enabledIds.has(group.id)
-    })), ...portablePluginToolGroups(content.toolGroups)],
+    })), ...portablePluginToolGroups(content.toolGroups)], purpose),
     roleplayPlan: content.roleplayPlan,
     ...(content.subagentModelSelection ? { subagentModelSelection: content.subagentModelSelection } : {}),
     ...(content.toolModelConfigIds ? { toolModelConfigIds: content.toolModelConfigIds } : {}),
@@ -1091,10 +1092,10 @@ function normalizePreset(input: AgentPreset): AgentPreset {
     })),
     groups: input.groups.map((group, index) => settingLibraryGroupSchema.parse({ ...group, order: index + 1 })),
     promptPositions: prompts.promptPositions.map((position, index) => settingLibraryPromptPositionSchema.parse({ ...position, order: index + 1 })),
-    toolGroups: input.toolGroups.map(group => validToolIds.has(group.id) ? group : pluginToolGroupSchema.parse(group)).map(({ available: _available, ...group }) => ({
+    toolGroups: withRoleplayReplyGroup(input.toolGroups.map(group => validToolIds.has(group.id) ? group : pluginToolGroupSchema.parse(group)).map(({ available: _available, ...group }) => ({
       ...group,
       included: group.included
-    })),
+    })), input.purpose),
     roleplayPlan: roleplayPlanSettingsSchema.parse(input.roleplayPlan),
     ...(input.subagentModelSelection ? { subagentModelSelection: input.subagentModelSelection } : {}),
     ...(input.toolModelConfigIds ? { toolModelConfigIds: input.toolModelConfigIds } : {}),
@@ -1119,7 +1120,7 @@ function emptyPreset(id: string, name: string, versionId: string, libraryGroupId
     entries: prompts.entries,
     groups: [],
     promptPositions: prompts.promptPositions,
-    toolGroups: purpose === 'creator' ? agentToolGroups(CREATOR_AGENT_TOOL_GROUP_IDS) : agentToolGroups(),
+    toolGroups: withRoleplayReplyGroup(purpose === 'creator' ? agentToolGroups(CREATOR_AGENT_TOOL_GROUP_IDS) : agentToolGroups(), purpose),
     roleplayPlan: defaultRoleplayPlanSettings(),
     regexRules: [],
     expandedGroupIds: []

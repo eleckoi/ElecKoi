@@ -1,6 +1,6 @@
 ---
 name: eleckoi-character-authoring
-description: 在 ElecKoi 创作工作室新建或修改角色资料、开场白、设定、变量、后台脚本、按钮面板或配置版本时使用；先检查已保存数据和当前范围。楼层界面、独立项目和资产按任务加载对应技能。
+description: 在 ElecKoi 创作工作室新建或修改角色卡、单人或多人登场角色、开场白、设定、变量、后台脚本、按钮面板或配置版本时使用。楼层界面、独立项目和资产按任务加载对应技能。
 ---
 
 # 角色卡创作
@@ -8,6 +8,8 @@ description: 在 ElecKoi 创作工作室新建或修改角色资料、开场白�
 当前 Session 选择的角色只用于快速定位，不是创作能力的前提。character.list 可列出或按名称搜索角色；用 eleckoi_call_capability 的 character_id 指定返回的准确角色编号，省略时使用当前定位角色。创建新角色使用 character.create；共享全局配置必须明确 target，创作工作室预设提示词通过 presetPrompts 只读。工作区编程负责制作文件，产品配置经创作能力保存。
 
 新建角色默认省略 group，直接创建在未分组；角色分组只用于整理角色列表，仅按用户要求指定或新建，不按题材自行分类，也不把询问分组作为建卡前置。修改已有角色资料时，未要求调整分组就保留原归属。
+
+登场角色是卡内可以出场的人。单人卡登记一位，多人卡可登记多位。逐位新建、修改或删除使用 character.create_cast_member、character.update_cast_member、character.remove_cast_member。先用 character.read 查名单和真实编号。多人开场白按顺序写封面正文或角色正文，每段选择对应角色。具体操作见配置参考。
 
 1. 先 eleckoi_list_toolsets 找领域，eleckoi_describe_toolset 默认返回准确 inputSchema；operation_ids 可缩小范围。只读省略 arguments 等同空对象，业务必填字段仍须填写，写入明确提供业务参数。
 2. 用该领域的 list/read 读取准确编号、完整原稿和修订；目录不等于正文。

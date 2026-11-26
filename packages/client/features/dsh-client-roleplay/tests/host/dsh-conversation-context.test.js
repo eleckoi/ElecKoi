@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { createUserMessage, markAgentLoopRequest } from '@deepseek-ai/dsh-llm'
 import { resolvePlacedSettingTemplates } from '../../src/host/setting-library-tools.mjs'
+import { HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID } from '../../../../../shared/src/contracts/presets/builtIns'
 
 import {
   installConversationContext,
@@ -97,6 +98,26 @@ describe('DSH conversation context', () => {
     dispose()
     expect(release).toHaveBeenCalledTimes(3)
   })
+
+  it('follows the hidden tool entry’s saved custom anchor and order', () => {
+    const hidden = { ...setting('hidden', '先选发言角色。', 'insert_point_5', 1), kind: 'hidden_tool_timeline',
+      promptPositionId: HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID }
+    const later = { ...setting('later', '同位置的后一条。', 'insert_point_4', 1), promptPositionId: 'later' }
+    const plan = requestProjectionPlan(context([later, hidden], [
+      { id: 'later', name: '后一个位置', anchor: 'insert_point_4', side: 'after_setting_position', order: 2 },
+      { id: HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID, name: '隐藏工具调用过程', anchor: 'insert_point_4', side: 'after_setting_position', order: 1 }
+    ]))
+    const projected = projectRequestMessages([
+      message('user', '本轮输入', { kind: 'user' }),
+      message('user', '工具结果', { kind: 'tool', callId: 'call-1' })
+    ], plan)
+    expect(projected.map(text)).toEqual(['本轮输入', '先选发言角色。', '同位置的后一条。', '工具结果'])
+    expect(requestContextItems(projected, plan)[1]).toMatchObject({
+      anchor: 'insert_point_4', source: '隐藏工具调用过程', title: '预设固定条目 · hidden'
+    })
+    expect(requestProjectionPlan(context([{ ...hidden, enabled: false }]))).toEqual([])
+  })
+
   it('replaces provider-native history before the current input', () => {
     const native = [
       {

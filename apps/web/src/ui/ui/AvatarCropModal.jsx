@@ -31,8 +31,10 @@ export function AvatarCropModal({
   showCircleGuide = false,
   outputShape = "circle",
   outputWidth = 420,
+  initialTransform,
   onCancel,
   onSave,
+  onSaveTransform,
 }) {
   const tUi = useProductTranslation();
   const title = titleSource === undefined ? tUi("编辑图片") : titleSource;
@@ -76,18 +78,20 @@ export function AvatarCropModal({
   useEffect(() => {
     if (!file) return undefined;
     const nextUrl = URL.createObjectURL(file);
+    const initialZoom = initialTransform?.zoom ?? 1;
+    const initialOffset = initialTransform?.offset ?? { x: 0, y: 0 };
     setImageUrl(nextUrl);
     setNaturalSize({ width: 0, height: 0 });
-    setZoom(1);
-    setOffset({ x: 0, y: 0 });
-    setRotation(0);
+    setZoom(initialZoom);
+    setOffset(initialOffset);
+    setRotation(initialTransform?.rotation ?? 0);
     setSaving(false);
     setError("");
     pointersRef.current.clear();
     gestureRef.current = null;
-    transformRef.current = { zoom: 1, offset: { x: 0, y: 0 } };
+    transformRef.current = { zoom: initialZoom, offset: initialOffset };
     return () => { encodingRef.current?.abort(); URL.revokeObjectURL(nextUrl); };
-  }, [file]);
+  }, [file, initialTransform]);
 
   function clampOffset(nextOffset, nextZoom = zoom) {
     const width = orientedSize.width * baseScale * nextZoom;
@@ -196,6 +200,11 @@ export function AvatarCropModal({
     setError("");
 
     try {
+      const normalizedRotation = ((rotation % 360) + 360) % 360;
+      if (onSaveTransform) {
+        await onSaveTransform({ zoom, offset, rotation: normalizedRotation });
+        return;
+      }
       const scale = baseScale * zoom;
       const stage = stageRef.current.getBoundingClientRect();
       const stageWidth = stage.width || STAGE_WIDTH;
@@ -209,7 +218,6 @@ export function AvatarCropModal({
       const sourceWidth = cropWidth / scale;
       const sourceHeight = cropHeight / scale;
 
-      const normalizedRotation = ((rotation % 360) + 360) % 360;
       orientedCanvas = document.createElement("canvas");
       orientedCanvas.width = orientedSize.width;
       orientedCanvas.height = orientedSize.height;

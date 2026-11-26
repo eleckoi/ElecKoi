@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { openingSceneSegmentSchema } from '../characterOpenings/schemas'
+import { characterCastSchema } from '../characters/cast'
 
 export const recordSchema = z.record(z.string(), z.unknown())
 
@@ -37,6 +39,7 @@ export const openingMessageOptionSchema = z.object({
   content: z.string(),
   variableVersionId: z.string().optional(),
   displayContent: z.string().optional(),
+  segments: z.array(openingSceneSegmentSchema).optional(),
   initialVariableStateJson: z.string()
 })
 
@@ -118,7 +121,7 @@ export const personaSchema = z.object({
   user_portrait: z.string()
 }).loose()
 
-export const characterRecordSchema = z.object({ id: z.string() }).loose()
+export const characterRecordSchema = z.object({ id: z.string(), cast: characterCastSchema.optional() }).loose()
 
 export const characterCollectionSchema = z.object({
   active_character_id: z.string(),

@@ -6,6 +6,8 @@ import type { ModelLabelOwner } from '@deepseek-ai/dsh-client-ui-model-selection
 import type { EmptyWorkspaceOwnerProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { UserMessageNode } from '@deepseek-ai/dsh-client-ui-conversation/client'
+import type { RemoteStreamHandle } from '@deepseek-ai/dsh-typert-protocol'
+import type { WorkspaceFileEntry, WorkspaceFileEdit, WorkspaceFileSelection, WorkspaceFileExport, WorkspaceFileImport } from '@eleckoi/dsh-product-api/types'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 
@@ -23,6 +25,10 @@ export interface CreatorStudioConversationSnapshot {
   retainedStats: { sessionId: string; values: Readonly<Record<string, unknown>> } | null
 }
 export interface CreatorStudioSessions {
+  listWorkspaceFiles(sessionId: string, path: string[], signal?: AbortSignal): Promise<{ name: string; entries: WorkspaceFileEntry[] }>
+  editWorkspaceFiles(sessionId: string, path: string[], edit: WorkspaceFileEdit, signal?: AbortSignal): Promise<void>
+  importWorkspaceFile(sessionId: string, path: string[], name: string, size: number, signal?: AbortSignal): RemoteStreamHandle<WorkspaceFileImport, string>
+  exportWorkspaceFiles(sessionId: string, path: string[], entries: WorkspaceFileSelection[], signal?: AbortSignal): RemoteStreamHandle<WorkspaceFileExport, true>
   getSnapshot(): CreatorStudioConversationSnapshot
   subscribe(listener: () => void): () => void
   refresh(): Promise<CreatorStudioSessionSummary[]>

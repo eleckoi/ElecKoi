@@ -5,7 +5,7 @@ const record = value => value !== null && typeof value === 'object' && !Array.is
 const own = (value, key) => record(value) && Object.hasOwn(value, key);
 export const creatorToolNames = ['eleckoi_list_toolsets', 'eleckoi_describe_toolset', 'eleckoi_call_capability'];
 const domains = {
-  character: ['角色资料', ['create', 'read', 'update', 'read_openings', 'save_openings']],
+  character: ['角色资料', ['list', 'create', 'read', 'update', 'create_cast_member', 'update_cast_member', 'remove_cast_member', 'read_openings', 'save_openings']],
   settings: ['设定', ['list', 'read', 'create', 'update', 'update_many', 'edit', 'remove', 'create_group', 'update_group', 'remove_group']],
   variables: ['变量配置', ['list', 'read', 'create', 'update', 'remove', 'create_object', 'update_object', 'remove_object', 'update_schema', 'validate_schema']],
   scripts: ['原生脚本', ['list', 'read', 'create', 'update', 'remove', 'create_folder', 'update_folder', 'remove_folder', 'move', 'configure']],
@@ -19,7 +19,9 @@ const fieldLabels = {
   enabled: '启用', type: '类型', defaultValue: '默认值', updateRule: '更新规则', readMode: '读取方式',
   agentReadStrategy: '读取方式', readStrategy: '读取方式', group: '所属分组', groupId: '分组编号', objectId: '变量组编号',
   parentId: '上级编号', folderId: '目标文件夹', order: '顺序', treeViewOrder: '目录顺序',
-  assistantName: '角色名称', profileAge: '年龄', profileSex: '性别', profileHeight: '身高', profileBirthday: '生日', profileLike: '喜好',
+  assistantName: '角色名称', profileAge: '年龄', profileSex: '性别', profileHeight: '身高', profileBirthday: '生日', profileLike: '简介',
+  authorName: '作者名字', authorAvatarAssetId: '作者头像', coverAssetId: '封面立绘', cast: '登场角色',
+  portraitAssetId: '角色立绘', circleAssetId: '圆形头像', squareAssetId: '方形头像', crop: '头像取景', segments: '开场白段落',
   schemaCode: '校验代码', initialStateJson: '初始变量', variables: '变量', pattern: '匹配表达式', replacement: '替换内容',
   targets: '作用对象', displayOnly: '仅显示', promptOnly: '仅请求', runOnEdit: '编辑时运行',
   contentMode: '正文类型', triggerMode: '触发方式', keywords: '关键词', keywordMatch: '关键词匹配',
@@ -43,6 +45,7 @@ function definition(name, args, t) {
   if (operation.endsWith('_object')) noun = '变量组';
   if (operation.endsWith('_folder')) noun = '脚本文件夹';
   if (operation.endsWith('_openings')) noun = '开场白';
+  if (operation.endsWith('_cast_member')) noun = '登场角色';
   if (operation === 'update_schema') noun = '变量校验代码';
   if (operation === 'configure') noun = '脚本库配置';
   const verb = operation === 'list' || operation === 'glob' ? '查看' : operation === 'grep' ? '搜索'
@@ -50,7 +53,7 @@ function definition(name, args, t) {
       : operation.startsWith('remove') ? '删除' : operation === 'move' ? '移动' : operation.startsWith('save') ? '保存' : '修改';
   const icon = operation === 'validate_schema' ? 'check' : operation === 'test' ? 'test' : operation === 'edit' ? 'edit'
     : operation === 'list' || operation === 'glob' ? 'list' : operation === 'grep' ? 'search' : verb === '读取' ? 'read'
-      : verb === '新建' ? (operation.includes('_') ? 'folder' : 'add') : verb === '删除' ? 'remove' : verb === '移动' ? 'move'
+      : verb === '新建' ? (operation.endsWith('_folder') || operation.endsWith('_group') || operation.endsWith('_object') ? 'folder' : 'add') : verb === '删除' ? 'remove' : verb === '移动' ? 'move'
         : domain === 'editorVersions' && operation === 'save' ? 'version' : 'edit';
   return { domain, operation, icon, mode: 'capability', action: operation === 'edit' ? t('替换设定正文')
     : operation === 'validate_schema' ? t('校验变量') : operation === 'test' ? t('预览正则结果') : t('{value0}{value1}', { value0: t(verb), value1: t(noun) }) };
@@ -94,7 +97,7 @@ export function creatorToolPresentation(name, block, phase, t = sourceText) {
   }
   // The official native renderer retains artifact references and non-text attachments.
   if (state === 'spilled' || !payload) return undefined;
-  const input = args.arguments;
+  const input = args.arguments === undefined && def.domain === 'character' && (def.operation === 'list' || def.operation.startsWith('read')) ? {} : args.arguments;
   if (def.mode === 'page') {
     if (!record(args.result) || payload.kind !== 'tool_result_page' || !Number.isSafeInteger(payload.offset) || !Number.isSafeInteger(payload.total_bytes)) return undefined;
     field('file_path', payload.file_path); field('offset', payload.offset); field('total_bytes', payload.total_bytes);
@@ -121,6 +124,7 @@ export function creatorToolPresentation(name, block, phase, t = sourceText) {
   } else {
     if (!record(input) || !own(payload, 'value')) return undefined;
     const value = payload.value;
+    if (def.operation === 'read_openings' && own(value, 'defaultOpeningMessageId')) field('defaultOpeningMessageId', value.defaultOpeningMessageId);
     if (def.domain === 'presetPrompts') {
       const browser = normalizePathToolResult({ domain: 'settings', operation: def.operation }, value, t);
       if (!browser) return undefined;
@@ -201,6 +205,7 @@ export function creatorToolPresentation(name, block, phase, t = sourceText) {
 function readRecords(def, value) {
   if (!record(value)) return undefined;
   if (def.operation === 'read_openings') return value.openingMessages;
+  if (def.domain === 'character' && def.operation === 'list') return value.items;
   if (def.domain === 'editorVersions') return value.versions;
   if (def.domain === 'presetScripts' || def.domain === 'scripts' && def.operation === 'list') return scriptRecords(value);
   if (def.domain === 'scripts' && def.operation === 'read') return value.item?.type === 'folder'

@@ -115,6 +115,7 @@ type CardProps = PropsRuntime<'eleckoi.character.editor.card'>
 | `eleckoi.character.page.list` | chain / root | `CharacterListOwner` | PC 主角色页的完整列表及其操作 |
 | `eleckoi.character.page.profile` | chain / root | `CharacterProfileOwner` | PC 与安卓角色详情、开始聊天、编辑和新建首个角色 |
 | `eleckoi.character.editor.card` | chain / root | `CharacterEditorCardOwner` | 角色资料、dirty/saving/error、change/save/cancel |
+| `eleckoi.character.editor.cast` | chain / root | `Pick<CharacterEditorCardOwner, 'fallback' \| 'characterId'>` | 登场角色编辑区 |
 | `eleckoi.character.editor.openings` | chain / root | `CharacterEditorConfigurationOwner` | 主开场白、备用开场白、变量版本绑定 |
 | `eleckoi.character.editor.lore` | chain / root | `CharacterEditorConfigurationOwner` | 设定库编辑状态与保存控制器 |
 | `eleckoi.character.editor.variables` | chain / root | `CharacterEditorConfigurationOwner` | 变量编辑状态与保存控制器 |

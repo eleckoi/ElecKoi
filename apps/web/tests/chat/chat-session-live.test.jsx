@@ -231,7 +231,7 @@ describe('DSH chat live rendering', () => {
       chat = useChatSessions(props)
       return React.createElement('div', null, chat.messages.map(message =>
         React.createElement('div', { key: message.renderKey || message.id, 'data-role': message.role },
-          React.createElement(MessageBubble, { message, onOpenProcess: openProcess }))))
+          React.createElement(MessageBubble, { message, layoutMode: 'agent', onOpenProcess: openProcess }))))
     }
     try {
       await act(async () => root.render(React.createElement(Probe)))

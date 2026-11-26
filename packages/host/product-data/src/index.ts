@@ -1,5 +1,6 @@
 import { recordCharacterEdit } from '@product-data/domain/characterCatalog'
 import { appendCharacterOpeningMessages } from '@shared/foundation/characterOpenings'
+import { groupRoleplayReplyBlocks, roleplayGroupText, type RoleplayReplyBlock } from '@shared/foundation/roleplayReplyGroups'
 import { CharacterOpeningRepository } from '@product-data/domain/characterOpenings'
 import type { CharacterOpenings, CharacterOpeningMessage } from '@shared/contracts/characterOpenings/schemas'
 import { renderRegexEjs } from './regex-ejs'
@@ -15,6 +16,8 @@ import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { PersonaRepository } from '@product-data/domain/personas/PersonaRepository'
 import { CharacterRepository } from '@product-data/domain/personas/CharacterRepository'
+import { canDeleteCastAssets, readCharacterCastForCharacter } from '@product-data/domain/personas/characterCastStorage'
+import { migrateLegacyCastMedia } from '@product-data/domain/personas/legacyCharacterCast'
 import { CharacterTransferService } from '@product-data/domain/characterTransfer/CharacterTransferService'
 import { RegexRuleRepository } from '@product-data/domain/regexRules/RegexRuleRepository'
 import { AgentPresetRepository } from '@product-data/domain/agentPresets/AgentPresetRepository'
@@ -254,13 +257,23 @@ class ProductDataStore {
         read: id => this.settingLibraries!.snapshotConversationRuntimeState(id),
         restore: (id, raw) => this.settingLibraries!.restoreConversationRuntimeState(id, raw)
       })
+      this.assets = new CharacterAssetRepository(
+        join(dirname(this.path!), 'character-assets'),
+        id => characterExists(store.db, id),
+        id => store.withWriteTx(db => recordCharacterEdit(db, id)),
+        (id, assetIds) => canDeleteCastAssets(store.db, id, assetIds)
+      )
+      // RETIRE WHEN: Remove with the v19 avatar slot migration and its test.
+      try { migrateLegacyCastMedia(store, media, this.assets) }
+      catch (error) { this.close(); throw error }
       this.characters = new CharacterRepository(
         store,
         conversationSync,
         media,
         () => normalizeNewCharacterBackground(this.displayUi.new_character_background) === 'app'
           ? APP_DEFAULT_CHAT_BACKGROUND
-          : ''
+          : '',
+        this.assets
       )
       try { this.scripts = new ScriptLibraryRepository(store, { character: characterExists, preset: agentPresetExists }) }
       catch (error) { this.close(); throw error }
@@ -273,7 +286,6 @@ class ProductDataStore {
         if (address.scope === 'preset' && !agentPresetExists(store.db, address.ownerId)) throw new DesktopError(ELECKOI_FAILURE_CODES.agentPresetNotFound, '配置版本所属预设不存在。', { what: '预设' })
       })
       this.editorVersions = new EditorLibraryVersionsService(versionRepository, this.scripts, this.regexRules)
-      this.assets = new CharacterAssetRepository(join(dirname(this.path!), 'character-assets'), id => characterExists(store.db, id), id => store.withWriteTx(db => recordCharacterEdit(db, id)))
       this.frontends ??= new FrontendProjectRepository(new FrontendIndex(join(dirname(this.path!), 'author-frontends')), id => characterExists(store.db, id), () => this.characterAssets(), id => store.withWriteTx(db => recordCharacterEdit(db, id)))
       this.transfers = new CharacterTransferService(
         store,
@@ -578,8 +590,10 @@ class ProductDataStore {
 
   projectConversationMessages(
     conversationId: string,
-    messages: Array<Pick<ChatMessage, 'id' | 'role' | 'content' | 'variableStateJson' | 'status' | 'createdAt'> & {
+    messages: Array<Pick<ChatMessage, 'id' | 'role' | 'content' | 'roleplayReply' | 'variableStateJson' | 'status' | 'createdAt'> & {
       reasoning?: { id: string; text: string }[]
+      openingSegments?: { id: string; text: string }[]
+      roleplayBlocks?: Array<RoleplayReplyBlock & { id: string }>
     }>
   ) {
     this.databaseRepositories()
@@ -600,22 +614,42 @@ class ProductDataStore {
           activeVersionId: '',
           revision: 0
         }
-    this.messageDisplayProjector.retainMessages(new Set(messages.map(message => message.id)))
-    return messages.map((input, index) => {
-      const projected = this.messageDisplayProjector.project({
-        ...input,
-        conversationId
-      }, collection, macroValues, messages.length - index - 1)
+    const segmentKey = (messageId: string, id: string) => JSON.stringify([messageId, id])
+    const retained = new Set<string>()
+    const result = messages.map((input, index) => {
+      const depth = messages.length - index - 1
+      retained.add(input.id)
+      const project = (id: string, content: string) => this.messageDisplayProjector.project({
+        ...input, id, content, conversationId
+      }, collection, macroValues, depth)
+      const projectSegment = (segment: { id: string; text: string }) => {
+        const key = segmentKey(input.id, segment.id)
+        retained.add(key)
+        const message = project(key, segment.text)
+        return { message, display: { id: segment.id, sourceText: segment.text, displayText: message.displayContent ?? message.content } }
+      }
+      const groups = groupRoleplayReplyBlocks(input.status === 'streaming' ? undefined : input.roleplayBlocks).map(({ speaker, blocks }) => ({
+        name: speaker?.speakerName,
+        ...projectSegment({ id: blocks[0]!.id, text: roleplayGroupText(blocks) })
+      }))
+      const projected = groups[0]?.message ?? project(input.id, input.content)
+      const displayContent = groups.length
+        ? groups.map(group => namedReplyText(group.display.displayText, group.name)).filter(Boolean).join('\n\n')
+        : projected.displayContent ?? projected.content
       return {
         id: input.id,
         sourceContent: input.content,
-        displayContent: projected.displayContent ?? projected.content,
+        displayContent,
         variableStateJson: projected.variableStateJson,
         ...(input.reasoning ? { reasoning: this.messageDisplayProjector.projectReasoning(
-          { ...input, conversationId }, input.reasoning, collection, macroValues, messages.length - index - 1
-        ) } : {})
+          { ...input, conversationId }, input.reasoning, collection, macroValues, depth
+        ) } : {}),
+        ...(input.openingSegments ? { openingSegments: input.openingSegments.map(segment => projectSegment(segment).display) } : {}),
+        ...(groups.length ? { roleplayGroups: groups.map(group => group.display) } : {})
       }
     })
+    this.messageDisplayProjector.retainMessages(retained)
+    return result
   }
 
   readVariableTimeline(conversationId: string, sessionMessages: Array<Pick<ChatMessage, 'id' | 'conversationId' | 'role' | 'content' | 'variableStateJson' | 'status' | 'createdAt'>> = []) {
@@ -758,6 +792,17 @@ class ProductDataStore {
     return this.readConversationDetails(conversationId)
   }
 
+  copyConversationOpeningForFork(conversationId: string, opening: Pick<ChatMessage, 'content' | 'openingOptions' | 'selectedOpeningId'>) {
+    this.databaseRepositories()
+    if (opening.openingOptions?.some(option => option.segments)) {
+      this.conversations!.restoreImportedOpening(conversationId, {
+        content: opening.content, options: opening.openingOptions, selectedId: opening.selectedOpeningId ?? ''
+      })
+    } else {
+      this.conversations!.updateOpening(conversationId, opening.content, true)
+    }
+  }
+
   /** Read the associated configuration at use time without rebuilding other runtime libraries. */
   readConversationVariableContext(conversationId: string) {
     this.databaseRepositories()
@@ -821,17 +866,18 @@ class ProductDataStore {
     return {
       conversationId,
       runtimeSessionId: this.runtimeSessionId(conversationId),
-      promptTextContext: { macros: macroValues, rules: regexRules },
       variableContext,
       conversationContext: {
         characterId: metadata.characterId,
         characterName: metadata.characterName,
+        cast: readCharacterCastForCharacter(this.store!.db, metadata.characterId),
         persona: metadata.characterPersona,
         history,
         historyMode: 'prefix' as const,
         currentPromptText,
+        replyPromptRules: regexRules ? rulesForSurface(regexRules, 'AiOutput', 'Prompt') : [],
         reasoningPromptRules: regexRules ? rulesForSurface(regexRules, 'Reasoning', 'Prompt') : [],
-        reasoningPromptMacros: macroValues,
+        regexPromptMacros: macroValues,
         ...(settingLibrary ? { settingLibrary } : {})
       },
       disabledToolGroupIds,
@@ -840,21 +886,6 @@ class ProductDataStore {
         ? { source: rawSettingLibrary, projected: settingLibrary }
         : undefined
     }
-  }
-
-  projectConversationPromptHistory<T extends { role: string; content: string }>(
-    history: readonly T[],
-    preparation: { promptTextContext: { macros?: CharacterCardMacroValues; rules?: RegexRuleCollection } }
-  ): T[] {
-    const { macros, rules } = preparation.promptTextContext
-    // The pending input is depth zero; the latest saved message is depth one.
-    // Keep identities, speaker bindings, attachments and extension fields intact.
-    return history.map((message, index) => ({
-      ...message,
-      content: message.role === 'user' || message.role === 'assistant'
-        ? runtimeText(message.content, macros, rules, message.role === 'user' ? 'UserInput' : 'AiOutput', history.length - index)
-        : message.content
-    }))
   }
 
   commitConversationRuntime(
@@ -911,6 +942,7 @@ class ProductDataStore {
     try {
       this.characterAssets().withNewOwner(characterId, this.characterAssets().portable(sourceId), copyAssets => this.frontendProjects().copyCharacterOwner(sourceId, characterId, copyFrontends => this.editorVersions!.transaction(() => {
         this.scripts!.transaction(db => {
+          copyAssets();
           characters.createInTransaction({ ...source, id: characterId, name }, db, false);
           variables.restoreInTransaction(characterId, { ...config, characterId }, db);
           settingLibraries.saveInTransaction(characterId, { ...library, characterId }, db);
@@ -919,7 +951,7 @@ class ProductDataStore {
           this.scripts!.saveInTransaction({ ...scripts, enabled: scriptLibrary.enabled }, db);
           const regexIds = this.regexRules!.copyCharacter(sourceId, characterId);
           this.editorVersions!.copyCharacter(sourceId, characterId, regexIds);
-          copyFrontends(); copyAssets();
+          copyFrontends();
         });
       })), this.characterAssets().portableFolders(sourceId));
       characters.commitMediaChanges();
@@ -1408,6 +1440,28 @@ function runtimeText(
   return rules ? transformCollectionSurface(expanded, rules, target, 'Prompt', {
       depth, expandMacros: (value, escape) => macros ? resolveCharacterCardMacros(value, macros, escape) : value
     }) : expanded
+}
+
+function namedReplyText(text: string, name?: string): string {
+  return name && text.trim() ? `${name}：${text}` : text
+}
+
+export function transformAiReplyPrompt(source: string, rules: RegexRule[], macros: CharacterCardMacroValues | undefined,
+  depth: number, blocks?: readonly RoleplayReplyBlock[]): string {
+  const transform = (text: string) => transformWithRegexRules(
+    macros ? resolveCharacterCardMacros(text, macros) : text, rules, 'AiOutput', {
+      depth, expandMacros: (value, escape) => macros ? resolveCharacterCardMacros(value, macros, escape) : value
+    })
+  const groups = groupRoleplayReplyBlocks(blocks)
+  if (!groups.length) return transform(source)
+  let changed = false
+  const texts = groups.map(({ speaker, blocks: parts }) => {
+    const text = roleplayGroupText(parts)
+    const result = transform(text)
+    changed ||= result !== text
+    return namedReplyText(result, speaker?.speakerName)
+  })
+  return changed ? texts.filter(Boolean).join('\n\n') : source
 }
 
 function parseJsonObject(value: string): Record<string, unknown> {

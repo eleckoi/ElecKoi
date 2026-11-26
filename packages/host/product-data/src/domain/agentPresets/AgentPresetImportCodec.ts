@@ -1,7 +1,7 @@
 import { autoIllustrationSchema, AUTO_ILLUSTRATION_PLUGIN } from '@shared/contracts/presets/autoIllustration'
 import { upgradeAutoIllustrationConfiguration } from './autoIllustrationUpgrade'
 import { randomUUID } from 'node:crypto'
-import { agentToolGroups } from '@product-data/domain/agentTools'
+import { agentToolGroups, withRoleplayReplyGroup } from '@product-data/domain/agentTools'
 import { pluginToolGroupSchema, portablePluginToolGroups } from '@shared/contracts/agent/tools'
 import { isPng, readPngText, writePngTextOnly } from '@product-data/storage/media/PngTextChunkCodec'
 import { decodeRegexDocuments } from '@shared/foundation/regexRuleTransfer'
@@ -10,6 +10,7 @@ import { agentPresetPurposeSchema } from '@shared/contracts/presets/schemas'
 import { creatorPresetEntrySchema } from '@shared/contracts/presets/creatorPrompts'
 import { convertLegacySettingReference } from '@shared/foundation/legacySettingReferences'
 import { upgradeLegacyCreatorPrompt } from '@shared/foundation/legacyCreatorPrompts'
+import { upgradeFinalReplyEntry, upgradeFinalReplyPlan, upgradeFinalReplyPosition } from './upgradeFinalRoleplayPreset'
 import { defaultRoleplayPlanSettings, roleplayPlanSettingsSchema } from '@shared/contracts/presets/roleplayPlan'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
@@ -318,7 +319,7 @@ function decodeSillyTavern(document: AgentPresetImportDocument, root: JsonObject
         id: SILLY_TAVERN_PROMPT_GROUP_ID, name: '酒馆提示词', parentId: '', order: 1,
         treeViewOrder: 1, createdAt: timestamp, updatedAt: timestamp
       }],
-      promptPositions: [], toolGroups: agentToolGroups(),
+      promptPositions: [], toolGroups: withRoleplayReplyGroup(agentToolGroups(), purpose),
       roleplayPlan: defaultRoleplayPlanSettings(), regexRules,
       expandedGroupIds: [SILLY_TAVERN_PROMPT_GROUP_ID]
     }
@@ -373,7 +374,7 @@ function contentFromPortable(
   }], 'AgentPreset')
   if (decodedRegex.failedFileNames.length) throw new DesktopError(ELECKOI_FAILURE_CODES.inputUnsupported, '预设正则包含不支持的应用目标或无效格式，未导入。', { what: '预设正则的应用目标或格式' })
   const regexRules = decodedRegex.rules.map(({ rule }) => rule)
-  const roleplayPlan = roleplayPlanSettingsSchema.safeParse(value.roleplay_plan)
+  const roleplayPlan = roleplayPlanSettingsSchema.safeParse(purpose === 'roleplay' ? upgradeFinalReplyPlan(value.roleplay_plan) : value.roleplay_plan)
   const toolConfiguration = objectValue(value.tool_configuration)
   const includedGroupIds = new Set(stringList(toolConfiguration?.included_group_ids))
   const enabledGroupIds = new Set(stringList(toolConfiguration?.enabled_group_ids))
@@ -385,7 +386,7 @@ function contentFromPortable(
     }))
     : agentToolGroups()
   const pluginTools = pluginToolGroupSchema.array().parse(toolConfiguration?.plugin_tools ?? [])
-  const toolGroups = [...builtInToolGroups, ...portablePluginToolGroups(pluginTools)]
+  const toolGroups = withRoleplayReplyGroup([...builtInToolGroups, ...portablePluginToolGroups(pluginTools)], purpose)
   return {
     usageInstructions: stringValue(profile?.usage_instructions),
     timeline: timelineFromPortable(profile?.timeline),
@@ -393,10 +394,10 @@ function contentFromPortable(
       .map((entry, index) => entryFromPortable(entry, index, timestamp))
       // RETIRE WHEN: 停止导入 ElecKoi 预设 v1/v2 后删除转换分支、参数和专用回归；
       // 共用转换器还须等待 schema v15 数据库升级退役，当前 creator 校验始终保留。
-      .map(entry => legacyCreator ? upgradeLegacyCreatorPrompt(entry) : entry), promptPositions, purpose).entries
+      .map(entry => purpose === 'roleplay' ? upgradeFinalReplyEntry(entry) : legacyCreator ? upgradeLegacyCreatorPrompt(entry) : entry), promptPositions, purpose).entries
       .map(entry => purpose === 'creator' ? creatorPresetEntrySchema.parse(entry) : entry),
     groups,
-    promptPositions,
+    promptPositions: purpose === 'roleplay' ? promptPositions.map(upgradeFinalReplyPosition) : promptPositions,
     toolGroups,
     ...(toolConfiguration?.subagent_model_selection ? { subagentModelSelection: toolConfiguration.subagent_model_selection as AgentPreset['subagentModelSelection'] } : {}),
     ...illustrationFromPortable(value, toolConfiguration),

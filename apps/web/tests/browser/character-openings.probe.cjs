@@ -27,7 +27,17 @@ app.whenReady().then(async () => {
       win.setContentSize(width, height);
       await win.loadURL(`${pathToFileURL(htmlPath).href}${compact ? '?compact' : ''}`);
       await wait('Boolean(document.querySelector("[data-testid]")) || Boolean(document.querySelector(".character-basic-content"))');
-      if (!compact && width === 1440 && theme === 'light') await checkDesktopSectionMotion(win.webContents, '开场白', '基础资料');
+      if (!compact && width === 1440 && theme === 'light') {
+        const profile = await evaluate(`(() => {
+          const rect = selector => document.querySelector(selector).getBoundingClientRect();
+          const cover = rect('.character-basic-cover-pane'), sheet = rect('.character-basic-sheet');
+          const author = rect('.character-basic-author-group'), fields = rect('.character-basic-fields'), footer = rect('.character-basic-actions');
+          return cover.right === sheet.left && cover.height === sheet.height
+            && author.bottom === fields.top && footer.top === fields.bottom && footer.bottom === sheet.bottom;
+        })()`);
+        if (!profile) throw new Error('Profile must use the artwork column and an author, fields and actions column');
+        await checkDesktopSectionMotion(win.webContents, '开场白', '基础资料');
+      }
       await evaluate(`document.documentElement.dataset.theme='${theme}'; document.documentElement.dataset.eleckoiMobile='${compact}';
         document.body.toggleAttribute('data-ds-dark-theme','${theme}'==='dark'); document.querySelector('button[aria-label="开场白"]').click()`);
       if (!compact) {
@@ -39,9 +49,16 @@ app.whenReady().then(async () => {
         const textClick=async (selector,text)=>{await evaluate(`(()=>{const e=[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.textContent.trim()===${JSON.stringify(text)});if(!e)throw Error('Missing '+${JSON.stringify(text)});e.click()})()`);await new Promise(r=>setTimeout(r,100))};
         const input=async(selector,value)=>{await evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});e.focus();e.select()})()`);await win.webContents.insertText(value);await new Promise(r=>setTimeout(r,100))};
         const snapshot=async name=>{await evaluate('document.getAnimations().forEach(a=>a.finish())');await win.webContents.capturePage();await new Promise(r=>setTimeout(r,150));writeFileSync(join(dirname(reportPath),name+'.png'),(await win.webContents.capturePage()).toPNG())};
-        const layout=await evaluate(`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {navigation:[...document.querySelectorAll('.character-editor-navigation button')].map(e=>e.getAttribute('aria-label')),directory:r('.setting-directory'),editor:r('.setting-document'),board:r('.opening-writing'),immersive:r('.setting-immersive-host button'),create:r('.setting-toolbar-create'),save:r('.setting-document-save'),overflow:document.documentElement.scrollWidth>innerWidth,editors:document.querySelectorAll('.cm-editor').length,font:getComputedStyle(document.querySelector('.cm-content')).fontSize,trees:document.querySelectorAll('.character-openings-panel [role=tree]').length,tabs:document.querySelectorAll('.character-openings-panel [role=tab]').length,switches:document.querySelectorAll('.character-openings-panel [role=switch]').length}})()`);
-        check(!layout.overflow && layout.directory.top===40 && layout.editor.top===40 && (width===1440?layout.directory.width===480:layout.editor.width===380) && layout.editor.left-layout.directory.right===8 && layout.directory.bottom===layout.editor.bottom,'Opening desktop geometry: '+JSON.stringify(layout));
+        const layout=await evaluate(`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {navigation:[...document.querySelectorAll('.character-editor-navigation button')].map(e=>e.getAttribute('aria-label')),directory:r('.setting-directory'),editor:r('.setting-document'),header:r('.character-studio-toolbar'),board:r('.opening-writing'),immersive:r('.setting-immersive-host button'),create:r('.setting-toolbar-create'),save:r('.setting-document-save'),overflow:document.documentElement.scrollWidth>innerWidth,editors:document.querySelectorAll('.cm-editor').length,font:getComputedStyle(document.querySelector('.cm-content')).fontSize,trees:document.querySelectorAll('.character-openings-panel [role=tree]').length,tabs:document.querySelectorAll('.character-openings-panel [role=tab]').length,switches:document.querySelectorAll('.character-openings-panel [role=switch]').length}})()`);
+        check(!layout.overflow && layout.header.top===40 && layout.directory.top===layout.header.bottom && layout.editor.top===layout.header.bottom && layout.directory.width===Math.min(480,Math.max(260,layout.header.width-388)) && layout.editor.left-layout.directory.right===1 && layout.directory.bottom===layout.editor.bottom,'Opening desktop geometry: '+JSON.stringify(layout));
+        check(await evaluate('!!document.querySelector(".opening-list-item .opening-card-excerpt")'), 'Opening list must show a body excerpt');
         check(layout.create.right<layout.save.left && layout.editors===1 && layout.font==='14px' && !layout.trees && !layout.tabs && !layout.switches,'Flat list / single body / directory save');
+        check(await evaluate(`(() => {
+          const add = document.querySelector('.opening-body-toolbar .opening-add-button');
+          const search = document.querySelector('[aria-label="搜索开场白"]').parentElement;
+          return add?.textContent.trim() === '添加段落' && !document.querySelector('[aria-label="预览开场白"]')
+            && getComputedStyle(search).backgroundColor === 'rgba(0, 0, 0, 0)';
+        })()`), 'Opening actions and transparent search must match the editor');
         check(layout.immersive.bottom<=layout.board.bottom && layout.immersive.right<=layout.board.right && layout.immersive.left>layout.board.left+layout.board.width/2,'Immersion should live inside lower right');
         await snapshot(`character-openings-${theme}-${width}`);
         await click('[aria-label="新建开场白"]');await input('[aria-label="标题"]','备用测试');
@@ -64,6 +81,32 @@ app.whenReady().then(async () => {
           await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','上移');check(await evaluate('document.querySelectorAll(".opening-list-name")[1].textContent==="备用测试 副本"'),'Move up failed');await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','下移');check(await evaluate('document.querySelectorAll(".opening-list-name")[2].textContent==="备用测试 副本"'),'Move down failed');actions.order=true;
           await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','删除开场白');await textClick('[role=dialog] button','取消');check(await evaluate('document.querySelectorAll(".opening-list-item").length===3'),'Cancel removed opening');await click('[aria-label="开场白操作"]');await textClick('[role=menuitem]','删除开场白');await textClick('[role=dialog] button','删除');check(await evaluate('document.querySelectorAll(".opening-list-item").length===2'),'Delete failed');actions.delete=true;
           await evaluate('document.querySelector(".opening-list-item").dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,clientX:260,clientY:170}))');await textClick('[role=menuitem]','删除开场白');await textClick('[role=dialog] button','删除');await click('.setting-document-save');check(await evaluate('window.openingSaved().openingMessages.length===1 && window.openingSaved().defaultOpeningMessageId===window.openingSaved().openingMessages[0].id && !!document.querySelector(".opening-primary-label")'),'Primary promotion failed');actions.primaryPromotion=true;
+          await evaluate(`(() => { const v = window.editorViewFor('开场白正文'); v.dispatch({changes:{from:v.state.doc.length,insert:'\\n\\n长篇封面正文。'.repeat(70)}}); })()`);
+          await click('.opening-body-toolbar .opening-add-button');
+          check(await evaluate(`Array.from(document.querySelectorAll('[role=menuitem]'), item => item.textContent.trim()).join('|') === '卡片封面＋正文|合成发言角色'`), 'Opening paragraphs must offer card and cast identities');
+          await textClick('[role=menuitem]','合成发言角色');
+          await wait(`(() => {
+            const last = document.querySelector('.opening-segment-editor:last-child .cm-content');
+            const scroll = document.querySelector('.opening-segments-scroll');
+            const rect = last?.getBoundingClientRect();
+            const view = scroll?.getBoundingClientRect();
+            return last === document.activeElement && scroll.scrollTop > 0 && rect.top >= view.top && rect.top < view.bottom
+              && document.querySelector('.opening-body-toolbar .opening-add-button').getBoundingClientRect().bottom <= view.top
+              && document.querySelectorAll('.opening-body-field .rs-writing-footer').length === 1;
+          })()`);
+          await evaluate(`(()=>{const editors=document.querySelectorAll('.opening-segment-editor .cm-content');const view=window.editorViewAt(editors[1]);view.dispatch({changes:{from:0,insert:'第一段对话。\\n\\n第二段长文。'.repeat(15)}})})()`);
+          await click('.setting-immersive-host button');
+          check(await evaluate(`(() => {
+            const full = document.querySelector('.immersive-markdown-editor');
+            const bounds = full?.getBoundingClientRect();
+            return bounds?.width >= innerWidth - 1 && bounds.height >= innerHeight - 1
+              && full.querySelectorAll('.opening-segment-editor .cm-editor').length === 2
+              && !document.querySelector('.opening-writing .cm-editor');
+          })()`), 'Immersive editing must open both segments in the shared fullscreen editor');
+          await click('.immersive-markdown-exit');
+          await snapshot('character-openings-multipart');
+          await click('.setting-document-save');
+          check(await evaluate('window.openingSaved().openingMessages[0].segments[1].speakerId==="synthetic-speaker" && window.openingSaved().openingMessages[0].content.includes("第二段长文")'),'The saved opening lost its speaker or multiline text');actions.multiSpeaker=true;
           await evaluate('document.querySelector(".opening-directory-list").dispatchEvent(new MouseEvent("mousedown",{bubbles:true,button:0}))');await wait('!!document.querySelector(".setting-document-empty")');check(await evaluate('!!document.querySelector(".setting-document-save") && !document.querySelector(".cm-editor")'),'Empty selection lost save or mounted body');await snapshot('character-openings-empty-selection');await click('[aria-label="新建开场白"]');await click('.setting-document-save');actions.emptySelection=true;
           await evaluate('document.querySelector("[aria-label=调整目录宽度]").focus()');win.webContents.sendInputEvent({type:'keyDown',keyCode:'RIGHT'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'RIGHT'});await new Promise(r=>setTimeout(r,100));check(await evaluate('document.querySelector(".setting-directory").getBoundingClientRect().width===496'),'Resize failed');actions.resize=true;
         }

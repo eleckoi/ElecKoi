@@ -8,7 +8,7 @@ import { expect, it } from 'vitest';
 import { browserThemeCss } from '../helpers/browserTheme.js';
 const require=createRequire(import.meta.url),{build}=createRequire(require.resolve('vite/package.json'))('esbuild');
 const luminance=color=>color.match(/[\d.]+/g).slice(0,3).map(Number).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4}).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
-it('keeps history confirmation text legible and the mobile account row free of a surrounding frame in both themes',async()=>{
+it('shows complete character history and keeps the history actions and mobile account row legible in both themes',async()=>{
  const dir=await mkdtemp(resolve(tmpdir(),'eleckoi-mobile-theme-'));
  try{
   await build({entryPoints:['apps/web/tests/browser/mobile-theme-controls.fixture.jsx'],outfile:resolve(dir,'fixture.js'),bundle:true,format:'iife',jsx:'automatic',alias:{'@shared':resolve('packages/shared/src')},loader:{'.png':'file','.svg':'dataurl','.woff2':'file','.woff':'file','.ttf':'file'},logLevel:'silent'});
@@ -18,6 +18,14 @@ it('keeps history confirmation text legible and the mobile account row free of a
   const result=JSON.parse(await readFile(resolve(dir,'report.json'),'utf8')),evidence=resolve('build/mobile-theme-controls-check');await mkdir(evidence,{recursive:true});
   for(const file of ['report.json','drawer-light.png','drawer-dark.png','history-light.png','history-dark.png'])await copyFile(resolve(dir,file),resolve(evidence,file));
   expect(result.errors).toEqual([]);expect(result.rows).toHaveLength(6);
+  expect(result.history).toHaveLength(6);
+  for (const history of result.history) {
+    expect(history.summaries).toEqual([0, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(index => `合成记录 ${history.character}-${index}`));
+    expect(history).toMatchObject({ choices: 0, buttons: ['导入'], official: true, aligned: true, buttonHeight: history.mobile ? 48 : 36 });
+    if (!history.mobile) {
+      expect(history).toMatchObject({ dividerAligned: true, searchFocused: true, searchShadow: 'none', neutralBorder: true });
+    }
+  }
   for(const row of result.rows){const detail=JSON.stringify(row);
    if(row.drawer){expect(row.image,detail).toBe('none');expect(row.shadow,detail).toBe('none');expect(row.background,detail).toBe('rgba(0, 0, 0, 0)');expect(row.border,detail).toBe('0px');expect(row.clickable,detail).toBe(true)}
    else{const values=[luminance(row.color),luminance(row.background)].sort((a,b)=>b-a);expect((values[0]+.05)/(values[1]+.05),detail).toBeGreaterThanOrEqual(4.5);expect(row.clickable,detail).toBe(true);expect(row.focused,detail).toBe(true)}

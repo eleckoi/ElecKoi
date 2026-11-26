@@ -125,6 +125,7 @@
 
 ## 导入规则
 
+- SillyTavern 角色卡的 V1 字段位于 JSON 根层，V2／V3 使用 `data` 对象，独立 JSON 与 PNG 内嵌卡共用转换入口。角色描述和开场白允许留空，已有附带世界书照常转换。独立世界书由设定库导入。
 - ElecKoi JSON：识别根对象的 `format` 与 `version` 后直接解码。
 - ElecKoi PNG：按 `eleckoi-card` 或 `eleckoi-bundle` 标记读取；资源包和 JSON 使用同一领域解码器。PNG 块 CRC、ZIP CRC、清单文件大小和 SHA-256 均须有效。缺包、越界、重复路径或损坏附件须失败，不能静默导入空资源。
 - ElecKoi ZIP：直接读取清单与同一根文档。

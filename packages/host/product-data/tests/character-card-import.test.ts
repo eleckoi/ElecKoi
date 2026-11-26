@@ -10,11 +10,12 @@ import { RegexRuleRepository } from '../src/domain/regexRules/RegexRuleRepositor
 import { AgentPresetRepository } from '../src/domain/agentPresets'
 import { SettingLibraryRepository } from '../src/domain/settingLibraries/SettingLibraryRepository'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
+import { CharacterOpeningRepository } from '../src/domain/characterOpenings'
 import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { APP_DEFAULT_CHAT_BACKGROUND } from '../../../shared/src/contracts/characters/chatBackground'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 import { decodeSettingLibrarySnapshot } from '../src/domain/characterTransfer/portableSnapshots'
-import { readPngText } from '@eleckoi/dsh-product-data/media'
+import { readPngText, writePngText } from '@eleckoi/dsh-product-data/media'
 
 const encoder = new TextEncoder()
 const databases: SqliteDatabase[] = []
@@ -183,6 +184,43 @@ describe('character card import', () => {
     expect(decoded.sourceImage).toBeInstanceOf(Uint8Array)
   })
 
+  it('imports blank SillyTavern character fields from flat JSON, PNG and versioned cards', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'eleckoi-blank-card-import-'))
+    directories.push(directory)
+    const database = new SqliteDatabase(join(directory, 'data.sqlite3'))
+    database.open()
+    databases.push(database)
+    const characters = new CharacterRepository(database, { deleteForCharacter() {}, refreshCharacterIdentity() {} },
+      new LocalMediaStore(join(directory, 'media')))
+    const settings = new SettingLibraryRepository(database)
+    const variables = new VariableConfigRepository(database)
+    const presets = new AgentPresetRepository(database)
+    presets.ensureInitialized()
+    const transfers = new CharacterTransferService(database, characters, settings, variables, new RegexRuleRepository(database, presets))
+    const openings = new CharacterOpeningRepository(database)
+    const flat = { name: '合成空白 V1', description: '', first_mes: '' }
+    const png = writePngText(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+      new Map([['chara', Buffer.from(jsonBytes({ name: '合成空白 PNG', creatorcomment: '合成旧版作者备注' })).toString('base64')]]))
+    const input = (displayName: string, bytes: Uint8Array, mimeType = 'application/json') => ({ displayName, mimeType, base64: Buffer.from(bytes).toString('base64') })
+    const preview = transfers.prepare([
+      input('flat.json', jsonBytes(flat)),
+      input('flat.png', png, 'image/png'),
+      input('v2.json', jsonBytes({ spec: 'chara_card_v2', spec_version: '2.0', data: { name: '合成空白 V2' } })),
+      input('v3.json', jsonBytes({ spec: 'chara_card_v3', spec_version: '3.0', data: { name: '合成空白 V3', description: '', first_mes: '' } })),
+      input('broken.json', jsonBytes({ ...flat, spec: 'chara_card_v2', data: null })),
+      input('world-book.json', jsonBytes({ name: '合成独立世界书', entries: { 0: { content: '合成世界设定' } } })),
+    ], 'sillytavern')
+    expect(preview.items.map(item => item.importable)).toEqual([true, true, true, true, false, false])
+    const imported = transfers.commit(preview.token)
+    expect(imported.importedCharacterIds).toHaveLength(4)
+    expect(imported.collection.items.map(item => item.name)).toEqual(expect.arrayContaining(['合成空白 V1', '合成空白 PNG', '合成空白 V2', '合成空白 V3']))
+    expect(imported.collection.items.find(item => item.name === '合成空白 PNG')).toMatchObject({ profileLike: '合成旧版作者备注', avatar: expect.any(String) })
+    for (const id of imported.importedCharacterIds) {
+      expect(openings.get(id)).toMatchObject({ enabled: false, openingMessages: [{ content: '' }] })
+      expect(settings.get(id).entries).toEqual([])
+    }
+  })
+
   it('keeps MVU schema field boundaries after supplementary Unicode characters', () => {
     const source = tavernCard('Unicode MVU')
     source.data.character_book.entries = [{
@@ -292,7 +330,7 @@ describe('character card import', () => {
     const zipExport = transfers.export('export-character', 'zip')
     const root = characterExportRoot(zipExport)
     expect(zipExport.fileName).toBe('完整角色.zip')
-    expect(root).toMatchObject({ format: 'eleckoi.character-card', version: 2 })
+    expect(root).toMatchObject({ format: 'eleckoi.character-card', version: 4 })
     expect(root.character).not.toHaveProperty('chat_background_mode')
     expect(root.character).not.toHaveProperty('chat_background_opacity')
     expect(root.assets.map((asset: { key: string }) => asset.key)).toEqual([

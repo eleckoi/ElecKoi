@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import { characters, characterOpenings } from '@product-data/storage/sqlite/schema/common'
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import { characterOpeningsSchema, type CharacterOpenings } from '@shared/contracts/characterOpenings/schemas'
+import { openingSegmentText } from '@shared/foundation/characterOpenings'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 
@@ -32,6 +33,9 @@ export class CharacterOpeningRepository {
     this.requireCharacter(characterId, db)
     if (input.characterId !== characterId) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '开场白配置与角色不匹配。', { what: '角色开场白配置' })
     const value = characterOpeningsSchema.parse(input)
+    for (const message of value.openingMessages) {
+      if (message.segments) message.content = openingSegmentText(message.segments)
+    }
     const configurationJson = JSON.stringify(value)
     const previous = db.select().from(characterOpenings).where(eq(characterOpenings.characterId, characterId)).get()
     if (previous?.configurationJson === configurationJson) return value

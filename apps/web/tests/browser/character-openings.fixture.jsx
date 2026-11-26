@@ -1,10 +1,12 @@
 import { EditorView } from '@codemirror/view';
+import { MarkdownText } from '@deepseek-ai/dsh-client-ui-primitives';
 import { installBrowserIconSprite } from '../helpers/browserIconSprite.js';
 import '../../src/app/windows/styles/dsh-theme-bridge.css';
 import { createCharacterOpenings, characterOpeningsSchema } from '../../../../packages/shared/src/contracts/characterOpenings/schemas';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { CharacterEditorWindow } from '../../src/app/windows/CharacterEditorWindow.jsx';
+import { OfficialMarkdownProvider } from '../../src/ui/messages/OfficialMarkdown.jsx';
 import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
 import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
@@ -18,7 +20,8 @@ import '../../src/mobile/mobile.css';
 import '../../src/mobile/mobile-character-editor.css';
 
 installBrowserIconSprite();
-const character = { id: 'synthetic-character', name: '合成角色', persona: {} };
+const character = { id: 'synthetic-character', name: '合成角色', persona: {},
+  cast: [{ id: 'synthetic-speaker', name: '合成发言角色' }] };
 const opening = { ...createEntryDraft('', 0, []), id: 'fixed-opening-assistant', kind: 'opening', title: '开场白', enabled: true,
   defaultOpeningMessageId: 'synthetic-opening', openingMessages: [{ id: 'synthetic-opening', title: '合成主开场白', content: '合成开场正文。'.repeat(200) }] };
 const version = { id: 'synthetic-version', name: '合成版本', entries: [{ ...createEntryDraft('', 1, []), id: 'synthetic-setting', title: '合成设定' }], groups: [], promptPositions: [], expandedGroupIds: [], listAllExpanded: false };
@@ -35,13 +38,14 @@ window.syntheticSaveFails = false;
 const openingQuery = new URLSearchParams(location.search);
 const compact = openingQuery.has('compact');
 window.editorViewFor = label => EditorView.findFromDOM(document.querySelector(`[role="textbox"][aria-label="${label}"]`));
+window.editorViewAt = node => EditorView.findFromDOM(node);
 window.openingSaved = () => openingStored;
 if (openingQuery.has('long')) openingStored.openingMessages[0].content = openingQuery.get('long') === 'single' ? '长文夹带代码 const x = 1; <div>内容</div>'.repeat(60000) : Array.from({ length: 100000 }, (_, i) => `${i} 创作内容 const x = 1; <div>内容</div>\n`).join('');
 createRoot(document.getElementById('root')).render(<div className={compact ? 'mobile-shell' : ''} style={{ height: '100vh' }}><div className={compact ? 'mobile-character-editor' : ''} style={{ height: '100vh' }}>
-  <CharacterEditorWindow compact={compact} embeddedCharacterId={character.id} characterCatalog={{ refresh: async () => ({ items: [character] }) }}
+  <OfficialMarkdownProvider component={MarkdownText}><CharacterEditorWindow compact={compact} embeddedCharacterId={character.id} characterCatalog={{ refresh: async () => ({ items: [character] }) }}
     characterConfiguration={{ settingLibraries: settings, openings, variables }}
     renderHeader={({ dirty, saving, save }) => <header style={{ height: 40, gridColumn: '1 / -1', padding: 10, display: 'flex', justifyContent: 'space-between' }}>
       合成角色编辑器
       {compact && <button className="setting-library-save-button" disabled={!dirty || saving} onClick={save}>{saving ? '保存中…' : '保存'}</button>}
-    </header>} />
+    </header>} /></OfficialMarkdownProvider>
 </div></div>);

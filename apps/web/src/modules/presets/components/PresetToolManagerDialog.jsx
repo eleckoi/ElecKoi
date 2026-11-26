@@ -46,7 +46,7 @@ export function PresetToolManagerDialog({ sources, includedIds, compact, closeBl
         {tools.map(tool => <label className="preset-tool-manager-row" key={tool.id}>
           <span className="preset-tool-icon"><AgentToolGroupIcon groupId={tool.id} size={19} /></span>
           <span className="preset-tool-manager-copy"><strong>{tool.name}</strong><small>{tool.description}</small></span>
-          {tool.readOnly ? <span className="preset-tool-basic-state">{tUi('默认启用')}</span> : <span className="preset-tool-manager-check">
+          {tool.readOnly ? <span className="preset-tool-basic-state">{tUi(tool.enabled ? '默认启用' : '已停用')}</span> : <span className="preset-tool-manager-check">
             <input type="checkbox" aria-label={tUi("选择：{value0}", {value0: tool.name})} checked={selected(tool)} disabled={closeBlocked} onChange={event => select(tool, event.target.checked)} />
             <Check size={13} weight="bold" aria-hidden="true" />
           </span>}

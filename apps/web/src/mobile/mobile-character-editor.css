@@ -14,12 +14,14 @@
 .mobile-character-editor .is-editor-subpage .character-editor-side-panel { display: none; }
 .mobile-character-editor .is-editor-subpage .character-editor-workspace { grid-column: 1 / -1; }
 
-.mobile-character-editor .character-basic-content { width: 100%; height: 100%; min-height: 0; min-width: 0; padding: 20px 12px; align-items: stretch; justify-content:flex-start; overflow: auto; }
-.mobile-character-editor .character-basic-sheet { flex:none; gap:16px; width:100%; min-width:0; max-width:900px; margin-inline:auto; }
-.mobile-character-editor .character-basic-field { min-width: 0; width: 100%; }
-.mobile-character-editor .character-basic-identity-row > .character-basic-field > span { font-size:13px; }
-.mobile-character-editor .character-basic-cover-action { font-size: 12px; }
-.mobile-character-editor .character-basic-actions { width:100%; max-width:900px; margin-inline:auto; }
+.mobile-character-editor .character-basic-content { display:block; overflow:auto; }
+.mobile-character-editor .character-basic-cover-pane { justify-content:center; padding:16px; border:0; }
+.mobile-character-editor .character-basic-cover-upload { max-width:300px; }
+.mobile-character-editor .character-basic-cover-trigger { aspect-ratio:3/4; height:auto; }
+.mobile-character-editor .character-basic-sheet { display:block; }
+.mobile-character-editor .character-basic-fields { overflow:visible; }
+.mobile-character-editor .character-basic-intro-field .semi-input-textarea-wrapper { height:190px; }
+.mobile-character-editor :is(.character-basic-author-group,.character-basic-fields,.character-basic-actions) { padding-inline:16px; }
 .mobile-character-editor .character-basic-actions > button.is-primary { display: none; }
 
 :is(.mobile-character-editor, .mobile-preset-editor) .is-page-layout { display: flex; flex-direction: column; width: 100%; height: 100%; min-width: 0; min-height: 0; }
@@ -50,17 +52,10 @@
 :is(.mobile-character-editor, .mobile-preset-editor) .setting-library-content-heading { flex-wrap: wrap; }
 :is(.mobile-character-editor, .mobile-preset-editor) .setting-library-content-actions { min-width: 0; flex-wrap: wrap; }
 :is(.mobile-character-editor, .mobile-preset-editor) .setting-library-content-actions > button { flex: none; white-space: nowrap; }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-editor { grid-template-rows: auto minmax(0, 1fr); }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 8px 12px; -webkit-app-region: no-drag; }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-header strong { grid-column: 1; grid-row: 1; min-width: 0; font-size: 15px; }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-actions { display: contents; }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-exit { grid-column: 2; grid-row: 1; min-width: 0; min-height: 44px; height: 44px; gap: 6px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-tabs { grid-column: 1 / -1; grid-row: 2; min-width: 0; width: 100%; }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-tabs button { flex: 1; min-width: 0; min-height: 44px; height: 44px; font-size: 13px; white-space: nowrap; }
-:root[data-eleckoi-mobile="true"] :is(.immersive-markdown-tabs, .immersive-markdown-exit) svg { flex: none; }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-body { padding: 12px 12px 24px; }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-body > textarea { padding: 12px; font-size: 15px; }
-:root[data-eleckoi-mobile="true"] .immersive-markdown-preview { padding: 12px; }
+.immersive-markdown-editor.is-compact { grid-template-rows: auto minmax(0, 1fr); }
+.is-compact .immersive-markdown-header { justify-content: flex-start; padding: 0 8px; -webkit-app-region: no-drag; }
+.is-compact .immersive-markdown-exit { width: 48px; min-height: 48px; height: 48px; padding: 0; color: var(--text); }
+.is-compact .immersive-markdown-body { padding: 0 8px; }
 .mobile-character-editor .setting-library-field-card > :is(input, textarea), .mobile-character-editor .setting-library-rule-input > :is(input, select) { min-width: 0; min-height: 44px; font-size: 14px; }
 .mobile-character-editor .setting-library-field-card > textarea { min-height: 120px; }
 :is(.mobile-character-editor, .mobile-preset-editor) .setting-library-keyword-input { width: 100%; min-width: 0; min-height: 64px; gap: 8px; padding: 8px; }

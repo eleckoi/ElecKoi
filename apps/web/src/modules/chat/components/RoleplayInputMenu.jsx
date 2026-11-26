@@ -1,6 +1,6 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Menu } from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconFolderCloseRegular, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { DshNewChatIcon, DshRefreshIcon } from "../../../ui/icons/dshComposerIcons.jsx";
 import { ChatHistoryIcon, MenuIcon, PlugIcon } from "../../../ui/icons/openSourceIcons.jsx";
 import { TrashIcon } from "../../../ui/icons/index.jsx";
@@ -24,6 +24,7 @@ export function RoleplayInputMenu({
   onOpenTools,
   onOpenVariables,
   onOpenRequestPreview,
+  onOpenWorkspaceFiles,
   renderMainActions,
   renderMoreActions,
   onOpenChatBackground,
@@ -88,6 +89,9 @@ export function RoleplayInputMenu({
           {more ? <>
             <button type="button" className="composer-menu-back" role="menuitem" onClick={() => setMore(false)}><CaretLeft size={18} /><span>{tUi('更多')}</span></button>
             <i aria-hidden="true" />
+            {onOpenWorkspaceFiles && <button type="button" role="menuitem" onClick={() => run(onOpenWorkspaceFiles)}>
+              <IconFolderCloseRegular size={18} /><span>{tUi('工作区文件')}</span>
+            </button>}
             {onOpenRequestPreview && <button type="button" role="menuitem" onClick={() => run(onOpenRequestPreview)}><TextAlignLeft size={18} /><span>{tUi('请求上下文预览')}</span></button>}
             {onOpenVariables && <button type="button" role="menuitem" onClick={() => run(onOpenVariables)}><Database size={18} /><span>{tUi('变量查看与管理')}</span></button>}
             {renderMoreActions?.(() => run(onOpenChatBackground))}

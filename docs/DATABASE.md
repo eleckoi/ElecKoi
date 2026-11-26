@@ -8,8 +8,8 @@
 - 数据库文件：Electron `userData/eleckoi-common.sqlite3`，路径由桌面壳作为 Host 启动参数传入。
 - SQLite 打开、迁移、恢复和所有 Repository 写入均位于 `packages/host/product-data/src`。Electron Main、Client 和 Renderer 不打开数据库。
 - 公共 SQL：`apps/desktop/resources/database/eleckoi-common-schema-v1.sql`。
-- 当前 `PRAGMA user_version`：`19`。
-- 当前结构：50 张业务表、2 个视图；数据库物理结构版本只使用 SQLite `PRAGMA user_version`。
+- 当前 `PRAGMA user_version`：`20`。
+- 当前结构：51 张业务表、2 个视图。数据库物理结构版本只使用 SQLite `PRAGMA user_version`。
 
 角色卡原作者信息复用 `character_text_contents`：`author_name` 保存作者名字，`author_avatar` 保存本地媒体引用；头像使用现有 `character/<id>` 所有者的 `author-avatar` 槽。未填写的旧卡读为空，不推断为本地玩家资料。更新遗漏作者字段时保留原值，明确空值可清除；媒体随同一事务提交或回退，删除角色沿原所有权清理。此功能不改变物理结构，不新增迁移或提升 schema；当前未发布的 v18 迁移仍只有角色列表活动记录这一步。
 
@@ -42,7 +42,7 @@
 | 数据 | 权威存储 |
 | --- | --- |
 | 角色、角色卡文本、用户资料 | SQLite；媒体字段保存 `eleckoi-media://` 引用，文件位于产品媒体目录 |
-| 角色多开场白 | SQLite `character_openings`；一份列表及默认选择，与设定库版本无关联 |
+| 角色多开场白 | SQLite `character_openings`；一份列表及默认选择，与设定库版本无关联。开场白可保存长篇正文，或保存按顺序排列的封面和登场角色正文。角色段落引用本卡的登场角色 ID。新聊天把姓名和头像引用随开场白选项写入 `agent_openings.payloadJson` |
 | 设定库、变量配置与状态、正则、Agent 预设 | SQLite |
 | 全局、角色、预设脚本的归属、列表、启停与设置 | SQLite；源码仅保存为 `author-scripts` 目录内的 `.js` 文件，库中只记录文件引用与修改标识 |
 | 聊天目录、角色快照、关系索引、说话者、轮次与最终回复关系 | SQLite |
@@ -93,6 +93,11 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 17. v17：变量值与来源身份一同保存、快照和回退；升级按会话关联版本建立一次来源基线，其他旧字段作为运行时项保留。
 18. v18：为角色目录增加录入时间与最近编辑时间。
 19. v19：转换旧 EJS 引用设定和其状态快照，保留有效正文。
+20. v20：独立保存登场角色，为旧卡补一个角色。已有本地头像复制到卡片资产库，保留旧聊天使用的媒体引用。同一事务将已发布的角色预设及保存版本切到回复工具，保留自定义准备步骤和工具开关。
+
+`character_cast_members` 保存角色顺序、名字、图片资产编号和圆形取景。头像原图在角色卡资产库 `character-assets/characters/<卡片编号的 SHA-256>/blobs/<图片的 SHA-256>`。同卡相同图片共用文件。圆形头像从同一张图取景，旧卡原来就有独立圆形或方形图时保留该图。角色卡封面仍由资料页的媒体槽管理。PNG 和 ZIP 的原生角色卡内容升级到 v4，携带名册、取景和所需图片。
+
+资料页媒体的桌面缩略图缓存在对应媒体槽的 `.thumbnails-v1/<原图文件名>/`。登场角色画廊按需加载资产库原图，浏览器用保存的取景参数显示圆形头像。
 
 ## 聊天状态与归档
 
@@ -147,11 +152,15 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 
 ### 统一待退役清单
 
+- [酒馆 V1 角色卡导入](../packages/host/product-data/src/domain/characterTransfer/characterCardFormats.ts) 在解析独立 JSON 或 PNG 内嵌角色卡时识别根层角色字段，以共用转换流程生成当前角色、设定和开场白。停止支持 SillyTavern V1 JSON 和 PNG 导入后，删除根层识别、V1 作者备注映射及专项回归。
+
+- [Android 输入框退格补丁](../patches/@deepseek-ai__dsh-client-ui-conversation@0.2.2-rc.5.patch) 只修正会话输入框收到普通 Chromium Android 退格时的事件处理，不转换存档。锁定的官方输入组件可在文字中间和全角括号内各删除一字并保留正确光标后，移除对应补丁段、登记说明和专项回归，再刷新锁文件哈希。符号节点、选区与输入法组字仍沿官方路径。
+
 新增或修改一次性数据迁移、旧格式兼容或临时适配时，在同一变更登记入口、触发、数据影响、删除条件和连带范围，源代码入口同时保留 `RETIRE WHEN:`。调整旧版支持范围或升级依赖的人负责复查相关条目。清理依据是项目确认的安装升级、备份和导入支持边界。本机已升级只说明本机状态。
 
 #### 正式 SQLite 升级链
 
-现有 [18 步升级](../packages/host/product-data/src/storage/sqlite/installSchema.ts) 将 v1 连续升级到 v19，对应 `0002` 至 `0019`。删除任何一步之前，必须明确停止支持该步起点及更早数据库的直接升级。确认剩余链连续后，同步删除登记、旧结构验证和专项回归。关键步骤的额外依赖见下表。
+现有 [19 步升级](../packages/host/product-data/src/storage/sqlite/installSchema.ts) 将 v1 连续升级到 v20，对应 `0002` 至 `0020`。删除任何一步之前，必须明确停止支持该步起点及更早数据库的直接升级。确认剩余链连续后，同步删除登记、旧结构验证和专项回归。关键步骤的额外依赖见下表。
 
 #### 自动整理并写回的旧数据
 
@@ -160,6 +169,8 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 | 入口 | 何时可以清理 | 必须一起处理的范围 |
 | --- | --- | --- |
 | [创作预设旧「默认位置」转换](../packages/shared/src/contracts/presets/builtIns.ts) | 停止支持携带 `agent_tool`＋`required` 创作提示词的数据库、备份与预设文件。旧文件可以是 v3，须按条目字段核对 | 预设初始化、读写和导入共用此规则，将旧条目移到「系统指令」，保留正文和开关。删除自动换位、位置顺序计算与旧条目专项回归。启动扫描另见「旧预设缺少必需提示词的启动补齐」 |
+| [正式角色预设升级](../packages/host/product-data/src/storage/sqlite/migrations/0020CharacterCast.ts)与[预设导入转换](../packages/host/product-data/src/domain/agentPresets/upgradeFinalRoleplayPreset.ts) | 停止支持 v19 及更早库直升后，可删除数据库调用。受支持的预设导入也不再接受已发布的旧正文协议后，可删除共用转换器 | v19→v20 事务和旧预设导入更新内置正文协议、默认标题和默认计划。数据库升级补齐缺失的回复工具组，保留已关闭的选择。同步移除对应专项回归。开发中间版内容由开发库直接更新。旧聊天正文和轨迹无须重写。 |
+| [旧自动配图来源](../packages/client/features/dsh-client-roleplay/src/host/generated-image-result.mjs) | 支持的 Session 与导入中没有从 `ACTION_CALL` 文本指令生成的图片 | 旧图重新生成时从原助手事件读取分镜。退役时删除旧文本解析、无 `replyCallId` 的重生图分支和历史回归。保留通过原回复工具调用查找分镜。 |
 | [开发 v2、v6 同版本整理](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持对应开发基线直接升级 | 对应整理函数、专用入口和 fixture；v2 共享整理函数仍被 `0002` 使用时继续保留 |
 | [模型设置 schema v0/v1 → v2](../packages/client/features/dsh-client-models/src/index.js) | 支持的升级和 profile 恢复入口均已保存至少 schema v2 的设置 | 旧 schema 转换、专用常量与用例；函数和启动调用须等两段整理均退役，保留当前设置合同和插件装配 |
 | [旧子 Agent 占位路由](../packages/client/features/dsh-client-models/src/index.js) | 停止支持 v0.2.3 之前版本直升，且支持的 profile 恢复入口不再携带该路由 | 占位路由过滤、专用常量与用例；与模型设置 schema 转换分别核对 |
@@ -169,6 +180,7 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 | [Android 前端 bundle 登记](../apps/android-host/src/androidPluginBundles.ts) | 受支持升级及 profile 恢复来源均已完成 `frontend-bundles-v2`、`frontend-bundles-v3`；不能以某台手机已升级为依据 | 删除 `registerAndroidFrontendBundles`、`frontendUpgrades`、启动调用和仅验证旧 profile 的用例；保留新 profile 初始化、用户选择及正常的 `registerAndroidMobileBundle` 平台必需项约束 |
 | [旧 HTML 资源组合替换](../packages/client/features/dsh-client-html-resources/src/profile.ts) | 桌面及 Android 的受支持旧 profile、备份恢复均不再选择两个已移除的资源 bundle | 删除 `replaceHtmlResourceBundles`、`obsoleteBundles`、两端一次性登记中的调用和专用用例；保留当前资源 bundle、正常初始化及用户主动停用选择 |
 | [旧请求投影缓存清理](../packages/client/features/dsh-client-roleplay/src/host/request-cache-retirement.mjs) | 停止支持携带 `eleckoiRequestContexts`／`eleckoiRequestInput` 缓存行的旧版本直升，且受支持恢复样本不再含这些行 | 删除 `retireRequestContextCache`、roleplay 启动调用与专用回归；保留官方投影缓存及其他检查点。此入口只删除旧派生行，不改 Session 日志和产品业务表 |
+| [会话摘要缓存 → v5](../packages/client/features/dsh-client-roleplay/src/host/conversation-preview.mjs) | 受支持的直升和备份恢复样本均无 v5 之前的摘要行 | Host 启动时从原日志重算派生摘要，摘要取与选角调用同次提交的普通正文。删除 `rebuildConversationPreviewCache`、启动调用和专用缓存重算回归，保留正文摘要投影 |
 | [自动插画配置 v4/v5 → v6](../packages/host/product-data/src/domain/agentPresets/autoIllustrationUpgrade.ts)、[存储入口](../packages/host/product-data/src/domain/agentPresets/AgentPresetRepository.ts)、[导入入口](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts) | 受支持的存量预设、保存版本和导入文件均不再携带旧工具组自有的插画配置；存储升级与导入兼容分别确认 | 删除 `upgradeIllustrationConfiguration` 及启动调用、`illustrationFromPortable` 的旧分支、共用升级函数和各自专用回归；保留当前插件插画配置及其他预设读写 |
 | [旧预设缺少必需提示词的启动补齐](../packages/host/product-data/src/domain/agentPresets/AgentPresetRepository.ts) | 所有受支持的数据库及备份都已有当前必需条目和位置，且旧「默认位置」无需再在启动时写回 | Host 初始化时检查当前预设及保存版本，只写有差异的数据。删除 `ensureRequiredEntries`、启动调用及专项测试，保留当前正常校验与独立的旧文件导入规则 |
 | [旧开发 v9/v10、v12/v13/v14 整理与正则列补齐](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持带生成结果废表的开发 v9/v10、缺正则整体开关的开发 v12、带旧状态表的开发 v12/v13/v14，以及缺 `optionsJson` 列的结构；各来源独立判断 | 删除对应分支、专用旧 SQL／校验参数和用例。正则列补齐随其启动调用及缺列校验宽容分支一起删除；保留当前 SQL、当前完整性校验和仍受支持的正式升级链 |
@@ -220,6 +232,8 @@ Agent 聊天显示的旧默认尺寸由 [DSH 显示偏好读取](../packages/sha
 - [0014](../packages/host/product-data/src/storage/sqlite/migrations/0014CreatorWorkspace.ts) 有独立的默认创作预设启动替换，分别按表中条件退役。[0015](../packages/host/product-data/src/storage/sqlite/migrations/0015OpeningVariableState.ts) 随步骤移除旧开场白和变量初值升级的专项回归。
 - [0016](../packages/host/product-data/src/storage/sqlite/migrations/0016CreatorPrompts.ts) 和 [0017](../packages/host/product-data/src/storage/sqlite/migrations/0017VariableIdentity.ts) 分别与旧创作预设、聊天快照共享解码。数据库和文件侧均退役后再移除共用辅助。
 - [0019](../packages/host/product-data/src/storage/sqlite/migrations/0019SettingReferences.ts) 在 v18→v19 升级时转换旧引用条目及聊天快照，正文保留，遇损坏数据整步回滚。停止支持 v18 及更早版本直接升级后，删此步骤、注册及 `conversation-state-storage.test.ts` 的升级和回滚断言。聊天归档导入仍受支持时保留共用解码和导入断言。
+- [0020](../packages/host/product-data/src/storage/sqlite/migrations/0020CharacterCast.ts) 在 v19→v20 升级时补一位登场角色。[媒体补迁移](../packages/host/product-data/src/domain/personas/legacyCharacterCast.ts) 在 Host 打开时按摘要复制旧图，续跑不会重复创建资产。支持范围排除 v19 及更早版本，且受支持数据库的 `pendingLegacyMedia` 皆为 0 后，删 SQL 步骤、注册、旧表校验分支、Host 补手续与 v19 升级专项回归。用后续 schema 版本移除标记列。聊天和旧封面媒体仍各自按当前合同保留。
+- [旧卡导入补登场角色](../packages/host/product-data/src/domain/characterTransfer/CharacterTransferService.ts) 为无名册的 PNG、ZIP 或酒馆卡创建一个登场角色。停止支持这些旧格式后，再删该入口及旧卡导入回归。数据库迁移和旧格式导入都退役后，删除共用的旧头像整理代码。
 - [0018](../packages/host/product-data/src/storage/sqlite/migrations/0018CharacterCatalogActivity.ts) 与 `installSchema` 对 v17 及更早结构的角色目录时间检查一起清理。
 
 #### 锁定依赖补丁
@@ -258,9 +272,9 @@ Host 启动不再逐个修复旧请求上下文标记、补写旧角色聊天输
 
 ## 验证
 
-- `pnpm check:database-schema`：50 张公共表、2 个视图与生成文件一致。
-- `pnpm test`：覆盖 v1 至 v19 迁移、未发布开发库整理、失败回滚、外键、重启持久化、角色与媒体、设定、变量、正则、预设、脚本库、聊天索引和 Remote 写入。
-- `pnpm rebuild:electron && pnpm check:electron-sqlite`：使用 Electron 的真实原生 SQLite ABI 创建公共结构，核对 50 张业务表、2 个视图、`user_version = 19`、冗余列缺失、外键和完整性。
+- `pnpm check:database-schema`：51 张公共表、2 个视图与生成文件一致。
+- `pnpm test`：覆盖 v1 至 v20 迁移、未发布开发库整理、失败回滚、外键、重启持久化、角色与媒体、设定、变量、正则、预设、脚本库、聊天索引和 Remote 写入。
+- `pnpm rebuild:electron && pnpm check:electron-sqlite`：使用 Electron 的真实原生 SQLite ABI 创建公共结构，核对 51 张业务表、2 个视图、`user_version = 20`、冗余列缺失、外键和完整性。
 
 架构决策见 [ADR 0018](adr/0018-dsh-host-owns-product-data.md)。
 

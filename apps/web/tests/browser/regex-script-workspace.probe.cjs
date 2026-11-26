@@ -18,7 +18,7 @@ app.whenReady().then(async () => {
     v.dispatch({ changes: { from: 0, to: v.state.doc.length, insert: ${JSON.stringify(value)} } });
   })()`); await settle(); };
   const value = label => evaluate(`window.editorViewFor(${JSON.stringify(label)}).state.doc.toString()`);
-  const select = (kind, label) => textClick(kind === 'regex' ? '.regex-rule-main' : '.script-list-name', label);
+  const select = (kind, label) => textClick(kind === 'regex' ? '.regex-rule-main .rs-row-name' : '.script-list-name .rs-row-name', label);
   const snap = async name => { await evaluate('document.getAnimations().forEach(a=>a.finish())'); await settle(); await win.webContents.capturePage(); writeFileSync(join(output, name + '.png'), (await win.webContents.capturePage()).toPNG()); };
   async function load(kind, width = 1480, theme = 'light', long = false) {
     if (win.webContents.getURL().startsWith('file:') && await evaluate('!!document.querySelector(".setting-document-save:not(:disabled)")')) await click('.setting-document-save');
@@ -29,18 +29,14 @@ app.whenReady().then(async () => {
   try {
     for (const kind of ['regex', 'scripts']) for (const [width, theme] of [[1480, 'light'], [900, 'light'], [1480, 'dark']]) {
       await load(kind, width, theme);
-      const layout = await evaluate(`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {kind:${JSON.stringify(kind)},width:innerWidth,theme:${JSON.stringify(theme)},directory:r('.setting-directory'),editor:r('.setting-document'),save:r('.setting-document-save'),create:r('.setting-toolbar-create'),more:r('.setting-directory-actions .setting-toolbar-icon'),font:getComputedStyle(document.querySelector('.cm-content')).fontSize,overflow:document.documentElement.scrollWidth>innerWidth,editors:document.querySelectorAll('.cm-editor').length}})()`);
-      check(!layout.overflow && layout.directory.top === 40 && layout.editor.top === 40 && layout.directory.width === (width === 1480 ? 480 : 284) && layout.editor.left - layout.directory.right === 8 && layout.directory.bottom === layout.editor.bottom && layout.font === '14px', 'Layout ' + JSON.stringify(layout));
-      check(layout.create.right < layout.save.left && layout.save.right < layout.more.left && await evaluate('document.querySelectorAll(".setting-document-save").length===1 && !document.querySelector(".setting-document .setting-document-save")'), 'Unified save position');
-      const toolbar = await evaluate(`(() => {
-        const group = document.querySelector('.editor-directory-scopebar .setting-toolbar-group');
-        const label = document.querySelector('.editor-scope-tabs [aria-selected="true"] > span');
-        const line = getComputedStyle(label, '::after');
-        return { bottom: group.getBoundingClientRect().bottom, border: getComputedStyle(group).borderBottomWidth,
-          lineBottom: label.getBoundingClientRect().bottom - parseFloat(line.insetBlockEnd), lineHeight: line.height };
-      })()`);
-      check(toolbar.border === '1px' && toolbar.lineHeight === '2px' && Math.abs(toolbar.bottom - toolbar.lineBottom) < 0.5,
-        'Selected underline should align with the action group: ' + JSON.stringify(toolbar));
+      const layout = await evaluate(`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {kind:${JSON.stringify(kind)},width:innerWidth,theme:${JSON.stringify(theme)},directory:r('.setting-directory'),editor:r('.setting-document'),header:r('.character-studio-toolbar'),save:r('.setting-document-save'),create:r('.setting-toolbar-create'),search:r('.setting-search-input'),select:r('.editor-directory-select'),font:getComputedStyle(document.querySelector('.cm-content')).fontSize,overflow:document.documentElement.scrollWidth>innerWidth,editors:document.querySelectorAll('.cm-editor').length}})()`);
+      check(!layout.overflow && layout.header.top === 40 && layout.directory.top === layout.header.bottom && layout.editor.top === layout.header.bottom && layout.directory.width === Math.min(480, Math.max(260, layout.header.width - 388)) && layout.editor.left - layout.directory.right === 1 && layout.directory.bottom === layout.editor.bottom && layout.font === '14px', 'Layout ' + JSON.stringify(layout));
+      check(layout.create.right < layout.save.left && layout.save.right <= layout.header.right && layout.search.right < layout.select.left && await evaluate('document.querySelectorAll(".setting-document-save").length===1 && !document.querySelector(".setting-document .setting-document-save")'), 'Unified save position');
+      check(await evaluate(`(() => {
+        const header = document.querySelector('.character-studio-toolbar');
+        return Boolean(header.querySelector('.editor-scope-tabs [aria-selected="true"]')
+          && header.querySelector('.setting-toolbar-group') && document.querySelector('.rs-row.is-selected .rs-card-meta')?.textContent);
+      })()`), 'Scope and actions must share the header and selected cards must show their details');
       layouts.push(layout); await snap(`${kind}-${theme}-${width}`);
       if (kind === 'regex') {
         check(await evaluate('document.querySelectorAll(".rs-view-tabs [role=tab]").length===2 && !!document.querySelector(".rs-regex-options [role=switch]") && document.querySelectorAll(".cm-editor").length===2'), 'Regex options must share Edit with both text editors');
@@ -64,7 +60,7 @@ app.whenReady().then(async () => {
       await click(`[aria-label="${source}输入区"] .setting-immersive-host button`); check(await evaluate('document.querySelectorAll(".cm-editor").length') === (kind === 'regex' ? 2 : 1), 'Immersion duplicates the full active document'); await edit(source, '沉浸编辑后的完整草稿'); await click('.immersive-markdown-exit'); check(await value(source) === '沉浸编辑后的完整草稿', 'Immersion draft lost'); actions[kind + 'Immersion'] = true;
       await evaluate('window.workspaceFails=true'); await click('.setting-document-save'); check(await evaluate('!!document.querySelector("[role=alert]") && !document.querySelector(".setting-document-save").disabled'), 'Failed save must retain draft'); await evaluate('window.workspaceFails=false'); await click('.setting-document-save'); check(await evaluate('document.querySelector(".setting-document-save").disabled && window.workspaceCalls===2'), 'Unified save retry'); actions[kind + 'SaveRetry'] = true;
       await evaluate('document.querySelector(".rs-directory-content").dispatchEvent(new MouseEvent("mousedown",{bubbles:true,button:0}))'); await settle(); check(await evaluate('!!document.querySelector(".setting-document-empty") && !!document.querySelector(".setting-document-save") && !document.querySelector(".cm-editor")'), 'Empty selection must retain save and release editors'); await click('.rs-library-heading [role=switch]'); await click('.setting-document-save'); actions[kind + 'DirectorySave'] = true;
-      await click('.setting-directory-actions .setting-toolbar-icon'); await textClick('[role=menuitem]', '多选'); await click('.editor-selection-bar input'); await textClick('.editor-selection-bar button', '复制'); check(await evaluate('!document.querySelector(".setting-document-save").disabled'), 'Multi copy lost unified save'); await click('.setting-directory-actions .setting-toolbar-icon'); await textClick('[role=menuitem]', '完成多选'); await click('.setting-document-save'); actions[kind + 'Multi'] = true;
+      await click('.editor-directory-select'); await click('.editor-selection-bar input'); await textClick('.editor-selection-bar button', '复制'); check(await evaluate('!document.querySelector(".setting-document-save").disabled'), 'Multi copy lost unified save'); await click('.editor-directory-select'); await click('.setting-document-save'); actions[kind + 'Multi'] = true;
       await textClick('[role=tab]', '全局'); check(await evaluate('document.querySelector(".rs-library-heading").textContent.includes("全局")'), 'Global scope missing'); await textClick('[role=tab]', '角色'); actions[kind + 'Scopes'] = true;
       await click('.setting-version-button');
       check(await evaluate('!!document.querySelector(".editor-search-modal [aria-label=搜索版本]") && !!document.querySelector(".editor-picker-row[aria-pressed=true]")'), 'Version picker must show search and the current version');

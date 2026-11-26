@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { FileText, Wrench, BracketsCurly, FileCode, NotePencil } from '../../ui/icons/interfaceIcons.jsx';
 import { ElecKoiWordmark } from '../../ui/icons/ElecKoiWordmark.jsx';
+import { EditorPresentationContext } from '../../ui/ui/EditorPresentationContext.jsx';
 import logo from '../../assets/eleckoi-app-icon.png';
 import { PresetProvider, PresetWorkspace } from '../../modules/presets/index.js';
 import { applyAppearanceTheme } from '../../modules/appearance/index.js';
@@ -12,11 +13,13 @@ import { useDesktopPageTransition } from './shell/hooks/useDesktopPageTransition
 import '../../modules/presets/styles/preset-workspace.css';
 
 const SECTIONS = [{ id: 'profile', label: '基础资料', Icon: NotePencil }, { id: 'prompts', label: '预设提示词', Icon: FileText }, { id: 'tools', label: '工具', Icon: Wrench }, { id: 'regex', label: '正则', Icon: BracketsCurly }, { id: 'scripts', label: '脚本', Icon: FileCode }];
+const desktopPresentation = { compact: false, characterStudio: true };
 
 function PresetEditorLayout({ tab, body, onSectionChange, onClose, unavailable }) {
   const tUi = useProductTranslation();
   const mainPanelRef = useRef(null);
   const transitionToSection = useDesktopPageTransition(mainPanelRef, tab, SECTIONS, !unavailable);
+  const workspaceClass = tab === 'profile' ? '' : ' character-editor-workspace is-collection-editor';
 
   return <main className="qq-shell qq-character-editor-window-shell preset-editor-window">
     <aside className="character-editor-side-panel"><header className="side-panel-header" data-tauri-drag-region><div className="side-panel-brand"><img src={logo} alt="" draggable={false} /><ElecKoiWordmark /></div></header>
@@ -24,7 +27,7 @@ function PresetEditorLayout({ tab, body, onSectionChange, onClose, unavailable }
     </aside>
     <section className="character-editor-main-panel" ref={mainPanelRef}>
       <TitleBar splitSurface onClose={onClose} />
-      <section className={`preset-editor-canvas is-${tab}`} data-desktop-page-content="" aria-busy={unavailable || undefined}>{body}</section>
+      <section className={`preset-editor-canvas is-${tab}${workspaceClass}`} data-desktop-page-content="" aria-busy={unavailable || undefined}>{body}</section>
     </section>
   </main>;
 }
@@ -33,9 +36,9 @@ export function PresetEditorWindow({ presetCatalog, characterConfiguration, rend
   const tUi = useProductTranslation(), params = new URLSearchParams(window.location.search), id = params.get('preset') || '';
   const section = SECTIONS.some(item => item.id === params.get('section')) ? params.get('section') : 'profile';
   useEffect(() => { applyAppearanceTheme(null); document.title = tUi('预设编辑器 - ElecKoi'); showCurrentWindow().catch(bestEffort); }, [tUi]);
-  return <PresetProvider catalogModel={presetCatalog} fixedPresetId={id}>
+  return <EditorPresentationContext.Provider value={desktopPresentation}><PresetProvider catalogModel={presetCatalog} fixedPresetId={id}>
     <PresetWorkspace characterConfiguration={characterConfiguration} requestedTab={section} editorMode renderEditorSection={renderPresetEditorSection}
       onTestRegex={(text, rule, target) => characterConfiguration.regexRules.test(text, rule, target)}
       renderDesktopEditor={props => <PresetEditorLayout {...props} />} />
-  </PresetProvider>;
+  </PresetProvider></EditorPresentationContext.Provider>;
 }

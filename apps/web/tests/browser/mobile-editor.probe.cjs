@@ -35,6 +35,33 @@ app.whenReady().then(async () => {
     return data;
   };
   try {
+    win.setContentSize(360, 760);
+    await win.loadURL(pathToFileURL(process.argv[2]).href + '?view=mobile-editor&mobile=1&reset=1&character=1&single-cast');
+    await category('登场角色');
+    await click('.character-editor-sidebar-toggle');
+    await run(`(async () => {
+      const art = document.querySelector('.character-cast-card-art');
+      const img = new Image();
+      img.src = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200"/>');
+      art.replaceChildren(img);
+      await img.decode();
+    })()`);
+    const castEdges = await run(`(() => {
+      const right = selector => document.querySelector(selector).getBoundingClientRect().right;
+      return { viewport: innerWidth, search: right('.character-cast-search'), add: right('.character-cast-add-card') };
+    })()`);
+    check(castEdges.search < castEdges.viewport && castEdges.add < castEdges.viewport,
+      `Narrow cast list clipped its right edge: ${JSON.stringify(castEdges)}`);
+    await click('.character-cast-card');
+    const detailBounds = await run(`(() => {
+      const viewport = document.querySelector('.character-cast-inspector-scroll').getBoundingClientRect();
+      const deleteButton = document.querySelector('.character-cast-inspector-footer button').getBoundingClientRect();
+      const art = document.querySelector('.character-cast-inspector-portrait-art').getBoundingClientRect();
+      return { viewport: viewport.bottom, button: deleteButton.bottom, ratio: art.width / art.height };
+    })()`);
+    check(detailBounds.button < detailBounds.viewport && Math.abs(detailBounds.ratio - .75) < .02,
+      `Narrow cast detail must show the full form and a portrait: ${JSON.stringify(detailBounds)}`);
+    report.actions.narrowCast = true;
     for (const character of [false, true]) for (const [width, height, theme] of [[390,844,'light'],[320,568,'dark'],[768,1024,'light']]) {
       win.setContentSize(width,height);
       await win.loadURL(pathToFileURL(process.argv[2]).href + `?view=mobile-editor&mobile=1&reset=1&theme=${theme}${character?'&character=1':''}`);
@@ -63,6 +90,41 @@ app.whenReady().then(async () => {
       check(await run("!document.querySelector('.editor-page-list').hidden"), 'List did not restore');
       await checkSectionTitle(character ? '设定库' : '预设提示词');
       if (character) {
+        if (width === 390) {
+          await category('登场角色');
+          await checkSectionTitle('登场角色');
+          const castLayout = await run(`(() => {
+            const cards = [...document.querySelectorAll('.character-cast-card')];
+            const [first, second, third] = cards.map(card => card.getBoundingClientRect());
+            const search = document.querySelector('[aria-label="搜索角色"]').parentElement;
+            const style = getComputedStyle(search);
+            return { twoColumns: first.top === second.top && third.top > second.top,
+              gap: search.getBoundingClientRect().top - document.querySelector('.mobile-header').getBoundingClientRect().bottom,
+              radius: style.borderRadius, background: style.backgroundColor };
+          })()`);
+          check(castLayout.twoColumns && castLayout.gap === 8 && castLayout.background === 'rgba(0, 0, 0, 0)', 'Cast layout: '+JSON.stringify(castLayout));
+          const scrollTop = await run(`(() => {
+            const gallery = document.querySelector('.character-cast-gallery-pane');
+            gallery.scrollTop = gallery.scrollHeight;
+            const position = gallery.scrollTop;
+            [...gallery.querySelectorAll('.character-cast-card')].at(-1).click();
+            return position;
+          })()`);
+          check(await run(`document.querySelector('.character-cast-left-col').hidden
+            && document.querySelector('.mobile-header h1').textContent === '登场角色 10'
+            && document.querySelector('.character-cast-inspector-scroll').lastElementChild.textContent.trim() === '删除角色'`), 'Cast detail must replace the gallery and keep Delete at the bottom');
+          await run(`(() => { const name = document.querySelector('.character-cast-role-name-input input'); name.focus(); name.select(); })()`);
+          await win.webContents.insertText('合成角色改名');
+          await save();
+          check(await run(`window.savedMobileRecords.cast()[9].name === '合成角色改名'`), 'Cast save addressed the wrong role');
+          await run('window.mobileBack()'); await settle();
+          await checkSectionTitle('登场角色');
+          const returned = await run(`({ scrollTop: document.querySelector('.character-cast-gallery-pane').scrollTop,
+            focus: document.activeElement.getAttribute('aria-label') })`);
+          check(Math.abs(returned.scrollTop - scrollTop) < 1 && returned.focus === '合成角色改名',
+            `Cast Back must restore gallery position and focus: ${scrollTop} -> ${JSON.stringify(returned)}`);
+          report.actions.castDetail = true;
+        }
         await category('变量',true); await wait("document.querySelectorAll('.variable-tree-row').length>1",'Variables');
         await checkSectionTitle('变量');
         await run("Array.from(document.querySelectorAll('.variable-tree-row')).find(e=>e.textContent.includes('合成变量 1')).click()"); await edit();
@@ -74,8 +136,32 @@ app.whenReady().then(async () => {
         await back();
         await category('开场白',true); await wait("!!document.querySelector('.opening-list-main')",'Openings');
         await checkSectionTitle('开场白');
+        check(await run(`getComputedStyle(document.querySelector('[aria-label="搜索开场白"]').parentElement).backgroundColor === 'rgba(0, 0, 0, 0)'`), 'Opening search must have a transparent background');
         await click('.opening-list-main'); await edit(); await checkDocument('Opening document');
+        check(await run(`!document.querySelector('[aria-label="预览开场白"]')`), 'Opening preview entry must be absent');
         check(await run("!document.querySelector('.opening-writing .rs-writing-heading')&&document.querySelector('.opening-body-label').textContent==='开场白正文'"),'Opening label inside input');
+        if (width === 390) {
+          await click('.opening-writing .setting-immersive-host button');
+          const fullscreen = `(() => {
+            const overlay = document.querySelector('.immersive-markdown-editor');
+            const rect = overlay?.getBoundingClientRect();
+            const exit = overlay?.querySelector('.immersive-markdown-exit');
+            return rect?.width >= innerWidth - 1 && rect.height >= innerHeight - 1
+              && exit?.textContent.trim() === '退出沉浸' && exit.getBoundingClientRect().bottom < innerHeight
+              && overlay.querySelector('.opening-immersive-toolbar .opening-add-button')
+              && document.querySelectorAll('.opening-segment-editor .cm-editor').length === 1;
+          })()`;
+          check(await run(fullscreen), 'Mobile opening must enter the shared fullscreen editor');
+          await run(`(() => { const view = window.editorViewFor('开场白正文'); view.dispatch({changes: {from: view.state.doc.length, insert: '沉浸编辑测试'}}); })()`);
+          win.setContentSize(390, 320); await settle();
+          check(await run(fullscreen), 'The opening editor must keep its exit accessible at keyboard height');
+          await run('window.mobileBack()'); await settle();
+          check(await run(`!document.querySelector('.immersive-markdown-editor')
+            && window.editorViewFor('开场白正文').state.doc.toString().endsWith('沉浸编辑测试')`), 'Mobile Back must return the draft to the opening editor');
+          win.setContentSize(width, height); await settle();
+          await save();
+          report.actions.openingImmersion = true;
+        }
         await back();
       }
       for (const [section, row, tab] of [['正则','.regex-rule-row',null],['脚本','.script-list-name','设置']]) {

@@ -15,7 +15,7 @@ afterEach(async () => {
   vi.restoreAllMocks(); vi.unstubAllGlobals();
 });
 
-async function fixture(mode = 'success', beforeSave) {
+async function fixture(mode = 'success', beforeSave, cropOptions) {
   const BrowserURL = globalThis.URL;
   vi.stubGlobal('URL', class extends BrowserURL { static createObjectURL() { return 'blob:synthetic-crop'; } static revokeObjectURL() {} });
   const bitmap = { width: 900, height: 1200, close: vi.fn() };
@@ -37,7 +37,7 @@ async function fixture(mode = 'success', beforeSave) {
   const onSave = vi.fn(async () => {});
   container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   await act(async () => root.render(<AvatarCropModal file={new File(['synthetic-source'], 'cover.png', { type: 'image/png' })}
-    title="Synthetic cover crop" cropWidth={210} cropHeight={280} outputWidth={900} outputShape="portrait" onCancel={() => {}} onSave={onSave} />));
+    title="Synthetic cover crop" cropWidth={210} cropHeight={280} outputWidth={900} outputShape="portrait" onCancel={() => {}} onSave={onSave} {...cropOptions} />));
   const image = document.querySelector('.avatar-crop-image-transform img');
   Object.defineProperties(image, { naturalWidth: { value: 1800 }, naturalHeight: { value: 2400 } });
   await act(async () => image.dispatchEvent(new Event('load')));
@@ -103,6 +103,17 @@ it('saves the cover through a worker while the page PNG encoder is unavailable',
   expect(f.workers[0].postMessage).toHaveBeenCalledWith(f.bitmap, [f.bitmap]);
   expect(f.workers[0].terminate).toHaveBeenCalledOnce();
   expect(f.bitmap.close).toHaveBeenCalledOnce();
+});
+
+it('reopens an existing crop and saves its position without encoding a second image', async () => {
+  const onSaveTransform = vi.fn();
+  const initialTransform = { zoom: 1.5, offset: { x: 22, y: 8 }, rotation: 90 };
+  const f = await fixture('success', undefined, { initialTransform, onSaveTransform });
+  expect(document.querySelector('.avatar-crop-image-transform').style.transform).toBe('translate(22px, 8px) rotate(90deg)');
+  expect(onSaveTransform).toHaveBeenCalledExactlyOnceWith(initialTransform);
+  expect(f.onSave).not.toHaveBeenCalled();
+  expect(f.workers).toHaveLength(0);
+  expect(f.pageEncoder).not.toHaveBeenCalled();
 });
 
 it('shows the encoder failure and releases its worker without changing the cover', async () => {

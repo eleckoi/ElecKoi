@@ -9,6 +9,7 @@
     "src/inspectProvider.ts",
     "src/cordisApi.generated.ts",
     "src/productFailure.ts",
+    "src/roleplayReplyText.ts",
     "src/errorCodes.generated.ts"
   ]
 }

@@ -14,7 +14,10 @@ export function RegexWorkspaceList({ collection, scope, query, selectedId, selec
       {selection.active && <input type="checkbox" checked={selection.selected.has(rule.id)} disabled={busy} aria-label={tUi('选择{value0}', { value0: rule.name })} onClick={event => event.stopPropagation()} onChange={() => onSelect(rule.id)} />}
       <button type="button" className="rs-row-main regex-rule-main" draggable={!busy && !selection.active && !search} disabled={busy} onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', rule.id); onDragState(rule.id); }} onDragEnd={() => onDragState('')}
         onKeyDown={event => { if (event.altKey && ['ArrowUp', 'ArrowDown'].includes(event.key) && !search && !selection.active) { event.preventDefault(); onMove(scope.id, rule.id, rules.findIndex(item => item.id === rule.id) + (event.key === 'ArrowDown' ? 1 : -1)); } }}>
-        <span className="rs-row-indent" /><FileCode size={17} /><span className="rs-row-name">{rule.name || tUi('未命名规则')}</span>
+        <span className="rs-row-indent" /><FileCode size={17} /><span className="rs-card-copy">
+          <span className="rs-row-name">{rule.name || tUi('未命名规则')}</span>
+          {rule.pattern && <code className="rs-card-meta" title={rule.pattern}>{rule.pattern}</code>}
+        </span>
       </button>
       {!selection.active && <EditorSwitch label={tUi('{value0}启用状态', { value0: rule.name })} checked={rule.enabled} disabled={busy} onChange={value => onToggleRule(scope.id, rule.id, value)} />}
     </div>)}{!visible.length && <p className="rs-directory-empty">{search ? tUi('没有匹配的规则') : tUi('暂无规则')}</p>}</div>

@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const avatarCropModalMock = vi.hoisted(() => vi.fn(() => null))
+const uploadAssetsMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@douyinfe/semi-ui-19/lib/es/avatar', () => ({
   default: ({ children, ...props }) => <span {...props}>{children}</span>,
@@ -17,9 +18,13 @@ vi.mock('@douyinfe/semi-ui-19/lib/es/input/textarea', () => ({
   ),
 }))
 vi.mock('../../src/ui/ui/AvatarCropModal.jsx', () => ({ AvatarCropModal: avatarCropModalMock }))
+vi.mock('../../src/modules/characterAssets/useCharacterAssets.js', () => ({
+  useCharacterAssets: () => ({ upload: uploadAssetsMock }),
+}))
 
 import { CharacterBasicInfoPanel } from '../../src/modules/persona/components/CharacterBasicInfoPanel.jsx'
 import { CharacterCard } from '../../src/modules/persona/components/CharacterCard.jsx'
+import { CastRosterView } from '../../src/modules/persona/components/CastRosterView.jsx'
 
 vi.stubGlobal('React', React)
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
@@ -27,6 +32,44 @@ vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
 afterEach(() => {
   document.body.innerHTML = ''
   avatarCropModalMock.mockClear()
+  uploadAssetsMock.mockReset()
+})
+
+it('crops the selected cast portrait before uploading and keeps the old picture when cancelled', async () => {
+  const original = { id: 'actor', name: '合成角色乙', portraitAssetId: 'old-portrait', circleAssetId: 'old-circle', squareAssetId: null, crop: null }
+  function Editor() {
+    const [roles, setRoles] = React.useState([original])
+    return <CastRosterView characterId="card" roles={roles} setRoles={setRoles} />
+  }
+  const container = document.createElement('div'); document.body.append(container)
+  const root = createRoot(container)
+  const crop = () => avatarCropModalMock.mock.lastCall[0]
+  const portrait = () => container.querySelector('.character-cast-inspector-portrait-art img').getAttribute('src')
+  try {
+    await act(async () => root.render(<Editor />))
+    const source = new File(['source'], 'portrait.png', { type: 'image/png' })
+    const input = container.querySelector('input[type="file"]')
+    Object.defineProperty(input, 'files', { configurable: true, value: [source] })
+    const select = async () => {
+      await act(async () => container.querySelector('[aria-label="更换竖版头像"]').click())
+      await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })))
+    }
+    await select()
+    expect(crop()).toMatchObject({ file: source, title: '裁剪竖版头像', cropWidth: 210, cropHeight: 280, outputShape: 'portrait' })
+    expect(uploadAssetsMock).not.toHaveBeenCalled()
+    await act(async () => crop().onCancel())
+    expect(crop().file).toBeNull()
+    expect(portrait()).toContain('old-portrait')
+    expect(uploadAssetsMock).not.toHaveBeenCalled()
+    await select()
+    uploadAssetsMock.mockResolvedValue(['new-portrait'])
+    const cropped = new File(['cropped'], 'portrait-cropped.png', { type: 'image/png' })
+    await act(async () => crop().onSave(cropped))
+    expect(uploadAssetsMock).toHaveBeenCalledExactlyOnceWith([cropped])
+    expect(portrait()).toContain('new-portrait')
+    expect(container.querySelector('.character-cast-circle-thumb-btn img').getAttribute('src')).toContain('new-portrait')
+    expect(crop().file).toBeNull()
+  } finally { await act(async () => root.unmount()) }
 })
 
 describe('character basic information editor', () => {
@@ -37,8 +80,9 @@ describe('character basic information editor', () => {
     try {
       await act(async () => root.render(<CharacterBasicInfoPanel character={{ id:'card', name:'角色', authorName:'原作者', authorAvatar:'', persona:{ user_name:'本地玩家', user_avatar:'local-player.png' } }}
         dirty={false} saving={false} onChange={onChange} onSave={() => {}} onCancel={() => {}} />))
-      expect([...container.querySelectorAll('.character-basic-group > h3')].map(n => n.textContent)).toEqual(['角色信息', '作者信息', '展示内容'])
-      const input = container.querySelector('[aria-labelledby="character-author-name-label"]')
+      expect(container.querySelector('.character-basic-author-group h2').textContent).toBe('作者信息')
+      expect(container.querySelector('.character-basic-group')).toBeNull()
+      const input = container.querySelector('input[aria-label="作者名字"]')
       expect(input.value).toBe('原作者')
       await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '新作者')
@@ -62,7 +106,7 @@ describe('character basic information editor', () => {
       expect(container.querySelector('.character-card-owner > span:last-child').textContent).toBe('未填写作者')
     } finally { await act(async () => root.unmount()) }
   })
-  it('uses the shared square crop with a circular safe area for the character avatar', async () => {
+  it('uses the portrait crop for the independent card cover', async () => {
     const onChange = vi.fn()
     const container = document.createElement('div')
     document.body.append(container)
@@ -89,23 +133,20 @@ describe('character basic information editor', () => {
 
       const avatarCrop = avatarCropModalMock.mock.calls
         .map(([props]) => props)
-        .find(props => props.title === '调整圆形与方形头像')
+        .find(props => props.title === '裁剪封面立绘')
       expect(avatarCrop).toMatchObject({
-        cropWidth: 250,
-        cropHeight: 250,
-        cropRadius: '8px',
-        showCircleGuide: true,
-        outputShape: 'square',
-        outputWidth: 420,
+        cropWidth: 210,
+        cropHeight: 280,
+        cropRadius: '12px',
+        outputShape: 'portrait',
+        outputWidth: 900,
       })
 
       await act(async () => {
-        await avatarCrop.onSave(new File(['shared-avatar'], 'shared-avatar.png', { type: 'image/png' }))
+        await avatarCrop.onSave(new File(['card-cover'], 'cover.png', { type:'image/png' }))
       })
 
-      const update = onChange.mock.calls.at(-1)?.[0]
-      expect(update?.persona?.assistant_avatar).toMatch(/^data:image\/png;base64,/)
-      expect(update?.persona?.assistant_square).toBe(update?.persona?.assistant_avatar)
+      expect(onChange).toHaveBeenLastCalledWith({ persona: { assistant_cover: expect.stringMatching(/^data:image\/png;base64,/) } })
     } finally {
       await act(async () => root.unmount())
     }

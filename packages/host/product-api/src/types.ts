@@ -1,4 +1,7 @@
 import type * as AssetDomain from '@eleckoi/dsh-product-data/character-assets'
+/** A complete replacement text or the texts of an existing multipart reply in order. */
+export type ConversationMessageEdit = string | Array<{ id: string; text: string }>
+
 export type CharacterAsset = Pick<AssetDomain.CharacterAsset, keyof AssetDomain.CharacterAsset>
 export type CharacterAssetFolder = Pick<AssetDomain.CharacterAssetFolder, keyof AssetDomain.CharacterAssetFolder>
 export type CharacterAssetCatalog = Omit<AssetDomain.CharacterAssetCatalog, 'items' | 'folders'> & { items: CharacterAsset[]; folders: CharacterAssetFolder[] }
@@ -235,6 +238,16 @@ export interface ConversationOpeningOption {
   content: string
   variableVersionId?: string
   displayContent?: string
+  segments?: Array<{
+    id: string
+    kind: 'cover' | 'speech'
+    text: string
+    speakerId?: string | undefined
+    speakerName?: string | undefined
+    speakerAvatar?: string | undefined
+    speakerCrop?: CharacterCastMember['crop'] | undefined
+    displayContent?: string | undefined
+  }>
   initialVariableStateJson: string
 }
 
@@ -290,15 +303,25 @@ export interface ConversationMessageDisplayInput {
   id: string
   role: 'user' | 'assistant'
   content: string
+  roleplayReply?: true
   variableStateJson: string
   status: 'complete' | 'streaming' | 'error' | 'cancelled'
   createdAt: string
   /** Completed reasoning blocks only; tool arguments and results are excluded. */
   reasoning?: ConversationReasoningDisplayInput[]
+  openingSegments?: ConversationOpeningSegmentDisplayInput[]
+  roleplayBlocks?: ConversationRoleplayBlockDisplayInput[]
 }
 
 export interface ConversationReasoningDisplayInput { id: string; text: string }
 export interface ConversationReasoningDisplayResult { id: string; sourceText: string; displayText: string }
+export interface ConversationOpeningSegmentDisplayInput { id: string; text: string }
+export interface ConversationOpeningSegmentDisplayResult { id: string; sourceText: string; displayText: string }
+export interface ConversationRoleplayBlockDisplayInput extends ConversationOpeningSegmentDisplayInput {
+  kind: 'speech' | 'cover'
+  speakerId?: string
+  speakerName?: string
+}
 
 /** Display-only result. The source text is echoed so the Client can reject stale projections. */
 export interface ConversationMessageDisplayResult {
@@ -307,6 +330,8 @@ export interface ConversationMessageDisplayResult {
   displayContent: string
   variableStateJson: string
   reasoning?: ConversationReasoningDisplayResult[]
+  openingSegments?: ConversationOpeningSegmentDisplayResult[]
+  roleplayGroups?: ConversationOpeningSegmentDisplayResult[]
 }
 
 export interface ConversationVariableTimelineMessage {
@@ -400,8 +425,18 @@ export interface CharacterPersona {
   user_portrait?: string
 }
 
+export interface CharacterCastMember {
+  id: string
+  name: string
+  portraitAssetId: string | null
+  circleAssetId: string | null
+  squareAssetId: string | null
+  crop: { zoom: number; offset: { x: number; y: number }; rotation: number } | null
+}
+
 export interface CharacterRecord {
   id: string
+  cast?: CharacterCastMember[] | undefined
   /** Host-owned local catalog timestamps; zero means historical time is unknown. */
   addedAtEpochMs?: number
   editedAtEpochMs?: number
@@ -513,6 +548,9 @@ export interface CharacterOpeningMessage {
   title: string
   content: string
   variableVersionId?: string | undefined
+  segments?: Array<{ id: string; text: string } & (
+    { kind: 'cover' } | { kind: 'speech'; speakerId: string }
+  )> | undefined
 }
 export interface CharacterOpenings {
   characterId: string
@@ -884,10 +922,6 @@ export interface ConversationRuntimeSettingLibrary {
 export interface ConversationRuntimePreparation {
   conversationId: string
   runtimeSessionId: string
-  promptTextContext: {
-    macros?: { userName: string; characterName: string }
-    rules?: RegexRuleCollection
-  }
   variableContext?: {
     versionId: string
     identityJson: string
@@ -900,10 +934,14 @@ export interface ConversationRuntimePreparation {
   conversationContext: {
     characterId: string
     characterName: string
+    cast?: CharacterCastMember[]
     persona: Record<string, unknown>
     history: Array<{ role: 'user' | 'assistant'; content: string; speakerName?: string }>
     historyMode: 'prefix'
     currentPromptText: string
+    replyPromptRules: RegexRule[]
+    reasoningPromptRules: RegexRule[]
+    regexPromptMacros?: { userName: string; characterName: string } | undefined
     settingLibrary?: ConversationRuntimeSettingLibrary
   }
   disabledToolGroupIds: string[]
@@ -970,8 +1008,10 @@ export interface ElecKoiProductDataStore {
   listInputImageReferences(): Array<{ conversationId: string; attachmentId: string }>
   selectConversationOpening(conversationId: string, openingId: string): ConversationDetailsMetadata
   updateConversationOpening(conversationId: string, content: string): ConversationDetailsMetadata
+  copyConversationOpeningForFork(conversationId: string, opening: {
+    content: string; openingOptions?: ConversationOpeningOption[]; selectedOpeningId?: string
+  }): void
   prepareConversationRuntime(conversationId: string, text: string, options?: { preset?: AgentPreset; persona?: Record<string, unknown>; characterId?: string }): ConversationRuntimePreparation
-  projectConversationPromptHistory<T extends { role: string; content: string }>(history: readonly T[], preparation: Pick<ConversationRuntimePreparation, 'promptTextContext'>): T[]
   commitConversationRuntime(
     conversationId: string,
     variableStateJson: string | undefined,
@@ -1082,7 +1122,28 @@ export interface DisplayPreferencesSnapshot {
 export interface CreatorStudioSession { sessionId: string; presetId: string; characterId: string }
 export interface CreatorStudioMessage { eventSeq: number; role: 'user' | 'assistant'; text: string; turn: number }
 export interface CreatorStudioSessionSummary extends CreatorStudioSession { title: string; updatedAt: number; pinned: boolean; pinIndex: number }
+export interface WorkspaceFileEntry {
+  name: string
+  address?: string
+  kind: 'file' | 'directory' | 'other'
+  bytes: number
+  modifiedAt: number
+  version: string
+}
+export interface WorkspaceFileSelection { name: string; version: string }
+export type WorkspaceFileEdit =
+  | { kind: 'mkdir'; name: string }
+  | { kind: 'rename'; entry: WorkspaceFileSelection; name: string }
+  | { kind: 'delete'; entries: WorkspaceFileSelection[] }
+  | { kind: 'copy' | 'move'; entries: WorkspaceFileSelection[]; destination: string[] }
+export type WorkspaceFileExport = { kind: 'file'; name: string; mime: string } | { kind: 'chunk'; data: string } | { kind: 'complete' }
+export type WorkspaceFileImport = { kind: 'ready'; offset: number } | { kind: 'complete' }
+export interface CreatorWorkspaceDirectory {
+  cwd: string
+  registeredPath?: string
+}
 export interface CreatorStudioRuntime {
+  workspaceDirectory(sessionId: string, signal: AbortSignal): Promise<CreatorWorkspaceDirectory>
   list(): Promise<CreatorStudioSessionSummary[]>
   create(characterId: string, workspaceId?: string): Promise<CreatorStudioSession>
   open(sessionId: string): Promise<CreatorStudioSession>

@@ -1,7 +1,7 @@
 import { EditorTextInput } from '../../../ui/ui/EditorTextInput.jsx';
 import { useState } from 'react';
 import { Button, Input, Menu, SegmentedTabs } from '@deepseek-ai/dsh-client-ui-primitives';
-import { CaretDown, Copy, DotsThree, Trash } from '../../../ui/icons/interfaceIcons.jsx';
+import { CaretDown, Copy, GearSix, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 import { MarkdownTextareaField } from '../../settingLibraries/index.js';
@@ -47,7 +47,7 @@ export function VariableConfigDocument({ config, selected, nameInputRef, onChang
     <header className="setting-entry-heading"><div className="setting-document-heading">
       <div className="setting-document-title">{group ? <VariableGroupIcon initialization={fixed} size={21} /> : <VariableEntryIcon type={current.type} size={21} />}
         <input ref={nameInputRef} aria-label={tUi('当前变量名称')} value={title} readOnly={fixed} disabled={saving} onChange={event => update(group ? { name: event.target.value } : { title: event.target.value })} /></div>
-      <div className="setting-document-actions">{!fixed && <Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-folder-more" icon={<DotsThree size={18} />} aria-label={tUi('当前变量操作')} aria-haspopup="menu" aria-expanded={moreOpen} disabled={saving} onClick={() => setMoreOpen(!moreOpen)} />}
+      <div className="setting-document-actions">{!fixed && <Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} anchor={<Button data-dsh-control variant="outline" className="setting-folder-more" icon={<GearSix size={18} />} aria-label={tUi('当前变量操作')} aria-haspopup="menu" aria-expanded={moreOpen} disabled={saving} onClick={() => setMoreOpen(!moreOpen)} />}
         items={[{ id: 'copy', label: group ? tUi('复制变量组') : tUi('复制变量'), icon: <Copy size={15} /> }, { id: 'delete', label: group ? tUi('删除变量组') : tUi('删除变量'), icon: <Trash size={15} />, danger: true }]}
         onSelect={id => { setMoreOpen(false); id === 'delete' ? onDelete() : onCopy(); }} />}</div>
     </div>{group && <div className="setting-editor-tools" role="toolbar" aria-label={tUi('变量编辑操作')}>

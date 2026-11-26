@@ -16,6 +16,7 @@ import { PresetImportDialog, downloadPresetFile, fileBase64 } from '../modules/p
 import { Avatar } from '../ui/ui/Avatar.jsx';
 import { useCatalogSlots } from '../ui/ui/CatalogSlotsContext.jsx';
 import { EditorPresentationContext, useEditorFeedbackHost } from '../ui/ui/EditorPresentationContext.jsx';
+import { useMobileEditorCaret } from '../ui/hooks/useMobileEditorCaret.js';
 import { MobileHeader, MobileState, useMobileBack, useMobileScroll } from './MobileChrome.jsx';
 import { MobileActionMenu, MobileConfirm, MobileNameDialog, MobileSelectionHeader, MobileSelectionMark, useMobileOperation } from './MobileLibraryChrome.jsx';
 import { MobileLibraryIcon } from './MobileLibraryIcons.jsx';
@@ -151,6 +152,7 @@ function MobilePresetLibrary() {
 
 export function MobilePresetEditor() {
   const tUi = useProductTranslation();
+  const mobileCaret = useMobileEditorCaret(true);
   const { feedback, registerSaveFeedback } = useEditorFeedbackHost();
   const view = useMainPageView();
   const [subpage, setSubpage] = useState(null);
@@ -160,7 +162,7 @@ export function MobilePresetEditor() {
   }, []);
   useMobileBack(() => { subpage.back(); return true; }, Boolean(subpage));
   return <EditorPresentationContext.Provider value={{ compact: true, sectionTitleInHeader: true, registerSubpage, registerSaveFeedback, registerBackHandler: view.registerBackHandler }}>
-    <div className="mobile-root-page mobile-preset-editor" data-editor-subpage={Boolean(subpage) || undefined}>
+    <div className="mobile-root-page mobile-preset-editor" data-editor-subpage={Boolean(subpage) || undefined} {...mobileCaret}>
       <PresetWorkspace characterConfiguration={view.characterConfiguration} renderEditorSection={view.renderPresetEditorSection} onNotify={view.chat.notify}
         renderHeader={({ tab, profileEditing, dirty, saving, error, onSave }) =>
           <MobileHeader title={subpage?.title || tUi(PRESET_MOBILE_SECTIONS.find(section => section.id === tab)?.label ?? '预设')} back={subpage?.back || view.goBack}>

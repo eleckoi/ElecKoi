@@ -101,14 +101,8 @@
 .is-mobile-collection .editor-directory-scopebar .editor-scope-tabs-bar { padding: 0; min-width:0; flex:1; }
 .is-mobile-collection .editor-scope-tabs [role=tab] { min-width: 0; }
 :is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search {
-  display:flex; flex:none; align-self:stretch; width:100%; min-width:0; max-width:none; height:40px; min-height:40px;
-  margin:0; padding:0 13px; gap:9px; border:1px solid var(--line-strong); border-radius:22px;
-  background:var(--editor-search-background); color:var(--muted); box-shadow:none;
+  flex:none; align-self:stretch; width:100%; min-width:0; max-width:none; height:40px; min-height:40px;
 }
-:is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search > span { width:17px; height:17px; flex:none; color:var(--muted); }
-:is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search svg { width:17px; height:17px; }
-:is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search input { height:auto; min-height:0; padding:0; font-family:inherit; font-size:14px; font-weight:400; line-height:22px; text-align:start; }
-:is(.is-mobile-collection,.dynamic-settings-list-page.is-compact) .editor-collection-search input::placeholder { color:var(--muted); }
 .mobile-character-editor .editor-tree-toolbar.is-mobile-collection { padding-bottom:0; }
 .mobile-character-editor .editor-collection-browser :is(.setting-library-tree,.variable-tree) { padding:2px var(--editor-heading-inset-inline) 8px; }
 .mobile-character-editor .editor-collection-browser :is(.setting-library-tree,.variable-tree) [role="tree"] { padding:2px 0 6px; }

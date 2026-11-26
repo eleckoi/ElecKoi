@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useId, useLayoutEffect, useRef, useState } from 'react';
 
+export const EDITOR_DIRECTORY_DEFAULT_WIDTH = 480;
+
 // 只传递编辑器的界面呈现方式，数据与草稿仍归各编辑页维护。
 export const EditorPresentationContext = createContext({ compact: false, registerSubpage: null });
 export const useEditorPresentation = () => useContext(EditorPresentationContext);

@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     // 边界⑥ 的信封拆解只有一份实现（@eleckoi/dsh-product-api 的 client 面）。
-    const { unwrapOrFail, internalFailure, failureAlreadyPublished, rejectionIsAwaitedElsewhere, bestEffort, productFailure, ELECKOI_FAILURE_CODES } = require('@eleckoi/dsh-product-api')
+    const { unwrapOrFail, internalFailure, failureAlreadyPublished, rejectionIsAwaitedElsewhere, bestEffort, productFailure, ELECKOI_FAILURE_CODES, roleplayReplyText } = require('@eleckoi/dsh-product-api')
     /**
      * 载体不是产品失败（例如 LLM 的 `LlmFailure`：`{ message, code, status }`）时的折法：
      * 折成兜底码，provider 的 message 当诊断（不写 `details.what`，所以它仍能给用户看），
@@ -120,14 +120,33 @@ window.__ModuleLoader__.load({
     function sameDisplayProjection(left, id, input) {
       return left?.id === id && left.input.length === input.length && left.input.every((message, index) => {
         const next = input[index]
-        return ['id', 'role', 'variableStateJson', 'status', 'createdAt'].every(key => message[key] === next[key])
+        return ['id', 'role', 'roleplayReply', 'variableStateJson', 'status', 'createdAt'].every(key => message[key] === next[key])
           && (message.role === 'assistant' && message.status === 'streaming' || message.content === next.content)
           && sameReasoningInput(message.reasoning, next.reasoning)
+          && sameReasoningInput(message.openingSegments, next.openingSegments)
+          && sameRoleplayBlocks(message.roleplayBlocks, next.roleplayBlocks)
       })
     }
 
     function sameReasoningInput(left = EMPTY_ITEMS, right = EMPTY_ITEMS) {
       return left === right || left.length === right.length && left.every((item, index) => item.id === right[index].id && item.text === right[index].text)
+    }
+
+    function sameRoleplayBlocks(left = EMPTY_ITEMS, right = EMPTY_ITEMS) {
+      return sameReasoningInput(left, right) && left.every((block, index) => {
+        const next = right[index]
+        return block.kind === next.kind && block.speakerId === next.speakerId && block.speakerName === next.speakerName
+      })
+    }
+
+    function projectSegments(segments, displays) {
+      const byId = new Map(displays.map(segment => [segment.id, segment]))
+      const next = segments.map(segment => {
+        const display = byId.get(segment.id)
+        return display?.sourceText === segment.text && typeof display?.displayText === 'string'
+          && display.displayText !== segment.displayContent ? { ...segment, displayContent: display.displayText } : segment
+      })
+      return next.some((segment, index) => segment !== segments[index]) ? next : segments
     }
 
     function reasoningText(item) {
@@ -141,7 +160,7 @@ window.__ModuleLoader__.load({
         if (!Object.prototype.hasOwnProperty.call(source, key)) return false
         if (source[key] === message[key]) return true
         if (key === 'processTiming') return sameRecord(source[key], message[key])
-        if (key === 'process') return sameReferences(source[key], message[key])
+        if (key === 'process' || key === 'roleplayBodyNodeKeys') return sameReferences(source[key], message[key])
         return messageAttachmentFields.has(key) && Array.isArray(source[key]) && Array.isArray(message[key])
           && source[key].length === message[key].length
           && source[key].every((item, index) => sameRecord(item, message[key][index]))
@@ -152,6 +171,85 @@ window.__ModuleLoader__.load({
       const turn = node?.location?.kind === 'step' || node?.location?.kind === 'turn'
         ? node.location.turn?.turn : node?.data?.turn
       return Number.isSafeInteger(turn) && turn > 0 ? Number(turn) : undefined
+    }
+
+    const roleplayResultSource = 'eleckoi-roleplay-reply'
+    const roleplayReplyTool = 'eleckoi_roleplay_reply'
+
+    function roleplayOutputByTurn(nodes, markers) {
+      const outputs = new Map()
+      for (const { seq, time, data: { turn, replySeq, toolBacked, nativeText, editedText, editedBlocks } } of markers) {
+        outputs.set(turn, { markerSeq: seq, time, replySeq, toolBacked, nativeText, editedText, editedBlocks, steps: new Map() })
+      }
+      for (const node of nodes) {
+        const output = outputs.get(nodeTurn(node))
+        if (!output?.nativeText) continue
+        if (node.kind !== 'assistant-step' && node.kind !== 'tool-call') continue
+        const sourceStep = node.kind === 'assistant-step' ? node.data?.step : node.location?.step?.step
+        if (!Number.isSafeInteger(sourceStep)) continue
+        const step = node.kind === 'tool-call' ? sourceStep + 1 : sourceStep
+        let part = output.steps.get(step)
+        if (!part) output.steps.set(step, part = { speakers: [] })
+        if (node.kind === 'assistant-step') {
+          if (node.data.status !== 'interrupted' && !node.data.finalNode?.interrupted) {
+            part.text = assistantText(node.data.blocks)
+            part.nodeKey = node.key
+            part.seq = node.data.finalNode?.seq
+            part.streaming = node.data.status === 'running'
+          }
+        } else {
+          const root = node.data?.root
+          const confirmed = root?.kind === 'tool-result'
+          if (confirmed && (root.isError || root.meta?.source !== roleplayResultSource)) continue
+          if (!confirmed && (output.replySeq !== undefined || root?.name !== roleplayReplyTool)) continue
+          const speaker = confirmed ? root.meta.speaker : undefined
+          const speakerName = speaker?.speakerName ?? (root.args?.complete('name') ? root.args.text('name') : undefined)
+          if (typeof speakerName !== 'string' || !speakerName.trim()) continue
+          part.speakers.push({ id: root.callId + ':0', kind: 'speech', text: '', speakerName,
+            ...(typeof speaker?.speakerId === 'string' ? { speakerId: speaker.speakerId } : {}) })
+        }
+      }
+      for (const output of outputs.values()) {
+        const blocks = []
+        const bodyNodeKeys = []
+        for (const [, part] of [...output.steps].sort(([left], [right]) => left - right)) {
+          if (part.speakers.length !== 1) continue
+          const [speaker] = part.speakers
+          const text = roleplayReplyText(part.text ?? '', speaker.speakerName, part.streaming)
+          const previous = blocks.at(-1)
+          const { speakerId, speakerName } = speaker
+          const sameSpeaker = previous && (previous.speakerId && speakerId
+            ? previous.speakerId === speakerId : previous.speakerName === speakerName)
+          if (text.trim()) {
+            if (sameSpeaker) previous.text = previous.text + '\n\n' + text
+            else blocks.push({ ...speaker, text })
+            bodyNodeKeys.push(part.nodeKey)
+            output.bodySeq = part.seq
+          } else if (!sameSpeaker && output.replySeq === undefined) blocks.push(speaker)
+        }
+        if (bodyNodeKeys.length) output.bodyNodeKeys = bodyNodeKeys
+        const edits = new Map(output.editedBlocks?.map(block => [block.id, block.text]))
+        if (blocks.length) output.blocks = blocks.map(block => ({
+          ...block, text: edits.get(block.id) ?? (blocks.length === 1 ? output.editedText : undefined) ?? block.text
+        }))
+        output.text = output.blocks?.filter(block => block.text.trim())
+          .map(block => block.speakerName + '：' + block.text).join('\n\n') ?? output.editedText ?? ''
+      }
+      return outputs
+    }
+
+    function settledChatReply(node, output) {
+      const closing = node?.data?.closing
+      if (node && output?.toolBacked && output.text) {
+        return { seq: output.markerSeq, time: output.time, anchorSeq: output.bodySeq ?? output.replySeq,
+          content: output.text, displayContent: output.text, usage: closing?.usage }
+      }
+      if (!closing || (output && closing.finalNode?.seq !== output.replySeq)) return undefined
+      const { seq, time, messageId, interrupted } = closing.finalNode
+      const body = assistantContent(closing.blocks)
+      const content = output?.editedText ?? body.text
+      return { seq, time, messageId, interrupted, anchorSeq: seq, content,
+        displayContent: output ? content : body.final, usage: closing.usage }
     }
 
     function turnProcessTiming(node) {
@@ -226,7 +324,7 @@ window.__ModuleLoader__.load({
         // Node identity changes on content or location updates. Image outcomes
         // are a separate projection and must also invalidate assistant actions.
         const illustrationInput = node.kind === 'assistant-step' ? options.illustrations : undefined
-        const skipNarrative = options.skipNarrativeNodes?.has(node) === true
+        const skipNarrative = options.skipNarrativeNodes?.has(node) === true || options.roleplayOutput?.has(turn)
         if (cached && cached.illustrations === illustrationInput
           && cached.includeAllNarrative === options.includeAllNarrative
           && cached.skipNarrative === skipNarrative && cached.narrativeText === options.narrativeText) {
@@ -283,7 +381,7 @@ window.__ModuleLoader__.load({
               ? options.narrativeText(String(block?.text || ''))
               : block?.text
             if ((hasToolCall || options.includeAllNarrative === true)
-              && !options.skipNarrativeNodes?.has(node)
+              && !skipNarrative
               && block?.kind === 'text' && narrativeText) appendNode(turn, {
               id: `narrative:${turn}:${node.data?.step ?? 0}:${index}`,
               kind: 'narrative', status: node.data?.status === 'running' ? 'running' : 'complete',
@@ -413,7 +511,7 @@ window.__ModuleLoader__.load({
       })
     }
 
-    function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = [], regeneratingInputTurn, illustrations = [], loadedEntries) {
+    function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = [], regeneratingInputTurn, illustrations = [], loadedEntries, roleplayOutput = new Map()) {
       if (!snapshot) return (details?.messages || []).filter(message => message.id === 'opening')
       const submissionsByRequest = new Map(pendingSubmissions.map(submission => [submission.requestId, submission]))
       const entries = loadedEntries || orderedChatEntries(snapshot)
@@ -445,7 +543,7 @@ window.__ModuleLoader__.load({
       const endedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail')
         .map(nodeTurn).filter(Number.isSafeInteger))
       const aborted = new Set(abortedTurns)
-      const closedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail' && node.data?.closing)
+      const closedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail' && settledChatReply(node, roleplayOutput.get(nodeTurn(node))))
         .map(nodeTurn).filter(Number.isSafeInteger))
       const supersededInputTurns = new Set(inputLinks.filter(link => Number.isSafeInteger(link.inputTurn)
         && link.inputTurn > 0 && link.inputTurn !== link.turn).map(link => link.inputTurn))
@@ -455,7 +553,8 @@ window.__ModuleLoader__.load({
         const turn = nodeTurn(entry.node)
         if (entry.node.kind !== 'assistant-step' || !Number.isSafeInteger(turn) || closedTurns.has(turn)) return
         const blocks = entry.node.data?.blocks || []
-        const hasActivity = assistantContent(blocks).live.started
+        const output = roleplayOutput.get(turn)
+        const hasActivity = (output ? Boolean(output.text || output.blocks?.length) : assistantContent(blocks).live.started)
           || (processByTurn.get(turn) || []).length > 0
         // The official Session can publish the running assistant-step before
         // its first text/process event. Keep that real DSH node visible while
@@ -486,13 +585,16 @@ window.__ModuleLoader__.load({
         if (node.kind === 'turn-process') {
           const turn = nodeTurn(node)
           const process = processByTurn.get(turn) || []
+          const output = roleplayOutput.get(turn)
+          const text = output?.text || ''
           if (!Number.isSafeInteger(turn) || closedTurns.has(turn) || supersededInputTurns.has(turn)
-            || latestOpenAssistantByTurn.has(turn) || process.length === 0) return []
+            || latestOpenAssistantByTurn.has(turn) || (!process.length && !text && !output?.blocks?.length)) return []
           // Compaction can precede the first assistant step. Its real DSH
           // turn-process node owns this row until the assistant takes over.
           return [{
-            role: 'assistant', seq: node.anchorSeq, time: process[0].startedAtMillis,
-            content: '', displayContent: '', nodeKey: entry.key, dshTurn: turn,
+            role: 'assistant', seq: node.anchorSeq, time: process[0]?.startedAtMillis,
+            content: text, displayContent: text, nodeKey: entry.key, dshTurn: turn,
+            roleplayBlocks: output?.blocks,
             processTiming: turnProcessTiming(node),
             pending: sessionRunning === true && !endedTurns.has(turn) && !aborted.has(turn)
               && node.location?.turn?.status !== 'closed',
@@ -502,17 +604,19 @@ window.__ModuleLoader__.load({
         if (node.kind === 'assistant-step') {
           const turn = nodeTurn(node)
           if (!Number.isSafeInteger(turn) || closedTurns.has(turn) || latestOpenAssistantByTurn.get(turn) !== nodeIndex) return []
+          const output = roleplayOutput.get(turn)
           const { text: raw, live } = assistantContent(node.data?.blocks)
           const finalNode = node.data?.finalNode
           return [{
             role: 'assistant', seq: finalNode?.seq ?? node.data?.seq ?? node.anchorSeq ?? Number.MAX_SAFE_INTEGER,
-            time: node.data?.time, content: raw,
-            displayContent: live.started ? live.content : '',
-            dshMessageId: finalNode?.messageId || '', nodeKey: entry.key, dshTurn: turn,
+            time: node.data?.time, content: output ? output.text : raw,
+            displayContent: output ? output.text : live.started ? live.content : '',
+            roleplayBlocks: output?.blocks,
+            dshMessageId: !output ? finalNode?.messageId || '' : '', nodeKey: entry.key, dshTurn: turn,
             processTiming: turnProcessTiming(node),
             // Only a durable assistant/message has a mutation target. DSH can
             // also close a live-only interruption with a fractional view seq.
-            sessionEventSeq: Number.isSafeInteger(finalNode?.seq) ? finalNode.seq : undefined,
+            sessionEventSeq: !output && Number.isSafeInteger(finalNode?.seq) ? finalNode.seq : undefined,
             // An unknown session state is not proof that generation is still
             // running. During Session rebind DSH can publish the historical
             // assistant-step before the new Session state arrives; treating
@@ -522,19 +626,22 @@ window.__ModuleLoader__.load({
             interrupted: aborted.has(turn) || node.data?.status === 'interrupted' || finalNode?.interrupted === true,
           }]
         }
-        if (node.kind !== 'turn-tail' || !node.data?.closing) return []
+        if (node.kind !== 'turn-tail') return []
         const tail = node.data
-        const closing = tail.closing
-        const finalNode = closing.finalNode
-        const closingAssistant = (assistantEntriesByTurn.get(tail.turn) || EMPTY_ITEMS).find(candidate =>
-          ((finalNode.messageId && candidate.node.data?.messageId === finalNode.messageId)
-            || (Number.isSafeInteger(finalNode.seq) && candidate.node.data?.seq === finalNode.seq)))
-        const closingContent = assistantContent(closing.blocks)
+        const output = roleplayOutput.get(tail.turn)
+        const reply = settledChatReply(node, output)
+        if (!reply) return []
+        const assistants = assistantEntriesByTurn.get(tail.turn) || EMPTY_ITEMS
+        const closingAssistant = assistants.find(candidate =>
+          ((reply.messageId && candidate.node.data?.messageId === reply.messageId)
+            || (Number.isSafeInteger(reply.anchorSeq) && candidate.node.data?.seq === reply.anchorSeq)))
+          ?? (output?.toolBacked ? assistants.at(-1) : undefined)
         return [{
-          role: 'assistant', seq: finalNode.seq, time: finalNode.time, content: closingContent.text,
-          displayContent: closingContent.final,
-          dshMessageId: finalNode.messageId || '', interrupted: aborted.has(tail.turn) || finalNode.interrupted === true,
-          usage: closing.usage, turnUsage: tail.tokenUsage, sessionEventSeq: finalNode.seq, dshTurn: tail.turn,
+          role: 'assistant', seq: reply.seq, time: reply.time, content: reply.content,
+          displayContent: reply.displayContent,
+          roleplayBlocks: output?.blocks,
+          dshMessageId: reply.messageId || '', interrupted: aborted.has(tail.turn) || reply.interrupted === true,
+          usage: reply.usage, turnUsage: tail.tokenUsage, sessionEventSeq: reply.seq, dshTurn: tail.turn,
           processTiming: turnProcessTiming(node),
           nodeKey: closingAssistant?.key || ''
         }]
@@ -618,6 +725,10 @@ window.__ModuleLoader__.load({
           // the current visible position in the official display order.
           sequence: item.seq, messageIndex: index,
           role: item.role, content: item.content,
+          ...(item.role === 'assistant' && roleplayOutput.has(item.dshTurn) ? { roleplayReply: true } : {}),
+          ...(item.roleplayBlocks?.length ? { roleplayBlocks: item.roleplayBlocks } : {}),
+          ...(item.role === 'assistant' && roleplayOutput.get(item.dshTurn)?.bodyNodeKeys
+            ? { roleplayBodyNodeKeys: roleplayOutput.get(item.dshTurn).bodyNodeKeys } : {}),
           // Product projection owns an explicit display value, including an
           // intentional empty result. Only an unmapped live message uses the
           displayContent: !item.pending && source?.content === item.content && typeof source.displayContent === 'string'
@@ -680,7 +791,6 @@ window.__ModuleLoader__.load({
         this.streamListeners = new Set()
         this.generationListeners = new Set()
         this.streamGeneration = 0
-        this.streamFrame = undefined
         // A DSH cancel is asynchronous. Keep the run identity locally so
         // late Session snapshots cannot reopen the renderer's live row while
         // the official cancellation is settling.
@@ -765,11 +875,15 @@ window.__ModuleLoader__.load({
         }
         const details = this.detailsSnapshot.details
         if (!details || details.runtimeSessionId !== runtimeSessionId) return { status: 'pending' }
+        const output = this.roleplayOutputMarkers().findLast(marker => marker.data.toolBacked
+          && marker.data.turn === turn && marker.data.replySeq === eventSeq)
+        const replySeq = output?.seq ?? eventSeq
         const matches = details.messages.filter(message => message.role === 'assistant'
           && message.runtimeSessionId === runtimeSessionId && message.dshTurn === turn
-          && message.sessionEventSeq === eventSeq && message.status === 'complete')
+          && message.sessionEventSeq === replySeq && message.status === 'complete')
         if (matches.length === 1) return { status: 'ready', message: matches[0] }
         if (matches.length > 1) return { status: 'unavailable', reason: '生成结果对应多个相同正式身份的消息。' }
+        if (output) return { status: 'pending' }
         const tails = (this.officialProjectionSignature?.runtimeSessionId === runtimeSessionId
           ? this.officialProjectionSignature.nodes : []).filter(node => node.kind === 'turn-tail'
           && node.data?.turn === turn && node.data?.closing?.finalNode?.seq === eventSeq)
@@ -1078,7 +1192,6 @@ window.__ModuleLoader__.load({
       publishOfficialState(nextDetails, officialProjectionSignature, nextStream) {
         const details = this.prepareDetails(nextDetails, officialProjectionSignature)
         this.streamState = nextStream
-        this.cancelStreamFrame()
         this.streamSnapshot = this.streamState
         this.chatSnapshot = { details: this.detailsSnapshot, stream: this.streamSnapshot }
         notifyListeners(this.detailsListeners)
@@ -1089,18 +1202,26 @@ window.__ModuleLoader__.load({
 
       displayProjectionInput(messages) {
         return messages.filter(message => (message.role === 'user' || message.role === 'assistant') && typeof message.content === 'string')
-          .map(message => ({
+          .map(message => {
+            const segments = message.openingOptions?.find(option => option.id === message.selectedOpeningId)?.segments
+            return {
             id: message.id,
             role: message.role,
             content: message.content,
+            ...(message.roleplayReply ? { roleplayReply: true } : {}),
             variableStateJson: typeof message.nativeVariableStateJson === 'string' ? message.nativeVariableStateJson
               : typeof message.variableStateJson === 'string' ? message.variableStateJson : '{}',
             status: message.status,
             createdAt: message.createdAt,
+            ...(segments ? { openingSegments: segments.map(({ id, text }) => ({ id, text })) } : {}),
+            ...(message.status !== 'streaming' && message.roleplayBlocks
+              ? { roleplayBlocks: message.roleplayBlocks.map(({ id, text, kind, speakerId, speakerName }) =>
+                ({ id, text, kind, speakerId, speakerName })) } : {}),
             ...(message.role === 'assistant' ? { reasoning: (message.process || [])
               .filter(item => item.kind === 'reasoning' && item.status !== 'running')
               .map(item => ({ id: item.id, text: reasoningText(item) })) } : {})
-          }))
+            }
+          })
       }
 
       applyDisplayProjection(next) {
@@ -1109,7 +1230,8 @@ window.__ModuleLoader__.load({
         const messages = next.details.messages.map(message => {
           const cached = this.displayProjectionResults.get(message.id)
           const result = cached?.result
-          if (!cached || cached.role !== message.role
+          if (!cached || cached.role !== message.role || cached.roleplayReply !== message.roleplayReply
+            || (message.status !== 'streaming' && !sameRoleplayBlocks(cached.roleplayBlocks, message.roleplayBlocks))
             || !result
             || typeof result.displayContent !== 'string'
             || typeof result.variableStateJson !== 'string') return message
@@ -1130,6 +1252,20 @@ window.__ModuleLoader__.load({
               return { ...item, displayDetail: display.displayText }
             })
             if (processChanged) projected = { ...projected, process }
+          }
+          if (Array.isArray(result.openingSegments) && message.openingOptions) {
+            const active = message.openingOptions.find(option => option.id === message.selectedOpeningId)
+            if (active?.segments) {
+              const segments = projectSegments(active.segments, result.openingSegments)
+              if (segments !== active.segments) {
+                projected = { ...projected, openingOptions: message.openingOptions.map(option =>
+                  option === active ? { ...option, segments } : option) }
+              }
+            }
+          }
+          if (message.status !== 'streaming' && message.roleplayBlocks && Array.isArray(result.roleplayGroups)
+            && message.roleplayGroups !== result.roleplayGroups) {
+            projected = { ...projected, roleplayGroups: result.roleplayGroups }
           }
           if (projected !== message) changed = true
           return projected
@@ -1159,7 +1295,8 @@ window.__ModuleLoader__.load({
             if (!result || result.sourceContent !== message.content
               || typeof result.displayContent !== 'string'
               || typeof result.variableStateJson !== 'string') continue
-            projectedResults.set(message.id, { role: message.role, result })
+            projectedResults.set(message.id, { role: message.role, roleplayReply: message.roleplayReply,
+              roleplayBlocks: message.roleplayBlocks, result })
           }
           this.displayProjectionResults = projectedResults
           const projected = this.applyDisplayProjection(current)
@@ -1177,35 +1314,12 @@ window.__ModuleLoader__.load({
         notifyListeners(this.timelineListeners)
       }
 
-      publishStream(next, publication = 'immediate') {
+      publishStream(next) {
         if (sameStreamSnapshot(next, this.streamState)) return
         this.streamState = next
-        if (publication === 'animation-frame' && typeof requestAnimationFrame === 'function') {
-          if (this.streamFrame !== undefined) return
-          this.streamFrame = requestAnimationFrame(() => {
-            this.streamFrame = requestAnimationFrame(() => {
-              this.streamFrame = requestAnimationFrame(() => {
-                this.streamFrame = undefined
-                this.flushStream()
-              })
-            })
-          })
-          return
-        }
-        this.cancelStreamFrame()
-        this.flushStream()
-      }
-
-      flushStream() {
-        if (this.streamSnapshot === this.streamState) return
-        this.streamSnapshot = this.streamState
+        this.streamSnapshot = next
         notifyListeners(this.streamListeners)
         this.publishChatSnapshot()
-      }
-
-      cancelStreamFrame() {
-        if (this.streamFrame !== undefined && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this.streamFrame)
-        this.streamFrame = undefined
       }
 
       start() {
@@ -1472,7 +1586,7 @@ window.__ModuleLoader__.load({
         const session = this.sessionReference?.binding?.session
         const sessionRunning = session ? session.getSnapshot().running === true : undefined
         const next = { ...details, runtimeSessionId, hasMore,
-          messages: chat ? officialMessages(chat, { ...details, hasMore }, runtimeSessionId, this.officialProcess(chat), [], sessionRunning, this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId), this.illustrations(runtimeSessionId))
+          messages: chat ? this.projectOfficialMessages(chat, { ...details, hasMore }, runtimeSessionId, [], sessionRunning)
             : details.messages.filter(message => message.id === 'opening') }
         if (chat) next.beforeSequence = next.messages.find(message => message.id !== 'opening')?.sequence ?? null
         this.publishDetails({
@@ -1536,9 +1650,23 @@ window.__ModuleLoader__.load({
         this.sessionReference = null
       }
 
-      officialProcess(chat, nodes) {
+      roleplayOutputMarkers() {
+        return (this.sessionReference?.binding?.eventSource?.getSnapshot().entries || EMPTY_ITEMS)
+          .flatMap(entry => entry.type === 'event' && entry.event.type === 'eleckoi/roleplay-output' ? [entry.event] : [])
+      }
+
+      projectOfficialMessages(chat, details, runtimeSessionId, pendingSubmissions, sessionRunning,
+        entries = orderedChatEntries(chat), output = roleplayOutputByTurn(entries.map(entry => entry.node), this.roleplayOutputMarkers()),
+        process = this.officialProcess(chat, entries.map(entry => entry.node), output)) {
+        return officialMessages(chat, details, runtimeSessionId, process, pendingSubmissions, sessionRunning,
+          this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId),
+          this.illustrations(runtimeSessionId), entries, output)
+      }
+
+      officialProcess(chat, nodes, roleplayOutput) {
         return officialProcess(chat, { trajectory: this.sessionTrajectoryTarget?.getSnapshot(),
-          illustrations: this.illustrations(this.sessionReference?.sessionId), processCache: this.nodeProcessCache, nodes, toolCache: this.toolProcessCache })
+          illustrations: this.illustrations(this.sessionReference?.sessionId), processCache: this.nodeProcessCache, nodes,
+          toolCache: this.toolProcessCache, roleplayOutput })
       }
 
       inputContinuations(runtimeSessionId) {
@@ -1587,6 +1715,7 @@ window.__ModuleLoader__.load({
         return {
           runtimeSessionId,
           hasMore,
+          roleplayOutputMarkers: this.roleplayOutputMarkers(),
           inputContinuations: this.inputContinuations(runtimeSessionId),
           illustrations: this.sessionReference?.binding.session.projections?.faceOf('eleckoiIllustrations')?.getSnapshot(),
           regeneratingInputTurn: this.regeneratingInputTurn(runtimeSessionId),
@@ -1606,6 +1735,7 @@ window.__ModuleLoader__.load({
       sameOfficialProjection(left, right) {
         return left?.runtimeSessionId === right?.runtimeSessionId
           && left?.hasMore === right?.hasMore
+          && sameReferences(left?.roleplayOutputMarkers, right?.roleplayOutputMarkers)
           && left?.inputContinuations?.length === right?.inputContinuations?.length
           && left.inputContinuations.every((item, index) => sameRecord(item, right.inputContinuations[index]))
           && left?.illustrations === right?.illustrations
@@ -1696,14 +1826,15 @@ window.__ModuleLoader__.load({
           this.sessionTarget = target
           const trajectoryTarget = this.uiConversation.binding(binding).target('trajectory')
           this.sessionTrajectoryTarget = trajectoryTarget
-          const publish = () => {
+          const accept = (sessionOnly) => {
             if (generation !== this.sessionBindingGeneration || this.sessionReference !== reference || this.sessionTarget !== target) return
-            this.acceptOfficialSession(id, runtimeSessionId, binding.session, target)
+            this.acceptOfficialSession(id, runtimeSessionId, binding.session, target, sessionOnly)
           }
+          const publish = () => accept(false)
           const stopChat = target.subscribe(publish)
           const stopTrajectory = trajectoryTarget.subscribe(publish)
           this.stopSessionTarget = () => { stopChat(); stopTrajectory() }
-          this.stopSessionState = binding.session.subscribe(publish)
+          this.stopSessionState = binding.session.subscribe(() => accept(true))
           let eventRevision = binding.eventSource.getSnapshot().revision
           const publishGeneration = (kind, entries) => this.publishGeneration({
             conversationId: id, runtimeSessionId, kind, running: binding.session.getSnapshot().running === true,
@@ -1758,33 +1889,40 @@ window.__ModuleLoader__.load({
         }
       }
 
-      acceptOfficialSession(id, runtimeSessionId, session, target) {
+      acceptOfficialSession(id, runtimeSessionId, session, target, sessionOnly = false) {
         if (this.disposed || id !== this.detailsSnapshot.id) return
         const sessionState = session.getSnapshot()
-        const chat = target.getSnapshot()
-        const entries = orderedChatEntries(chat)
-        const nodes = entries.map(entry => entry.node)
         const eventWindow = this.sessionReference?.binding.eventSource.getSnapshot()
-        const hasMore = Boolean(eventWindow?.hasMore)
         const pendingSubmissions = sessionState.pendingSubmissions || EMPTY_ITEMS
         const sessionRunning = sessionState.running === true
-        const signature = this.createOfficialProjectionSignature(chat, runtimeSessionId, hasMore, pendingSubmissions, sessionRunning, nodes)
         const lifecycle = { promptError: sessionState.promptError, lastAgentError: sessionState.lastAgentError,
           openError: sessionState.openError, removed: sessionState.removed }
         const accepted = this.lastAcceptedSession
+        const change = eventWindow?.change
+        if (sessionOnly && accepted?.signature.sessionRunning === sessionRunning
+          && sameReferences(accepted.signature.pendingSubmissions, pendingSubmissions)
+          && sameRecord(accepted.lifecycle, lifecycle)
+          && change?.kind === 'append' && change.entries.every(entry => entry.type === 'transient')) return
+        const chat = target.getSnapshot()
+        const entries = orderedChatEntries(chat)
+        const nodes = entries.map(entry => entry.node)
+        const hasMore = Boolean(eventWindow?.hasMore)
+        const signature = this.createOfficialProjectionSignature(chat, runtimeSessionId, hasMore, pendingSubmissions, sessionRunning, nodes)
         // Session and target notifications can describe one publication. Skip
         // repeated work only if lifecycle, official nodes and displayed state agree.
         if (accepted?.details === this.detailsSnapshot && accepted.stream === this.streamState
           && accepted.events === eventWindow?.entries && sameRecord(accepted.lifecycle, lifecycle)
           && this.sameOfficialProjection(signature, accepted.signature)) return
         const details = this.detailsSnapshot.details
-        const processByTurn = this.officialProcess(chat, nodes)
+        const output = roleplayOutputByTurn(nodes, signature.roleplayOutputMarkers)
+        const processByTurn = this.officialProcess(chat, nodes, output)
         let pendingDetails = null
         if (details) {
           if (!this.sameOfficialProjection(signature, this.officialProjectionSignature)) {
             const next = {
               ...details, runtimeSessionId,
-              messages: officialMessages(chat, { ...details, hasMore }, runtimeSessionId, processByTurn, pendingSubmissions, sessionRunning, this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId), this.illustrations(runtimeSessionId), entries),
+              messages: this.projectOfficialMessages(chat, { ...details, hasMore }, runtimeSessionId,
+                pendingSubmissions, sessionRunning, entries, output, processByTurn),
               hasMore,
             }
             next.beforeSequence = next.messages.find(message => message.id !== 'opening')?.sequence ?? null
@@ -1796,7 +1934,7 @@ window.__ModuleLoader__.load({
         }
         const retiredTurns = new Set([
           ...this.abortedTurns(runtimeSessionId),
-          ...nodes.filter(node => node.kind === 'turn-tail' && node.data?.closing).map(nodeTurn),
+          ...nodes.filter(node => node.kind === 'turn-tail' && settledChatReply(node, output.get(nodeTurn(node)))).map(nodeTurn),
           ...(eventWindow?.entries || EMPTY_ITEMS)
             .filter(entry => entry.type === 'event' && entry.event.type === 'turn/end'
               && ['aborted', 'interrupted'].includes(entry.event.data?.reason?.kind))
@@ -1819,7 +1957,9 @@ window.__ModuleLoader__.load({
         // identify a future run whose turn/start has not arrived yet.
         const sameLiveTurn = current.id === id && current.status === 'running'
           && (current.dshTurn === openTurn || (openTurn === undefined && retiredTurns.has(current.dshTurn)))
-        const projectedReply = assistantContent(runningAssistant?.data?.blocks).live
+        const toolReply = output.get(openTurn)
+        const projectedReply = toolReply ? { started: Boolean(toolReply.text || toolReply.blocks?.length), content: toolReply.text }
+          : assistantContent(runningAssistant?.data?.blocks).live
         const content = projectedReply.started ? projectedReply.content
           : !runningAssistant && sameLiveTurn ? current.content : ''
         const promptError = sessionState.promptError?.op === 'send'
@@ -1857,7 +1997,7 @@ window.__ModuleLoader__.load({
           && message.dshTurn === current.dshTurn
           && message.status === 'complete'
           && Number.isSafeInteger(message.sessionEventSeq)))
-        const turnSettled = Boolean(turnTail?.data?.closing?.finalNode) || pendingFinal
+        const turnSettled = Boolean(settledChatReply(turnTail, output.get(current.dshTurn))) || pendingFinal
         const awaitingFinal = sameLiveTurn && !turnSettled && (
           projectedReply.started
           || String(current.content || '').length > 0
@@ -2321,7 +2461,7 @@ window.__ModuleLoader__.load({
           const sessionRunning = session ? session.getSnapshot().running === true : undefined
           const projected = chat
             ? { ...details, runtimeSessionId, hasMore,
-              messages: officialMessages(chat, { ...details, hasMore }, runtimeSessionId, this.officialProcess(chat), [], sessionRunning, this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId), this.illustrations(runtimeSessionId)) }
+              messages: this.projectOfficialMessages(chat, { ...details, hasMore }, runtimeSessionId, [], sessionRunning) }
             : details
           if (chat) projected.beforeSequence = projected.messages.find(message => message.id !== 'opening')?.sequence ?? null
           if (generation === this.detailGeneration) {
@@ -2386,7 +2526,7 @@ window.__ModuleLoader__.load({
           const metadata = { ...latest.details, messages: [...page.messages, ...latest.details.messages] }
           const hasMore = Boolean(this.sessionReference.binding.eventSource.getSnapshot().hasMore)
           const sessionRunning = session ? session.getSnapshot().running === true : undefined
-          const messages = officialMessages(chat, { ...metadata, hasMore }, latest.runtimeSessionId, this.officialProcess(chat), [], sessionRunning, this.inputContinuations(latest.runtimeSessionId), this.abortedTurns(latest.runtimeSessionId), this.regeneratingInputTurn(latest.runtimeSessionId), this.illustrations(latest.runtimeSessionId))
+          const messages = this.projectOfficialMessages(chat, { ...metadata, hasMore }, latest.runtimeSessionId, [], sessionRunning)
           const next = { ...latest.details, messages, hasMore,
             beforeSequence: messages.find(message => message.id !== 'opening')?.sequence ?? null }
           this.publishDetails({ ...latest, status: 'ready', error: '', details: next })
@@ -2490,7 +2630,6 @@ window.__ModuleLoader__.load({
         for (const close of this.previewStreams) close()
         this.previewStreams.clear()
         this.publishStats('', null)
-        this.cancelStreamFrame()
         this.stopEvents()
         this.stopSessionList()
         this.stopRegexRules()

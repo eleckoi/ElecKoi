@@ -1,4 +1,4 @@
-import { BookOpen, ChartLineUp, Folder, Globe, ListChecks, MagicWand, PlugsConnected, PuzzlePiece, TerminalWindow, TreeStructure, UsersThree } from '@phosphor-icons/react';
+import { BookOpen, ChartLineUp, ChatCircle, Folder, Globe, ListChecks, MagicWand, PlugsConnected, PuzzlePiece, TerminalWindow, TreeStructure, UsersThree } from '@phosphor-icons/react';
 
 export const AGENT_TOOL_GROUP_ICONS = Object.freeze({
   'builtin:creator': MagicWand,
@@ -6,6 +6,7 @@ export const AGENT_TOOL_GROUP_ICONS = Object.freeze({
   'builtin:variables': TreeStructure,
   'builtin:setting-library': BookOpen,
   'builtin:roleplay-workflow': ChartLineUp,
+  'builtin:roleplay-reply': ChatCircle,
   'builtin:workflow': ListChecks,
   'builtin:workspace': TerminalWindow,
   'builtin:collaboration': UsersThree,

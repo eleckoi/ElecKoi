@@ -49,4 +49,4 @@ export class RuntimeContexts {
   close(): void
 }
 
-export function restoreRuntimeContext(ctx: Context, session: Session, snapshot: { conversationId: string }): void
+export function restoreRuntimeContext(ctx: Context, session: Session, snapshot: { conversationId: string }): Promise<void>

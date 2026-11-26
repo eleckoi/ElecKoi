@@ -28,7 +28,6 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
   const { keyword = localKeyword, setKeyword = setLocalKeyword } = home || {};
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [listTab, setListTab] = useState("characters");
   const [selectedGroup, setSelectedGroup] = useState(ALL_CHARACTERS);
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupDialogMode, setGroupDialogMode] = useState("add");
@@ -307,16 +306,9 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
         <span>{tUi("角色卡管理器")}</span>
       </button>
 
-      <div className="character-list-tabs" role="tablist" aria-label={tUi("角色与群聊")}>
-        <button className={listTab === "characters" ? "active" : ""} type="button" onClick={() => setListTab("characters")}>
-          {tUi("角色")}</button>
-        <button className={listTab === "groups" ? "active" : ""} type="button" onClick={() => setListTab("groups")}>
-          {tUi("群聊")}</button>
-      </div>
-
       <SidebarScrollArea ref={scrollRef} className="character-list-scroll">
         {groupSortError && <FailureAlert failure={groupSortError} className="character-group-sort-error" />}
-        {listTab === "characters" && collapseStateReady ? (
+        {collapseStateReady &&
           render('eleckoi.character.library.groups', {
             surface: 'pc-sidebar', groups, allGroup: ALL_CHARACTERS, selectedGroup, onSelectGroup: setSelectedGroup, collapsedGroups, onToggleGroup: toggleGroup,
           }, <CharacterGroupList
@@ -334,13 +326,7 @@ export function CharacterListPanel({ characters, activeCharacterId, artworkMode,
             onCharacterContextMenu={openCharacterMenu}
             onReorderGroup={onReorderGroup}
             onGroupContextMenu={openGroupMenu}
-          />)
-        ) : listTab === "groups" ? (
-          <div className="character-empty-groups">
-            <strong>{tUi("暂无群聊")}</strong>
-            <span>{tUi("群聊角色和多人对话以后放在这里。")}</span>
-          </div>
-        ) : null}
+          />)}
       </SidebarScrollArea></>}
 
       {groupContext.menu && <Menu open anchor={null} contextual portal autoFocus

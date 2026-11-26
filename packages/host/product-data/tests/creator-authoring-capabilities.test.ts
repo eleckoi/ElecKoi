@@ -659,4 +659,43 @@ describe('Creator authoring matches the native setting, schema, script and regex
     expect(await data.testRegexRule('AB', patternRule, 'AiOutput', { variablesJson }))
       .toEqual({ output: 'AB', validationMessage: null })
   })
+
+  it('renders a status frontend only at an explicit placeholder in the reply', async () => {
+    const { data, characterId } = await fixture()
+    const library = data.readRegexLibrary('character', characterId)
+    const rule: RegexRule = {
+      id: 'synthetic-status-frontend', name: '合成状态栏', pattern: '<StatusPlaceHolderImpl/>',
+      replacement: '<div>SYNTHETIC_STATUS</div>', targets: ['AiOutput'], enabled: true, order: 0,
+      displayOnly: true, promptOnly: false, runOnEdit: false,
+    }
+    const acrossBlocks: RegexRule = { ...rule, id: 'synthetic-cross-block', name: '合成跨段匹配', order: 1,
+      pattern: '/门开了。\\s*上车。|我来了。\\s*车从前院驶出。/g', replacement: '已接上。' }
+    data.saveRegexLibrary({ ...library, rules: [rule, acrossBlocks] }, [rule.id, acrossBlocks.id])
+    const { conversation } = data.createConversation({ metadata: { characterId } })
+    const blocks = ['门开了。', '上车。', '我来了。', '车从前院驶出。'].map((text, index) => ({
+      id: `block:${index}`, text, kind: 'speech' as const, speakerName: index === 2 ? '合成发言乙' : '合成发言甲'
+    }))
+    const project = (content: string, roleplayBlocks?: typeof blocks, status: 'complete' | 'streaming' = 'complete') => data.projectConversationMessages(conversation.id, [{
+      id: 'synthetic-roleplay-reply', role: 'assistant', content, variableStateJson: '{}', status, createdAt: '',
+      ...(roleplayBlocks ? { roleplayReply: true, roleplayBlocks } : {}),
+    }])[0]!
+    const joinBlocks = (segments: typeof blocks) => segments.map(block => block.text).join('\n\n')
+    const plain = joinBlocks(blocks)
+    expect(project(plain, blocks, 'streaming').displayContent).toBe(plain)
+    const multipart = project(plain, blocks)
+    expect(multipart.sourceContent).toBe(plain)
+    expect(multipart.displayContent).toBe('合成发言甲：已接上。\n\n合成发言乙：我来了。\n\n合成发言甲：车从前院驶出。')
+    expect(multipart.roleplayGroups).toEqual([
+      { id: 'block:0', sourceText: '门开了。\n\n上车。', displayText: '已接上。' },
+      { id: 'block:2', sourceText: '我来了。', displayText: '我来了。' },
+      { id: 'block:3', sourceText: '车从前院驶出。', displayText: '车从前院驶出。' },
+    ])
+    expect(project(plain, blocks)).toEqual(multipart)
+
+    const explicit = blocks.map((block, index) => index === 1
+      ? { ...block, text: `${block.text}\n\n<StatusPlaceHolderImpl/>` } : block)
+    expect(project(joinBlocks(explicit)).displayContent).toContain('SYNTHETIC_STATUS')
+    expect(project(joinBlocks(explicit), explicit).roleplayGroups?.map(group => group.displayText.includes('SYNTHETIC_STATUS')))
+      .toEqual([true, false, false])
+  })
 })

@@ -42,25 +42,28 @@ export function SettingLibraryDirectoryOptions({ characterScope, busy, available
 
 export function SaveControl({ dirty, error, notice, saving, onSave, workspace = false, title }) {
   const tUi = useProductTranslation();
-  const { compact } = useEditorPresentation();
+  const { compact, characterStudio } = useEditorPresentation();
   const inHeader = useEditorSaveFeedback(error, notice);
   const [errorOpen, setErrorOpen] = useState(false);
   useEffect(() => setErrorOpen(false), [error]);
   if (inHeader) return null;
+  const studioSave = workspace && characterStudio;
+  const label = studioSave ? tUi('保存更改') : saving ? tUi('保存中…') : tUi('保存');
   return (
     <div className="setting-library-save-control">
-      <Button data-dsh-control variant={workspace && !dirty ? 'ghost' : 'primary'}
-        icon={workspace ? saving ? <CircleNotch size={15} aria-hidden="true" /> : <FloppyDisk size={15} aria-hidden="true" /> : undefined}
+      <Button data-dsh-control variant={workspace && !studioSave && !dirty ? 'ghost' : 'primary'}
+        icon={workspace && !studioSave ? saving ? <CircleNotch size={15} aria-hidden="true" /> : <FloppyDisk size={15} aria-hidden="true" /> : undefined}
         type="button"
         className={`setting-library-save-button${workspace ? ' setting-document-save setting-toolbar-button setting-toolbar-save' : ''}${saving ? " is-saving" : ""}`}
-        aria-label={saving ? tUi("保存中…") : tUi("保存")}
+        aria-label={label}
+        aria-busy={saving || undefined}
         title={title || (workspace ? tUi('统一保存设定库的全部修改') : tUi("保存（Ctrl/Command + S）"))}
         aria-keyshortcuts="Control+S Meta+S"
         disabled={!dirty || saving}
         onClick={onSave}
       >
         {!workspace && (saving ? <CircleNotch size={16} aria-hidden="true" /> : <FloppyDisk size={16} aria-hidden="true" />)}
-        <span>{saving ? tUi("保存中…") : tUi("保存")}</span>
+        <span>{label}</span>
       </Button>
       {error ? <span className="setting-library-save-feedback is-error" role="alert" title={error}>
         {compact ? <><WarningCircle size={14} />{error}</> : <button type="button" className="setting-library-error-detail-button" aria-label={tUi("查看保存错误")} onClick={() => setErrorOpen(true)}><WarningCircle size={14} />{tUi("保存失败")}</button>}

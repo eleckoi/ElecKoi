@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { JSDOM } from 'jsdom'
 import { describe, expect, it } from 'vitest'
+import { exportWorkspaceFiles } from '../../web/src/mobile/workspaceFileTransfers.js'
 
 const facade = readFileSync(new URL('../app/src/main/assets/platform-facade.js', import.meta.url), 'utf8')
 const cookieScript = readFileSync(new URL('../app/src/compat/assets/eleckoi-browser/cookies.js', import.meta.url), 'utf8')
@@ -64,6 +65,23 @@ describe.each([false, true])('shared Android facade with asynchronous transport=
       expect(window.document.querySelectorAll('meta[name="viewport"]')).toHaveLength(1)
     } finally { window.close() }
   })
+  it('returns the selected plugin package, cancellation and validation failures through the same picker', async () => {
+    const { dom, window, calls } = pageWithTransport(asyncTransport)
+    try {
+      const pick = async (success, result) => {
+        const pending = window.ElecKoiPlatform.pickPluginArchive()
+        await Promise.resolve()
+        const { method, args: [id] } = calls.at(-1)
+        expect(method).toBe('pickPluginArchive')
+        window.dispatchEvent(new window.CustomEvent('eleckoi:platform-result', { detail: { id, success, result } }))
+        return pending
+      }
+      const archive = { name: '本地插件.tar.gz', path: '/app/private/plugin-imports/content.tar.gz' }
+      await expect(pick(true, archive)).resolves.toEqual(archive)
+      await expect(pick(true, 'cancelled')).resolves.toBeNull()
+      await expect(pick(false, 'unsupported-plugin-archive')).rejects.toThrow('unsupported-plugin-archive')
+    } finally { dom.window.close() }
+  })
   it('streams an export in order and waits for the actual native save result', async () => {
     const { dom, window, calls } = pageWithTransport(asyncTransport)
     let read = false
@@ -76,6 +94,33 @@ describe.each([false, true])('shared Android facade with asynchronous transport=
       const writes = calls.filter(call => ['beginFile', 'writeFile', 'finishFile'].includes(call.method))
       expect(writes.map(call => call.method)).toEqual(['beginFile', 'writeFile', 'finishFile'])
       expect(writes[1].args).toEqual(['synthetic-transfer', 'QUI='])
+    } finally { dom.window.close() }
+  })
+  it('requests workspace bytes as Android saves them and discards an unfinished export', async () => {
+    const { dom, window, calls } = pageWithTransport(asyncTransport)
+    try {
+      const exportWith = complete => {
+        let demand = 0
+        const model = { exportWorkspaceFiles: () => ({
+          send(value) { expect(value).toBe(true); demand++ },
+          dispose() {},
+          async *[Symbol.asyncIterator]() {
+            expect(demand).toBe(0)
+            yield { kind: 'file', name: 'workspace.zip', mime: 'application/zip' }
+            expect(demand).toBe(1)
+            yield { kind: 'chunk', data: 'QUI=' }
+            expect(demand).toBe(2)
+            expect(calls.at(-1)).toEqual({ method: 'writeFile', args: ['synthetic-transfer', 'QUI='] })
+            if (complete) yield { kind: 'complete' }
+          }
+        }) }
+        return exportWorkspaceFiles(model, 'synthetic-session', [], [], window.ElecKoiPlatform, new AbortController().signal)
+      }
+      await expect(exportWith(true)).resolves.toMatchObject({ result: 'content://synthetic/output', cancelled: false })
+      expect(calls.map(call => call.method)).toEqual(['beginFile', 'writeFile', 'finishFile'])
+      calls.length = 0
+      await expect(exportWith(false)).rejects.toMatchObject({ message: 'Workspace export ended before completing the file' })
+      expect(calls.map(call => call.method)).toEqual(['beginFile', 'writeFile', 'abortFile'])
     } finally { dom.window.close() }
   })
   it('respects the page navigation guard and updates only supported platform attributes', () => {

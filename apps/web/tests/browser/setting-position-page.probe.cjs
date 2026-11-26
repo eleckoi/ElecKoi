@@ -84,7 +84,7 @@ app.whenReady().then(async () => {
       data.currentPeer = await run("document.querySelector('.setting-order-items li[aria-current=true]')?.textContent");
       await click('.setting-view-switch button', '正文');
       data.content = await run("!!document.querySelector('.setting-writing-board .cm-editor')&&!document.querySelector('.setting-position-manager')");
-      await click(mobile ? '.mobile-header-actions button' : '.setting-directory .setting-library-save-button', '保存');
+      await click(mobile ? '.mobile-header-actions button' : '.character-studio-toolbar .setting-library-save-button', mobile ? '保存' : '保存更改');
       data.saved = await run("window.savedPreset().promptPositions.some(p=>p.name==='合成自定义位置')");
       report.layouts.push(data);
     }

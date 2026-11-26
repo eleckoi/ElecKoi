@@ -1,7 +1,8 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { createContext, useContext } from "react";
 import { ChatCircleDots, Code } from "../../../ui/icons/interfaceIcons.jsx";
-import { DshFolderClosedIcon, DshFolderOpenIcon, DshTriangleRightIcon } from "../../../ui/icons/dshTreeIcons.jsx";
+import { CaretDown, CaretRight } from '@phosphor-icons/react';
+import { DshFolderClosedIcon, DshFolderOpenIcon } from "../../../ui/icons/dshTreeIcons.jsx";
 import { HeadlessTree } from "../../../ui/tree/HeadlessTree.jsx";
 import { SETTING_RULE_TYPES, SettingEntryGlyph } from "./SettingEntryFields.jsx";
 import { EditorSelectionCheckbox } from '../../../ui/ui/EditorCollectionControls.jsx';
@@ -39,7 +40,7 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
     >
       <div className="setting-library-tree-row-content">
         <EditorSelectionCheckbox selection={actions?.selection} id={data.id} label={data.label} disabled={actions?.saving || data.fixed} />
-        {data.nodeKind === "group" ? (
+        {data.nodeKind === "group" ? <>
           <button
             type="button"
             className="setting-library-tree-expander"
@@ -52,12 +53,12 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
               else item.expand();
             }}
           >
-            <span className="setting-library-tree-folder" aria-hidden="true">
-              {isExpanded ? <DshFolderOpenIcon /> : <DshFolderClosedIcon />}
-            </span>
-            <DshTriangleRightIcon className={`setting-library-tree-arrow${isExpanded ? " is-expanded" : ""}`} />
+            {isExpanded ? <CaretDown size={13} /> : <CaretRight size={13} />}
           </button>
-        ) : <span className={`setting-library-tree-entry-icon${data.contentMode === "ejs" ? " is-controller" : ""}`} aria-hidden="true">
+          <span className="setting-library-tree-folder" aria-hidden="true">
+            {isExpanded ? <DshFolderOpenIcon /> : <DshFolderClosedIcon />}
+          </span>
+        </> : <span className={`setting-library-tree-entry-icon${data.contentMode === "ejs" ? " is-controller" : ""}`} aria-hidden="true">
           {Icon ? <Icon weight="regular" /> : <SettingEntryGlyph iconId={data.iconId} weight="regular" />}
         </span>}
         <span className="setting-library-tree-label" title={data.label}>{data.label}</span>
@@ -89,6 +90,8 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
 export function SettingLibraryTree({ nodes, query, selectedId, expandedIds, onSelectedIdChange, onExpandedIdsChange, onMove, ariaLabel, touchReorder, dragEnabled }) {
   return <HeadlessTree
     nodes={nodes}
+    branchGuides
+    indent={27}
     touchReorder={touchReorder}
     dragEnabled={dragEnabled}
     query={query}

@@ -23,12 +23,16 @@ async function mount(selectedCharacter = false, characterExists = selectedCharac
     create: vi.fn(async () => current), open: vi.fn(async () => current),
     pin: vi.fn(async id => { snapshot = { ...snapshot, items: snapshot.items.map(item => item.sessionId === id ? { ...item, pinned: true, pinIndex: 0 } : item) }; listeners.forEach(listener => listener()); }),
     rename: vi.fn(async () => {}), delete: vi.fn(async () => {}), search: vi.fn(async () => ({ items: [], hasMore: false })),
+    listWorkspaceFiles: vi.fn(async (_sessionId, path) => ({ name: '合成工作区', entries: path.length ? [
+      { name: 'notes.md', address: 'dsh-resource://file/session/synthetic-current/scripts/notes.md', kind: 'file', version: 'file-1', bytes: 12, modifiedAt: 0 },
+    ] : [{ name: 'scripts', kind: 'directory', version: 'dir-1', bytes: 0, modifiedAt: 0 }] })),
   };
   const characterSnapshot = { collection: { items: characterExists ? [{ id: 'synthetic-character', name: '合成角色', avatar: '' }] : [], groups: [] }, status: 'ready', error: '' };
   const drawerSnapshot = { shown: false };
   const view = { navigation: { sidebar: { subscribe: () => () => {}, getSnapshot: () => drawerSnapshot }, closeSidebar: vi.fn() }, openWorkspaceDrawer: vi.fn(), creatorStudio: { sessions: model }, characters: { subscribe: () => () => {}, getSnapshot: () => characterSnapshot },
     renderCreatorStudioConversation: vi.fn(() => <div>合成会话内容</div>), renderLayout: ({ mainPanel }) => mainPanel,
-    goBack: vi.fn(), registerBackHandler: () => () => {} };
+    route: options.route, rightbar: { openWorkspaceResource: vi.fn() },
+    goBack: vi.fn(), registerBackHandler: vi.fn(() => () => {}) };
   const node = document.createElement('div'); document.body.append(node);
   const root = createRoot(node);
   const Page = options.Page || MobileCreatorStudioPage;
@@ -38,6 +42,30 @@ async function mount(selectedCharacter = false, characterExists = selectedCharac
   return { node, model, view, click };
 }
 describe('Android AI creator studio navigation', () => {
+  it('keeps the conversation mounted and puts export in the long-press action bar', async () => {
+    const f = await mount(false, false, { route: { kind: 'creator-workspace-files', sessionId: 'synthetic-current' } });
+    expect(f.node.querySelector('.mobile-creator-studio-page').hidden).toBe(true);
+    expect(f.node.querySelector('.mobile-creator-studio-page').textContent).toContain('合成会话内容');
+    expect([...f.node.querySelectorAll('.wf .mobile-header-actions button')].map(item => item.getAttribute('aria-label'))).toEqual(['多选']);
+    await f.click('scripts');
+    await f.click('notes.md');
+    expect(f.view.rightbar.openWorkspaceResource)
+      .toHaveBeenCalledWith('synthetic-current', 'dsh-resource://file/session/synthetic-current/scripts/notes.md');
+    vi.useFakeTimers();
+    try {
+      await act(() => {
+        f.node.querySelector('.wf-row').dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
+        vi.advanceTimersByTime(480);
+      });
+      expect(f.node.querySelector('.wf-selection-header h1').textContent).toBe('已选择 1 项');
+      expect([...f.node.querySelectorAll('.wf-bottom button')].map(item => item.textContent)).toEqual(['重命名', '复制', '移动', '删除', '导出']);
+      const back = f.view.registerBackHandler.mock.calls.at(-1)[0];
+      await act(() => expect(back()).toBe(true));
+      expect(f.node.querySelector('.wf-bottom')).toBeNull();
+      await act(() => expect(back()).toBe(true));
+      expect(f.model.listWorkspaceFiles).toHaveBeenLastCalledWith('synthetic-current', [], expect.any(AbortSignal));
+    } finally { vi.useRealTimers(); }
+  });
   it('opens the official workspace drawer from the list button', async () => {
     const f = await mount(true);
     expect(f.node.querySelector('.creator-studio-target')).toBeNull();

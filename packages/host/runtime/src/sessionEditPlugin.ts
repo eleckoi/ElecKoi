@@ -14,6 +14,7 @@ import { readDshSessionLog, readDshSessionTreeIds, removeDshSessionTree, readDsh
 import { refreshSessionProjections, type SessionProjectionRefreshContext } from './sessionProjectionRefresh'
 import { generatedImageReferences, imageAttachmentReferences, deleteRemovedGeneratedImages, type GeneratedImageCleanupContext } from './generatedImageCleanup'
 import { ELECKOI_FAILURE_CODES, productFailure } from '@eleckoi/dsh-product-api'
+import type { ConversationMessageEdit } from '@eleckoi/dsh-product-api/types'
 
 export const name = 'eleckoi-session-edit'
 export const inject = ['eleckoiSessionHandles', 'sessionPersistence', 'sessionProjections', 'sessionProjectionCache', 'attachments', 'sessions', 'eleckoiProductData', 'workspaceRegistry']
@@ -66,7 +67,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
         } finally { await lease.release() }
       })
     },
-    async editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', content: string): Promise<void> {
+    async editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', content: ConversationMessageEdit): Promise<void> {
       await ctx.eleckoiSessionHandles.withClosed(sessionId, async () => {
         const probe = await ctx.sessionPersistence.open(sessionId as SessionId, 'write')
         await probe.close()

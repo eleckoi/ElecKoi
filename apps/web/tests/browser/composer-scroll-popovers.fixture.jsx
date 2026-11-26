@@ -41,6 +41,15 @@ const studioModel = { subscribe: () => noop, getSnapshot: () => studioPage, rest
 const characterCatalog = { collection: { items: [], groups: [] } };
 const presetCatalog = { catalog: { presets: [], activePresetIds: { roleplay: '', creator: '' } } };
 const sidebarSnapshot = { shown: false };
+const replyNode = { key: 'roleplay-process-reply', kind: 'turn-process', anchorSeq: 1001,
+  location: { kind: 'turn', turn: { turn: 81, status: 'closed', data: { get: noop } } }, data: { turn: 81 } };
+const reply = { id: replyNode.key, role: 'assistant', content: '正文已经显示。', messageIndex: 6, createdAt: '2026-11-25T17:20:00+08:00',
+  renderKey: 'dsh-reply-synthetic-scroll-session-81', runtimeSessionId: 'synthetic-scroll-session', dshTurn: 81,
+  roleplayBlocks: [
+    { id: 'reply:0', kind: 'speech', speakerName: '合成角色乙', text: '正文已经显示。' },
+    { id: 'reply:1', kind: 'speech', speakerName: '合成角色乙', text: '同一位角色的后续正文。' },
+    { id: 'reply:2', kind: 'speech', speakerName: '合成角色甲', text: '另一位角色的正文也已经显示。' },
+  ] };
 const chatProps = {
   sessionId: 'synthetic-scroll-session', useSession: select => select(useSyncExternalStore(subscribe, () => state).session), useChat, useChatNode,
   useContextMenu: () => ({ getTriggerProps: () => ({}) }), useConnectionState: hook('connected'),
@@ -73,13 +82,23 @@ function Composer({ leadingAccessory, tall }) {
 function Fixture() {
   const [activeView, selectView] = useState('chat');
   const [tall, setTall] = useState(false);
+  const [roleplayReply, setRoleplayReply] = useState(null);
+  const [bubbles, setBubbles] = useState(true);
   const scrollRef = useRef(null);
   const activeSession = useSyncExternalStore(subscribe, () => state.session);
   const query = new URLSearchParams(location.search);
   const mobile = query.get('mobile') === 'true';
   const studio = query.get('surface') === 'mobile-studio';
   document.documentElement.dataset.eleckoiMobile = String(mobile);
-  window.scrollPopoverFixture = { selectView, setTall, live(text) {
+  window.scrollPopoverFixture = { selectView, setTall, roleplayRunning(running, bubblesEnabled) {
+    setBubbles(bubblesEnabled);
+    setRoleplayReply({ ...reply, status: running ? 'streaming' : 'complete', pending: running,
+      process: [{ id: 'read-setting', kind: 'tool', toolName: 'eleckoi_read_setting_files', status: running ? 'running' : 'complete' }] });
+    state = { ...state, session: { ...session, running },
+      order: state.order.includes(replyNode.key) ? state.order : [...state.order, replyNode.key],
+      nodes: new Map(state.nodes).set(replyNode.key, replyNode) };
+    listeners.forEach(listener => listener());
+  }, live(text) {
     const key = 'synthetic-streaming-step';
     const node = { key, kind: 'assistant-step', anchorSeq: 1000,
       location: { kind: 'step', turn: { turn: 81, status: 'open', data: { get: noop } } },
@@ -93,7 +112,9 @@ function Fixture() {
     listeners.forEach(listener => listener());
   } };
   const render = (name, owner) => name === 'eleckoi.roleplay.conversation.composer.bar' ? <Composer {...owner} tall={tall} />
-    : name === 'eleckoi.roleplay.chat' ? <ChatView {...chatProps} runningStatusTarget={owner.runningStatusTarget} /> : null;
+    : name === 'eleckoi.roleplay.chat' ? <ChatView {...chatProps} runningStatusTarget={owner.runningStatusTarget}
+      renderSlot={(slot, nodeOwner, options) => slot === 'conversation.chat.node' && nodeOwner.node.key === replyNode.key
+        ? owner.renderChatNode(nodeOwner) : chatProps.renderSlot(slot, nodeOwner, options)} /> : null;
   const tabs = [{ id: 'chat', label: 'Chat' }, { id: 'trajectory', label: 'Trajectory' }];
   const studioView = {
     creatorStudio: { sessions: studioModel },
@@ -114,10 +135,10 @@ function Fixture() {
   };
   return <OfficialMarkdownProvider component={MarkdownText}><main className={mobile ? `mobile-shell${studio ? '' : ' mobile-conversation-page'}` : ''} style={{ height: '100%' }}>
     {studio ? <MainPageContext.Provider value={studioView}><MobileCreatorStudioPage /></MainPageContext.Provider> :
-    <ChatPanel renderConversationContent={createRenderNativeContent} hasActiveChat hasCharacters currentTitle="Synthetic character" persona={{}} messages={[]}
+    <ChatPanel renderConversationContent={createRenderNativeContent} hasActiveChat hasCharacters currentTitle="Synthetic character" persona={{}} messages={roleplayReply ? [roleplayReply] : empty}
       conversationId="synthetic-chat" runtimeSessionId="synthetic-scroll-session" input="" setInput={noop} modelConfigs={[]} scrollRef={scrollRef}
       isSending={activeSession.running}
-      chatDisplay={{ layout_mode: 'roleplay' }} onOpenHistory={() => { window.scrollPopoverFixture.historyOpened = true; }}
+      chatDisplay={{ layout: 'roleplay', roleplay_style: { bubbles_enabled: bubbles } }} onOpenHistory={() => { window.scrollPopoverFixture.historyOpened = true; }}
       renderRoleplaySlot={render} dshConversation={{ activeView, selectView, tabs, renderView: noop }} />}
   </main></OfficialMarkdownProvider>;
 }

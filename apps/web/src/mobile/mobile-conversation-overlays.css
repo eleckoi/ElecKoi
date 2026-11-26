@@ -56,16 +56,11 @@
 .mobile-chat-model-list > button[aria-pressed="true"] { background: var(--active); }
 .mobile-conversation-overlay .mobile-chat-models.mobile-model-editor .model-detail-form .model-section-heading { display: none; }
 .mobile-chat-models .mobile-overlay-scroll:has(.model-detail-form) { background: var(--rail); }
-.mobile-conversation-overlay .mobile-history .history-search { flex: none; height: 48px; margin: 8px 18px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--field-bg); color: var(--text); }
+.mobile-conversation-overlay .mobile-history .history-search { height: 48px; border: 1px solid var(--line); border-radius: 10px; background: var(--field-bg); color: var(--text); }
 .mobile-history .history-search input { font: inherit; font-size: 14px; color: var(--text); }
 .mobile-history .dsh-search-field-icon svg { width: 19px; height: 19px; }
-.mobile-conversation-overlay .mobile-history .history-toolbar { flex: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px 12px; border: 0; }
-.mobile-history .history-retention { display: grid; flex: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; min-width: 230px; padding: 3px; border-radius: 11px; background: var(--control-bg); }
-.mobile-history .history-retention > button { justify-content: center; height: 42px; min-width: 0; padding: 0 8px; border-radius: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; }
-.mobile-history .history-retention > button.active { background: var(--surface-raised); color: var(--text); box-shadow: 0 1px 4px var(--shadow-color); }
-.mobile-history .history-retention button > span { display: none; }
-.mobile-history .history-actions { width: 100%; }
-.mobile-history .history-actions > button { display: flex; justify-content: center; gap: 8px; width: 100%; height: 44px; border-radius: 11px; background: var(--rail); color: var(--text); font-size: 13px; }
+.mobile-conversation-overlay .mobile-history .history-toolbar { flex: none; gap: 8px; padding: 8px 18px 12px; border: 0; }
+.mobile-history .history-toolbar .history-import { height: 48px; }
 .mobile-history .history-list { flex: 1; scrollbar-width: none; padding: 0 10px 32px; }
 .mobile-conversation-overlay .mobile-history .history-day h3 { margin: 0; border: 0; padding: 16px 8px 8px; color: var(--muted); font-size: 12px; }
 .mobile-conversation-overlay .mobile-history .history-item { grid-template-columns: minmax(0, 1fr) 48px 48px; gap: 0; padding: 0 4px 0 8px; border: 0; border-radius: 12px; color: var(--text); }

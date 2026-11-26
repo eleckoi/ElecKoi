@@ -8,7 +8,7 @@ import { MobilePresetEditor, MobilePresetsPage } from '../../src/mobile/MobilePr
 import { PresetProvider, usePresets } from '../../src/modules/presets/components/PresetPanel.jsx';
 import { PresetPromptEditor } from '../../src/modules/presets/components/PresetPromptEditor.jsx';
 import { createEntryDraft, createGroupDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
-import { withRequiredAgentPresetEntries, withRequiredAgentPresetPromptPositions } from '../../../../packages/shared/src/contracts/presets/builtIns';
+import { HIDDEN_TOOL_TIMELINE_ENTRY_TITLE, withRequiredAgentPresetEntries, withRequiredAgentPresetPromptPositions } from '../../../../packages/shared/src/contracts/presets/builtIns';
 
 let root, host, handlers, model, preset, guardRef, notification;
 const button = name => [...document.querySelectorAll('button')].find(node => node.textContent === name || node.getAttribute('aria-label') === name);
@@ -261,13 +261,14 @@ describe('Android preset presentation', () => {
   it('keeps the fixed prompt protection and existing disable confirmation', async () => {
     await mount();
     await section('预设提示词');
-    await click(row('隐藏工具时间线'));
+    const fixedPrompt = () => row(HIDDEN_TOOL_TIMELINE_ENTRY_TITLE);
+    await click(fixedPrompt());
     expect(button('删除').disabled).toBe(true);
     expect(button('移动').disabled).toBe(true);
-    await click(row('隐藏工具时间线').querySelector('[role=switch]'));
+    await click(fixedPrompt().querySelector('[role=switch]'));
     expect(document.querySelector('[role=dialog]')).not.toBeNull();
     await click(button('取消'));
-    expect(row('隐藏工具时间线').querySelector('[role=switch]').getAttribute('aria-checked')).toBe('true');
+    expect(fixedPrompt().querySelector('[role=switch]').getAttribute('aria-checked')).toBe('true');
   });
 
   it('uses a full tool configuration page, restores the list, and discards changes with the existing tab guard', async () => {

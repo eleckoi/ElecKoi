@@ -1,4 +1,5 @@
 import { DEFAULT_CHAT_DISPLAY_PREFERENCES, DEFAULT_CHAT_TEXT_COLORS, DEFAULT_ROLEPLAY_STYLE } from "@shared/contracts/settings/schemas";
+import { groupRoleplayReplyBlocks, messageRoleplayBlocks } from "../../../ui/messages/roleplayReplyGroups.js";
 
 export function resolveRoleplayStyle(preferences) {
   return { ...DEFAULT_ROLEPLAY_STYLE, ...preferences?.roleplay_style };
@@ -144,4 +145,20 @@ export function messageFloorNumber(messages, index) {
     if (floor !== null) return Math.max(0, floor - position + index);
   }
   return index;
+}
+
+export function roleplayFloorNumbers(messages) {
+  let nextBase = messages[0]?.id === 'opening' ? 0 : messageFloorNumber(messages, 0);
+  let extra = 0;
+  const numbers = messages.map(message => {
+    const base = Number.isSafeInteger(message.messageIndex) ? Math.max(nextBase, message.messageIndex) : nextBase;
+    const number = base + extra;
+    if (message.kind !== 'turn-error') {
+      nextBase = base + 1;
+      const groups = groupRoleplayReplyBlocks(messageRoleplayBlocks(message), message.pending).length;
+      extra += Math.max(0, groups - 1);
+    }
+    return number;
+  });
+  return { numbers, next: nextBase + extra };
 }

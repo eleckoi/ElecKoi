@@ -20,12 +20,11 @@ export function PresetProfileActions({ active, activating, onActivate, onEdit, a
 }
 
 export function PresetProfileHeader({ preset, active, onActivate, onEdit, showActivate = true, editingAvailable = false,
-  activating = false, showActions = true, backAction, headingId }) {
+  activating = false, showActions = true, headingId }) {
   const tUi = useProductTranslation();
   const profile = preset.profile;
 
   if (editingAvailable) return <header className="preset-summary">
-    {backAction}
     <Avatar src={profile.authorAvatarPath || defaultPresetAvatar} name={preset.name} className="preset-summary-avatar" />
     <div className="preset-summary-identity"><h1 id={headingId} title={preset.name}>{preset.name}</h1><div className="preset-summary-meta"><span>{profile.authorName || tUi('未填写作者')}</span>{preset.modelTags.map(tag => <span className="preset-summary-tag" key={tag.id}>{tag.label}</span>)}</div></div>
     {showActions && <div className="preset-summary-actions">

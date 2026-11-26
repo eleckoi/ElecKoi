@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { agentPresetContents, agentPresetEntries, agentPresetVersionContents, agentPresets } from '../src/storage/sqlite/schema/common'
+import { agentPresetContents, agentPresetEntries, agentPresetVersionContents, agentPresetVersionEntries, agentPresets } from '../src/storage/sqlite/schema/common'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,6 +9,8 @@ import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
 import { readPngText } from '@eleckoi/dsh-product-data/media'
 import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
 import { agentPresetSchema } from '../../../shared/src/contracts/presets/schemas'
+import { LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT } from '../../../shared/src/contracts/presets/builtIns'
+import { ROLEPLAY_REPLY_GROUP_ID } from '../../../shared/src/contracts/agent/tools'
 import { emptyEntry } from '../src/domain/settingLibraries/index'
 
 const databases: SqliteDatabase[] = []
@@ -164,6 +166,52 @@ describe('agent preset repository', () => {
     expect(enabled.toolGroups.find(group => group.id === plugin.id)?.enabled).toBe(true)
     expect(reopened.runtimeSelection()).toBeTruthy()
   })
+
+  it('upgrades published v19 roleplay prompts and tool settings in current and saved versions', () => {
+    const repository = harness()
+    const preset = repository.create('旧扮演预设')
+    const database = databases[0]!
+    const legacy = { version: 6, includedGroupIds: ['builtin:variables'], enabledGroupIds: [], roleplayPlan: { steps: [
+      '合成自定义步骤', '等前置任务都完成，直接输出 <FINAL> 正文，不要再次调用 update_roleplay_plan；应用检测到正文后会自动完成最终项的标记。'
+    ] } }
+    database.withWriteTx(db => {
+      for (const table of [agentPresetContents, agentPresetVersionContents]) {
+        db.update(table).set({ content: JSON.stringify(legacy) })
+          .where(and(eq(table.presetId, preset.id), eq(table.kind, 'tool_configuration'))).run()
+      }
+      const entry = preset.entries.find(item => item.kind === 'hidden_tool_timeline')!
+      for (const table of [agentPresetEntries, agentPresetVersionEntries]) {
+        db.update(table).set({ payloadJson: JSON.stringify({ ...entry, title: '隐藏工具时间线',
+          content: LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT.replace('浏览设定文件', '先检查航海日志') }) })
+          .where(and(eq(table.presetId, preset.id), eq(table.entryId, entry.id))).run()
+      }
+    })
+    database.native.exec('DROP TABLE character_cast_members; PRAGMA user_version = 19')
+    database.close(); database.open()
+    const reopened = new AgentPresetRepository(database)
+    const migrated = reopened.get(preset.id)
+    const reply = (value: typeof migrated) => value.toolGroups.find(group => group.id === ROLEPLAY_REPLY_GROUP_ID)
+    expect(reply(migrated)).toMatchObject({ included: true, enabled: true, members: [{ name: 'eleckoi_roleplay_reply' }] })
+    expect(migrated.toolGroups.find(group => group.id === 'builtin:variables')?.enabled).toBe(false)
+    const prompt = migrated.entries.find(item => item.kind === 'hidden_tool_timeline')!.content
+    expect(migrated.entries.find(item => item.kind === 'hidden_tool_timeline')?.title).toBe('隐藏工具调用过程')
+    expect(prompt).toContain('先检查航海日志')
+    expect(prompt).toMatch(/^<roleplay_output_protocol>\n/)
+    expect(prompt).toContain('\ntool_phase:')
+    expect(prompt).toMatch(/reply_phase:\n  output: .*eleckoi_roleplay_reply.*下一步必须用 <角色名>对应的角色扮演内容<\/角色名>.*单人调用一次.*多人/)
+    expect(prompt).not.toMatch(/<FINAL>|final_phase|visible_output/)
+    const storedVersionEntry = database.native.prepare('SELECT payloadJson FROM agent_preset_version_entries WHERE presetId = ? AND entryId = ?')
+      .get(preset.id, 'built-in-hidden-tool-timeline') as { payloadJson: string }
+    expect(JSON.parse(storedVersionEntry.payloadJson).content).toBe(prompt)
+    expect(migrated.roleplayPlan.steps).toMatchObject(['合成自定义步骤', expect.stringContaining('eleckoi_roleplay_reply')])
+    expect(reply(reopened.get(reopened.catalog().activePresetIds.creator))).toBeUndefined()
+    const version = database.native.prepare("SELECT content FROM agent_preset_version_contents WHERE presetId = ? AND kind = 'tool_configuration'").get(preset.id) as { content: string }
+    expect(JSON.parse(version.content).enabledGroupIds).toEqual([ROLEPLAY_REPLY_GROUP_ID])
+    reopened.save({ ...migrated, toolGroups: migrated.toolGroups.map(group => group.id === ROLEPLAY_REPLY_GROUP_ID ? { ...group, enabled: false } : group) })
+    database.close(); database.open()
+    expect(reply(new AgentPresetRepository(database).get(preset.id))).toMatchObject({ included: true, enabled: false })
+  })
+
   it.each([101, 1001, 10001])('preserves %i prompts, long tasks and update records through save and database reopen', count => {
     const repository = harness()
     repository.ensureInitialized()
@@ -242,6 +290,7 @@ describe('agent preset repository', () => {
     expect(repository.catalog().groups).toEqual([])
     expect(initial.libraryGroupId).toBe('')
     expect(initial.toolGroups.filter((group) => group.enabled).map((group) => group.id)).toEqual([
+      ROLEPLAY_REPLY_GROUP_ID,
       'builtin:variables',
       'builtin:setting-library'
     ])
@@ -294,7 +343,7 @@ describe('agent preset repository', () => {
     expect(repository.disabledToolGroupIds()).toEqual(saved.toolGroups.filter(group => !group.enabled).map(group => group.id))
     expect(repository.runtimeContext()?.entries.some((entry) => entry.kind === 'history_compaction')).toBe(false)
     expect(repository.runtimeContext()?.entries.find((entry) => entry.kind === 'hidden_tool_timeline')).toMatchObject({
-      content: expect.stringContaining('最终可见回复必须且只能使用一对 <FINAL> 与 </FINAL> 标签完整包裹')
+      content: expect.stringContaining('eleckoi_read_setting_files')
     })
     expect(repository.runtimeContext()?.entries.find((entry) => entry.id.endsWith(':prompt-1'))).toMatchObject({
       id: `agent-preset:${saved.id}:prompt-1`,
@@ -435,6 +484,7 @@ describe('agent preset repository', () => {
       { title: '正文 (2)', enabled: false, role: 'assistant' }
     ])
     expect(result.preset.toolGroups.filter((group) => group.enabled).map((group) => group.id)).toEqual([
+      ROLEPLAY_REPLY_GROUP_ID,
       'builtin:variables',
       'builtin:setting-library'
     ])
@@ -474,8 +524,8 @@ describe('agent preset repository', () => {
       data: avatarPng.toString('base64')
     })
     expect(root.preset.tool_configuration).toEqual({
-      included_group_ids: ['builtin:variables', 'builtin:web'],
-      enabled_group_ids: ['builtin:web']
+      included_group_ids: [ROLEPLAY_REPLY_GROUP_ID, 'builtin:variables', 'builtin:web'],
+      enabled_group_ids: [ROLEPLAY_REPLY_GROUP_ID, 'builtin:web']
     })
     expect(root.preset.roleplay_plan).toEqual({ steps: ['读取设定', '输出正文'] })
     expect(root.preset.active_version_number).toBe(2)
@@ -507,10 +557,11 @@ describe('agent preset repository', () => {
     expect(fromJson.preset.roleplayPlan).toEqual({ steps: ['读取设定', '输出正文'] })
     expect(fromJson.preset.activeVersionNumber).toBe(2)
     expect(fromJson.preset.toolGroups.filter((group) => group.included).map((group) => group.id)).toEqual([
+      ROLEPLAY_REPLY_GROUP_ID,
       'builtin:variables',
       'builtin:web'
     ])
-    expect(fromJson.preset.toolGroups.filter((group) => group.enabled).map((group) => group.id)).toEqual(['builtin:web'])
+    expect(fromJson.preset.toolGroups.filter((group) => group.enabled).map((group) => group.id)).toEqual([ROLEPLAY_REPLY_GROUP_ID, 'builtin:web'])
     expect(fromJson.preset.profile.authorAvatarPath).toMatch(/^eleckoi-media:\/\/asset\/v1\//)
     expect(fromPng.preset.name).toBe('默认扮演预设 3')
     expect(fromPng.preset.profile.authorAvatarPath).toMatch(/^eleckoi-media:\/\/asset\/v1\//)

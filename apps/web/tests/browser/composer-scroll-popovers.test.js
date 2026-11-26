@@ -55,6 +55,25 @@ it('keeps official composer popovers attached through long roleplay scrolling, r
     const evidence = resolve('output/playwright/composer-scroll-popovers'); await mkdir(evidence, { recursive: true });
     await copyFile(report, resolve(evidence, `chromium-${result.chromium}.json`));
     expect(result.errors).toEqual([]);
+    expect(result.roleplayStatus).toHaveLength(2);
+    for (const sample of result.roleplayStatus) {
+      for (const phase of [sample.before, sample.after]) {
+        expect(phase.turnBubble).toBe(false);
+        expect(phase.speakerBubbles).toBe(sample.bubbles ? 2 : 0);
+        expect(phase.speakers).toEqual(['合成角色乙', '合成角色甲']);
+        expect(phase.gap).toBeGreaterThan(0);
+        expect(phase.floors).toEqual(['#6', '#7']);
+        expect(phase.timestampCount).toBe(2);
+      }
+      expect(sample.before.scrollBottom).toBeGreaterThan(1000);
+      expect(sample.before.scrollTop).toBeCloseTo(sample.before.scrollBottom, 0);
+      for (const key of ['composerHeight', 'clearance', 'inputTop']) {
+        expect(sample.after[key], JSON.stringify(sample)).toBeCloseTo(sample.before[key], 0);
+      }
+      expect(sample.after.scrollTop).toBeCloseTo(sample.after.scrollBottom, 0);
+      // The completed controls can change the message's height while its lower edge stays anchored.
+      expect(sample.after.replyBottom, JSON.stringify(sample)).toBeCloseTo(sample.before.replyBottom, 0);
+    }
     expect(result.streaming).toHaveLength(10);
     for (const stream of result.streaming) {
       expect(stream.samples).toHaveLength(24);

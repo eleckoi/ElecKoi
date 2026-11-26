@@ -4,8 +4,9 @@ import '../../../ui/styles/product-dialogs.css';
 import { useMemo, useState } from 'react';
 import { CaretLeft, Plus, CaretRight, MinusCircle } from '../../../ui/icons/interfaceIcons.jsx';
 import { normalizeRoleplayPlanDraft } from '@shared/contracts/presets/roleplayPlan';
+import { ROLEPLAY_REPLY_GROUP_ID } from '@shared/contracts/agent/tools';
 import { AgentToolGroupIcon } from '../../../ui/icons/index.jsx';
-import { RoleplayPlanEditor, SubagentSettingsLink, WebSearchSettings, pluginToolSections } from '../../agentTools/index.js';
+import { RoleplayPlanEditor, RoleplayReplyDisableDialog, SubagentSettingsLink, WebSearchSettings, pluginToolSections } from '../../agentTools/index.js';
 import { PresetContextMenu, usePresetContextMenu } from './PresetContextMenu.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
 import { MobileConversationOverlay } from '../../../mobile/MobileConversationOverlay.jsx';
@@ -32,6 +33,7 @@ export function PresetToolsEditor({
   const [configGroupId, setConfigGroupId] = useState('');
   const [pluginId, setPluginId] = useState('');
   const [managerOpen, setManagerOpen] = useState(false);
+  const [confirmReplyDisable, setConfirmReplyDisable] = useState(false);
   const context = usePresetContextMenu();
   const basicGroups = preset.basicToolGroups || [];
   const visibleGroups = useMemo(() => preset.toolGroups.filter(group => preset.purpose !== 'creator'
@@ -44,7 +46,8 @@ export function PresetToolsEditor({
   const sections = useMemo(() => pluginToolSections(visibleGroups, extraGroups), [visibleGroups, extraGroups]);
   const plugin = [...sections.preset, ...sections.extra].find(group => group.id === pluginId && group.isPlugin);
   const toolSources = [
-    { id: 'built_in', name: tUi("内置工具"), tools: [...basicGroups.map(group => ({ ...group, readOnly: true })), ...visibleGroups.filter(group => group.source === 'built_in')] },
+    { id: 'built_in', name: tUi("内置工具"), tools: [...basicGroups.map(group => ({ ...group, readOnly: true })),
+      ...visibleGroups.filter(group => group.source === 'built_in').map(group => group.id === ROLEPLAY_REPLY_GROUP_ID ? { ...group, readOnly: true } : group)] },
     ...preset.toolGroups.filter(group => group.source === 'mcp').map(group => ({ id: group.id, name: group.name, tools: [group] })),
     ...[...sections.preset, ...sections.extra].filter(group => group.isPlugin),
   ].filter(source => source.tools.length);
@@ -58,6 +61,11 @@ export function PresetToolsEditor({
       ...preset,
       toolGroups: preset.toolGroups.map((group) => group.id === groupId ? { ...group, ...patch } : group),
     });
+  }
+
+  function changeEnabled(groupId, enabled) {
+    if (groupId === ROLEPLAY_REPLY_GROUP_ID && !enabled) setConfirmReplyDisable(true);
+    else updateGroup(groupId, { enabled });
   }
 
   function applyMembership(changes) {
@@ -108,9 +116,9 @@ export function PresetToolsEditor({
         roleplayPlan={preset.roleplayPlan}
         closeBlocked={savePromptOpen}
         onClose={closeConfig}
-        onEnabledChange={(enabled) => updateGroup(configGroup.id, { enabled })}
+        onEnabledChange={(enabled) => changeEnabled(configGroup.id, enabled)}
         onNameChange={(name) => updateGroup(configGroup.id, { name })}
-        onRemove={() => { removeGroup(configGroup); setConfigGroupId(''); }}
+        onRemove={configGroup.id === ROLEPLAY_REPLY_GROUP_ID ? undefined : () => { removeGroup(configGroup); setConfigGroupId(''); }}
         onNotify={onNotify}
         onBeforeOpenSubagentSettings={onBeforeOpenSubagentSettings}
         onRoleplayPlanChange={(roleplayPlan) => onChange({ ...preset, roleplayPlan })}
@@ -120,7 +128,7 @@ export function PresetToolsEditor({
   const Layout = workspace && !compact ? EditorLibraryWorkspace : 'section';
   const workspaceProps = workspace && !compact ? {
     label: tUi('工具'), query, onQueryChange: setQuery,
-    directoryHeading: <h1 className="preset-prompt-directory-title">{tUi('工具')}</h1>,
+    directoryHeading: tUi('工具'),
     directoryActions: <><Button data-dsh-control variant="ghost" className="setting-toolbar-button" icon={<Plus size={17} />}
       aria-label={tUi('管理预设工具')} disabled={savePromptOpen} onClick={() => { setPluginId(''); setManagerOpen(true); }}>{tUi('添加工具')}</Button>{saveAction}</>,
     inspector: configuration || pluginConfiguration,
@@ -137,7 +145,7 @@ export function PresetToolsEditor({
           const groups = section.groups;
           return groups.length ? <div className="preset-tools-source" key={section.id}>
             <div className="preset-tools-section-heading"><strong>{section.label}</strong></div>
-            {groups.map((group) => <section className={`preset-tool-row${group.isPlugin ? ' is-plugin' : ''}${extra || basic ? ' is-extra' : ''}${group.enabled ? '' : ' is-disabled'}${configGroupId === group.id || pluginId === group.id ? ' is-selected' : ''}`} key={group.id} onContextMenu={(event) => { setManagerOpen(false); if (!group.isPlugin && !basic) context.open(event, group); else event.preventDefault(); }}>
+            {groups.map((group) => <section className={`preset-tool-row${group.isPlugin ? ' is-plugin' : ''}${extra || basic ? ' is-extra' : ''}${group.enabled ? '' : ' is-disabled'}${configGroupId === group.id || pluginId === group.id ? ' is-selected' : ''}`} key={group.id} onContextMenu={(event) => { setManagerOpen(false); if (!group.isPlugin && !basic && group.id !== ROLEPLAY_REPLY_GROUP_ID) context.open(event, group); else event.preventDefault(); }}>
               <button type="button" className="preset-tool-summary" aria-haspopup={workspace && !compact ? undefined : 'dialog'} aria-current={configGroupId === group.id || pluginId === group.id ? 'true' : undefined} onClick={() => { setManagerOpen(false); closeConfig(); if (group.isPlugin) setPluginId(group.id); else { setPluginId(''); setConfigGroupId(group.id); } }}>
                 <span className="preset-tool-icon"><AgentToolGroupIcon groupId={group.id} size={17} /></span>
                 <span><strong>{group.name}</strong><small>{group.available === false ? tUi("缺少插件或工具未加载") : group.description}</small></span>
@@ -148,7 +156,7 @@ export function PresetToolsEditor({
                 className="preset-tool-toggle"
                 checked={group.enabled}
                 label={`${group.enabled ? tUi("关闭") : tUi("开启")}${group.name}`}
-                onChange={enabled => updateGroup(group.id, { enabled })}
+                onChange={enabled => changeEnabled(group.id, enabled)}
               />}
             </section>)}
           </div> : null;
@@ -165,6 +173,8 @@ export function PresetToolsEditor({
         { label: tUi("从预设移除"), icon: MinusCircle, run: () => removeGroup(menuGroup) },
       ]} /> : null}
       {!(workspace && !compact) && configuration}
+      <RoleplayReplyDisableDialog open={confirmReplyDisable} onCancel={() => setConfirmReplyDisable(false)}
+        onConfirm={() => { setConfirmReplyDisable(false); updateGroup(ROLEPLAY_REPLY_GROUP_ID, { enabled: false }); }} />
     </Layout>
   );
 }
@@ -225,7 +235,7 @@ function PresetToolConfigDialog({
         </section>
       </>}
     </>}
-    {!extra && <button type="button" className="mobile-preset-tool-remove" onClick={onRemove}><MinusCircle size={18} />{tUi("从预设移除")}</button>}
+    {!extra && onRemove && <button type="button" className="mobile-preset-tool-remove" onClick={onRemove}><MinusCircle size={18} />{tUi("从预设移除")}</button>}
   </div>;
   if (inline) return <section className="preset-tool-config-inline"><header className="preset-document-heading"><button type="button" aria-label={tUi('返回工具列表')} onClick={onClose}><CaretLeft size={18} /></button><AgentToolGroupIcon groupId={group.id} size={21} /><h1>{group.name}</h1></header>{body}</section>;
   if (compact) return <MobileConversationOverlay title={extra ? group.name : tUi("{value0}配置", {value0: group.name})} kind="page" className="mobile-preset-tool-config" busy={closeBlocked} onClose={onClose}>{body}</MobileConversationOverlay>;

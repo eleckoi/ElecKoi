@@ -1,6 +1,7 @@
 import SessionQuery from '@deepseek-ai/dsh-session-query'
 import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
+import { hasRoleplayReplyResult, streamRoleplayReply, streamNextRoleplayReply } from '../helpers/tool-call.js'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -28,6 +29,7 @@ import { ConversationRepository } from '../../packages/host/product-data/src/dom
 import { VariableStateRepository } from '../../packages/host/product-data/src/domain/variables/VariableStateRepository'
 import { VariableConfigRepository } from '../../packages/host/product-data/src/domain/variables/VariableConfigRepository'
 import * as roleplayPlugin from '../../packages/client/features/dsh-client-roleplay/src/index.js'
+import { roleplayReplyMessages } from '@eleckoi/dsh-product-api'
 import { readSessionSnapshot, writeSessionSnapshot } from '../../packages/client/features/dsh-client-roleplay/src/host/session-snapshot.mjs'
 import { readDshSessionLog } from '../../packages/host/runtime/src/trajectory'
 import { rewindDshSession } from '../../packages/host/runtime/src/sessionRewind'
@@ -36,7 +38,7 @@ import * as sessionEditPlugin from '../../packages/host/runtime/src/sessionEditP
 const cleanups = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
 
-async function fixture({ stream, withoutSnapshot = false } = {}) {
+async function fixture({ stream, withoutSnapshot = false, character } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-generation-save-'))
   cleanups.push(() => rmSync(root, { recursive: true, force: true }))
   const path = join(root, 'product.sqlite3')
@@ -49,7 +51,7 @@ async function fixture({ stream, withoutSnapshot = false } = {}) {
   }
   const initial = new SqliteDatabase(path)
   initial.open()
-  const conversationId = new ConversationRepository(initial).create({ title: '合成聊天' }).conversation.id
+  let conversationId = character ? undefined : new ConversationRepository(initial).create({ title: '合成聊天' }).conversation.id
   initial.close()
   const ctx = new Context()
   cleanups.push(() => ctx.fiber.dispose())
@@ -66,6 +68,12 @@ async function fixture({ stream, withoutSnapshot = false } = {}) {
   await ctx.plugin(SessionQuery)
   await ctx.plugin(AgentLoop, { agents: [] })
   await ctx.plugin(productDataPlugin)
+  if (character) {
+    ctx.eleckoiProductData.createCharacter(character)
+    conversationId = ctx.eleckoiProductData.createConversation({
+      title: '合成聊天', metadata: { characterId: character.id, characterName: character.name }
+    }).conversation.id
+  }
   await ctx.plugin(ElecKoiConversationLifecycle)
   const changes = []
   await ctx.plugin({ name: 'synthetic-roleplay-services',
@@ -87,12 +95,12 @@ async function fixture({ stream, withoutSnapshot = false } = {}) {
   class Adapter extends LlmAdapter {
     async resolveModel(provider, id) { return { provider, id, name: id } }
     async *stream(options) {
+      if (hasRoleplayReplyResult(options)) {
+        yield* streamNextRoleplayReply(options)
+        return
+      }
       if (stream) { yield* stream(options); return }
-      const text = '<FINAL>合成正文</FINAL>'
-      yield { type: 'block-start', index: 0, blockType: 'text' }
-      yield { type: 'text-delta', index: 0, text }
-      yield { type: 'block-end', index: 0, block: { type: 'text', text } }
-      yield { type: 'finish', reason: { kind: 'stop' } }
+      yield* streamRoleplayReply('合成正文', options)
     }
   }
   ctx.llm.registerAdapter(['synthetic'], new Adapter())
@@ -127,11 +135,17 @@ function run(f) {
 describe('official Session and product save boundary', { timeout: 30_000 }, () => {
   it('installs the roleplay request projection after preparing a Session first activated without a local snapshot', async () => {
     const requests = [];
-    const f = await fixture({ withoutSnapshot: true, async *stream(options) {
+    const members = [{ id: 'speaker-a', name: '合成角色甲' }, { id: 'speaker-b', name: '合成角色乙' }]
+    const character = { id: 'synthetic-character', name: '合成角色卡',
+      cast: members.map(member => ({ ...member, portraitAssetId: null, circleAssetId: null, squareAssetId: null, crop: null })) }
+    const blocks = [{ name: '合成角色甲', text: '合成第一段\n\n第二自然段' },
+      { name: '合成角色乙', text: '合成另一角色' }]
+    const newMember = { id: 'new-speaker', name: '新角色', portraitAssetId: null, circleAssetId: null, squareAssetId: null, crop: null }
+    const nextBlocks = [{ name: newMember.name, text: '合成新增角色发言' }]
+    const f = await fixture({ withoutSnapshot: true, character, async *stream(options) {
+      if (hasRoleplayReplyResult(options)) return yield* streamNextRoleplayReply(options);
       requests.push(options);
-      yield { type: 'block-start', index: 0, blockType: 'text' };
-      yield { type: 'block-end', index: 0, block: { type: 'text', text: '<FINAL>Synthetic prepared reply</FINAL>' } };
-      yield { type: 'finish', reason: { kind: 'stop' } };
+      yield* streamRoleplayReply(requests.length === 1 ? blocks : nextBlocks);
     } });
     expect(existsSync(join(f.root, `${f.conversationId}.json`))).toBe(false);
     f.ctx.sessionController.resolveAgent = async () => ({ agent: f.handle.agent });
@@ -140,10 +154,28 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     await run(f);
     await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId));
     expect(requests).toHaveLength(1);
-    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(1);
-    expect(readDshSessionLog(join(f.root, 'sessions'), f.conversationId).events.at(-1)).toMatchObject({ type: 'turn/end', data: { reason: { kind: 'completed' } } });
+    const tool = requests[0].tools.find(tool => tool.name === 'eleckoi_roleplay_reply')
+    expect(tool.parameters.properties.name.enum).toEqual(members.map(member => member.name))
+    const systemText = request => request.messages.filter(message => message.role === 'system')
+      .flatMap(message => message.content.map(block => block.text)).join('\n')
+    expect(systemText(requests[0])).not.toMatch(/合成角色甲|合成角色乙/)
+    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(3);
+    const { events } = readDshSessionLog(join(f.root, 'sessions'), f.conversationId)
+    expect(roleplayReplyMessages(events)).toMatchObject([{ blocks:
+      blocks.map(({ name, text }, index) => ({ kind: 'speech', text, speakerName: name, speakerId: members[index].id })) }])
+    expect(events.at(-1)).toMatchObject({ type: 'turn/end', data: { reason: { kind: 'completed' } } });
     await f.ctx.eleckoiPresetRegistrar.selectForSession(f.conversationId);
-    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(1);
+    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(3);
+    f.ctx.eleckoiProductData.updateCharacter({ id: character.id, cast: [...character.cast, newMember] });
+    await f.ctx.eleckoiRoleplaySessions.preparePrompt(f.conversationId, 'Synthetic next input');
+    await run(f);
+    await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId));
+    expect(requests).toHaveLength(2);
+    const nextTool = requests[1].tools.find(tool => tool.name === 'eleckoi_roleplay_reply');
+    expect(nextTool.parameters.properties.name.enum).toEqual([...members, newMember].map(member => member.name));
+    expect(systemText(requests[1])).not.toMatch(/合成角色甲|合成角色乙|新角色/);
+    expect(roleplayReplyMessages(readDshSessionLog(join(f.root, 'sessions'), f.conversationId).events).at(-1)?.blocks)
+      .toMatchObject([{ kind: 'speech', text: nextBlocks[0].text, speakerName: newMember.name, speakerId: newMember.id }]);
   });
 
   it('reassembles a preview with current standing instructions without duplicating the saved system prompt', async () => {
@@ -162,10 +194,65 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     const seq = f.handle.agent.session.seq
     const preview = await f.ctx.eleckoiRoleplaySessions.previewPrompt(f.conversationId, 'Synthetic preview input')
     const system = preview.messages.find(message => message.role === 'system').content.map(block => block.text).join('')
-    expect(system).toBe('Synthetic current {{literal}} instructions\n\nYou are an AI agent powered by DeepSeek Harness.')
+    expect(system).toBe(['Synthetic current {{literal}} instructions',
+      'You are an AI agent powered by DeepSeek Harness.'].join('\n\n'))
     expect(JSON.stringify(preview.messages)).not.toContain('Synthetic old instructions')
     expect(f.handle.agent.session.seq).toBe(seq)
   })
+
+  it('applies AI reply prompt rules to merged historical roleplay text in previews and actual requests', async () => {
+    const names = ['合成发言甲', '合成发言乙']
+    const character = { id: 'synthetic-regex-character', name: '合成角色卡',
+      cast: names.map((name, index) => ({ id: `speaker-${index}`, name, portraitAssetId: null,
+        circleAssetId: null, squareAssetId: null, crop: null })) }
+    const blocks = [{ name: names[0], text: '原文前半。' }, { name: names[0], text: '原文后半。' },
+      { name: names[1], text: '另一角色。' }]
+    const requests = []
+    const f = await fixture({ withoutSnapshot: true, character, async *stream(options) {
+      if (hasRoleplayReplyResult(options)) return yield* streamNextRoleplayReply(options)
+      requests.push(options.messages)
+      yield* streamRoleplayReply(blocks)
+    } })
+    const library = f.ctx.eleckoiProductData.readRegexLibrary('character', character.id)
+    const rule = { id: 'synthetic-reply-prompt', name: '合成回复提示词', pattern: '/原文前半。\\s*原文后半。/g',
+      replacement: '供模型续写的正文。', targets: ['AiOutput'], enabled: true, order: 0,
+      displayOnly: false, promptOnly: true, runOnEdit: false, minDepth: 1, maxDepth: 1 }
+    const displayRule = { ...rule, id: 'synthetic-reply-display', name: '合成回复显示', replacement: '界面中的正文。',
+      displayOnly: true, promptOnly: false, minDepth: 0, maxDepth: 0 }
+    f.ctx.eleckoiProductData.saveRegexLibrary({ ...library, rules: [rule, displayRule] }, [rule.id, displayRule.id])
+    f.ctx.sessionController.resolveAgent = async () => ({ agent: f.handle.agent })
+    const send = async text => {
+      await f.ctx.eleckoiRoleplaySessions.preparePrompt(f.conversationId, text)
+      f.handle.agent.followup(createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } }))
+      await f.handle.agent.whenIdle()
+      await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId))
+    }
+    await send('第一次输入')
+    const originalReply = roleplayReplyMessages(readDshSessionLog(join(f.root, 'sessions'), f.conversationId).events)[0]
+    expect(f.ctx.eleckoiProductData.projectConversationMessages(f.conversationId, [{
+      id: String(originalReply.addressSeq), role: 'assistant', roleplayReply: true, content: originalReply.content,
+      status: 'complete', variableStateJson: '{}', createdAt: new Date(originalReply.event.time).toISOString(),
+      roleplayBlocks: originalReply.blocks
+    }])).toMatchObject([{ roleplayGroups: [
+      { sourceText: '原文前半。\n\n原文后半。', displayText: displayRule.replacement },
+      { sourceText: '另一角色。', displayText: '另一角色。' }
+    ] }])
+    const seq = f.handle.agent.session.seq
+    const preview = await f.ctx.eleckoiRoleplaySessions.previewPrompt(f.conversationId, '第二次输入')
+    expect(f.handle.agent.session.seq).toBe(seq)
+    const expected = '合成发言甲：供模型续写的正文。\n\n合成发言乙：另一角色。'
+    const replyText = messages => messages.filter(message => message.role === 'assistant')
+      .flatMap(message => message.content.map(block => block.text))
+    expect(replyText(preview.messages)).toEqual([expected])
+    await send('第二次输入')
+    expect(requests).toHaveLength(2)
+    expect(replyText(requests[1])).toEqual([expected])
+    const { events } = readDshSessionLog(join(f.root, 'sessions'), f.conversationId)
+    expect(roleplayReplyMessages(events)[0]).toMatchObject({ content: '合成发言甲：原文前半。\n\n原文后半。\n\n合成发言乙：另一角色。',
+      blocks: [{ speakerName: '合成发言甲', text: '原文前半。\n\n原文后半。' }, { speakerName: '合成发言乙', text: '另一角色。' }] })
+    expect(JSON.stringify(events)).not.toContain(rule.replacement)
+  })
+
   it.each([
     ['send', 'text'], ['send', 'reasoning'], ['regeneration', 'text'], ['regeneration', 'reasoning'],
   ])('settles an interrupted %s with only %s before the next input without replaying it', async (mode, interruptedType) => {
@@ -173,10 +260,12 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     const requests = []
     const f = await fixture({ async *stream(options) {
       requests.push(options)
-      const type = requests.length === 1 ? interruptedType : 'text'
-      const text = requests.length === 1
-        ? type === 'reasoning' ? '合成中断思考' : '<FINAL>合成中断正文'
-        : '<FINAL>合成后续正文</FINAL>'
+      if (requests.length > 1) {
+        yield* streamRoleplayReply('合成后续正文', options)
+        return
+      }
+      const type = interruptedType
+      const text = type === 'reasoning' ? '合成中断思考' : '合成中断正文'
       yield { type: 'block-start', index: 0, blockType: type }
       yield { type: `${type}-delta`, index: 0, text }
       if (requests.length === 1) {
@@ -229,7 +318,11 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     const started = Promise.withResolvers()
     let attempts = 0
     const f = await fixture({ async *stream(options) {
-      const text = ++attempts === 1 ? '<FINAL>合成中断正文' : '<FINAL>合成重新生成正文</FINAL>'
+      if (++attempts > 1) {
+        yield* streamRoleplayReply('合成重新生成正文', options)
+        return
+      }
+      const text = '合成中断正文'
       yield { type: 'block-start', index: 0, blockType: 'text' }
       yield { type: 'text-delta', index: 0, text }
       if (attempts === 1) {

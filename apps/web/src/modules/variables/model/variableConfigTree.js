@@ -50,6 +50,7 @@ export function variableTreeNodes(config) {
       ancestorEnabled,
       fixed: false,
       valueType: item.type,
+      defaultValue: item.defaultValue,
       readMode: item.readMode,
       searchText: `${item.title} ${item.description} ${item.updateRule} ${item.type}`.toLocaleLowerCase(),
     };

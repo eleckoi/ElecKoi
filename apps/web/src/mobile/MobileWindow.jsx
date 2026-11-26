@@ -286,7 +286,7 @@ export function MobileWindow(props) {
       />
       <AppUpdateController updates={appUpdates} />
       <HistoryModal open={chat.historyOpen} sessions={chat.sessions} sessionId={chat.sessionId} chatCharacter={chat.chatCharacter} conversationModel={props.conversations}
-        onClose={chat.closeHistory} onLoadChat={chat.loadChat} onDeleteChat={chat.removeHistoryChat} onHistoryPolicyChange={() => chat.refreshSessionsOnly({ keepSection: true })} />
+        onClose={chat.closeHistory} onLoadChat={chat.loadChat} onDeleteChat={chat.removeHistoryChat} onHistoryImported={() => chat.refreshSessionsOnly({ keepSection: true })} />
       <ChatBackgroundModal open={backgroundOpen} character={chat.chatBackgroundCharacter} persona={chat.chatPersona} messages={chat.messages} chatDisplay={appearance.chatDisplay}
         globalWallpaper={appearance.globalChatWallpaper} newCharacterBackground={appearance.newCharacterBackground} onClose={() => setBackgroundOpen(false)} onSaveCharacter={chat.updateChatBackground}
         onSaveGlobal={appearance.saveGlobalChatWallpaper} onSaveNewCharacterBackground={appearance.saveNewCharacterBackground} onNotify={chat.notify} />

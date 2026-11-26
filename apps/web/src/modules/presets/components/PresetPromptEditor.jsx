@@ -1,8 +1,8 @@
 import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Input, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
-import { Code, Copy, DotsThree, FileText, ListChecks, MagnifyingGlass, PencilSimple, Plus, SlidersHorizontal, X } from '../../../ui/icons/interfaceIcons.jsx';
+import { Button, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Code, Copy, DotsThree, FileText, ListChecks, PencilSimple, Plus, SlidersHorizontal, X } from '../../../ui/icons/interfaceIcons.jsx';
 import { isHiddenToolTimelineEntry } from '@shared/contracts/presets/builtIns';
 import { TrashIcon } from '../../../ui/icons/index.jsx';
 import { DshFolderClosedIcon } from '../../../ui/icons/dshTreeIcons.jsx';
@@ -13,6 +13,7 @@ import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.
 import { MobileEditorActions } from '../../../ui/ui/MobileEditorActions.jsx';
 import { EditorCollectionToolbar, EditorSelectionBar, useEditorMultiSelect } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { EditorDirectoryActions } from '../../../ui/ui/EditorDirectoryHeading.jsx';
+import { EditorSearchInput } from '../../../ui/ui/EditorDirectorySearch.jsx';
 import { selectableTreeIds, selectedTreeRootIds, visibleTreeSelectionIds } from '../../../ui/ui/editorCollectionSelection.js';
 import {
   ConfirmationDialog,
@@ -33,8 +34,8 @@ import {
 import { PresetContextMenu, usePresetContextMenu } from './PresetContextMenu.jsx';
 
 const HIDDEN_TIMELINE_DISABLE_CONFIRMATION = {
-  title: '关闭隐藏工具时间线？',
-  message: '关闭后 AI 回复将无法流式显示，请着重考虑。',
+  title: '关闭隐藏工具调用过程？',
+  message: '关闭后，本预设将省略这条提示词。角色回复仍通过回复工具流式显示。',
 };
 
 const CreateFolderIcon = SETTING_LIBRARY_CREATE_ICONS.group;
@@ -47,7 +48,7 @@ export function shouldConfirmHiddenTimelineDisable(entry, nextEnabled) {
 export function PresetPromptEditor({ preset, onChange, saveAction, workspace = false, dirty, saving }) {
   const tUi = useProductTranslation();
   const creatorPreset = preset.purpose === 'creator';
-  const { compact } = useEditorPresentation();
+  const { compact, characterStudio } = useEditorPresentation();
   const [query, setQuery] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -306,16 +307,17 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
   return (
     <Layout className={workspace && !compact ? "preset-prompt-workspace" : `preset-prompt-editor setting-library-layout${multi.active ? ' is-multiselect' : ''}`} aria-label={tUi("预设提示词")} onMouseDown={() => setAddOpen(false)}
       label={tUi('提示词')} query={query} onQueryChange={setQuery}
-      directoryHeading={<h1 className="preset-prompt-directory-title">{tUi('预设提示词')}</h1>}
+      directoryHeading={tUi('预设提示词')} saving={saving} selection={{ ...multi, toggle: toggleMultiSelect }}
       directoryActions={<><Menu portal dense open={addOpen} onClose={() => setAddOpen(false)} anchor={<Button data-dsh-control variant="ghost"
         className="setting-toolbar-button setting-toolbar-create" icon={<Plus size={17} />} disabled={multi.active || saving} aria-label={tUi('新建提示词')}
         aria-haspopup="menu" aria-expanded={addOpen} onClick={() => setAddOpen(!addOpen)}><span>{tUi('新建')}</span></Button>}
         items={[{ id: 'group', label: tUi('文件夹'), icon: <CreateFolderIcon size={16} /> }, { id: 'entry', label: tUi('提示词'), icon: <CreateEntryIcon size={16} /> }]} onSelect={id => createNode(id)} />
-        {saveAction}<Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} anchor={<Button data-dsh-control variant="ghost"
+        <Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} anchor={<Button data-dsh-control variant="ghost"
           className="setting-toolbar-button setting-toolbar-icon" icon={<SlidersHorizontal size={19} />} aria-label={tUi('提示词操作')}
           title={tUi('提示词操作')} aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />}
-          items={[{ id: 'multi', label: multi.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} /> }, { id: 'collapse', label: tUi('收起全部文件夹') }]}
-          onSelect={id => { setMoreOpen(false); if (id === 'multi') toggleMultiSelect(); else onChange({ ...preset, expandedGroupIds: [] }); }} /></>}
+          items={[...(!characterStudio ? [{ id: 'multi', label: multi.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} /> }] : []),
+            { id: 'collapse', label: tUi('收起全部文件夹') }]}
+          onSelect={id => { setMoreOpen(false); if (id === 'multi') toggleMultiSelect(); else onChange({ ...preset, expandedGroupIds: [] }); }} />{saveAction}</>}
       documentLayout inspector={inspector} inspectorTitle={selected?.kind === 'group' ? tUi("文件夹") : selectedValue?.title || tUi("提示词")} onCloseInspector={closeEditor}>
       <div className="setting-library-browser editor-collection-browser">
         {compact && <EditorCollectionToolbar heading={tUi('预设提示词')} query={query} onQueryChange={setQuery} placeholder={tUi('搜索提示词')}
@@ -324,8 +326,7 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
             { label: tUi('提示词'), Icon: CreateEntryIcon, run: () => createNode('entry') },
           ]} />}
         {!workspace && !compact && <div className="setting-library-toolbar editor-collection-toolbar" onMouseDown={(event) => event.stopPropagation()}>
-          <Input data-dsh-control className="editor-collection-search" type="search" icon={<MagnifyingGlass size={16} />}
-            value={query} onChange={(event) => setQuery(event.target.value)} placeholder={tUi("搜索提示词")} aria-label={tUi("搜索提示词")} />
+          <EditorSearchInput className="editor-collection-search" label={tUi("搜索提示词")} query={query} onQueryChange={setQuery} />
           <EditorDirectoryActions label={tUi("提示词操作")}>
           {!compact && <div className="setting-library-add-wrap">
             <Button data-dsh-control type="button" className="setting-toolbar-button setting-toolbar-create" variant="ghost"
@@ -417,6 +418,6 @@ function descendantGroups(groups, groupId) {
   return removed;
 }
 
-function PromptSidebarLayout({ label, query, onQueryChange, directoryHeading, directoryActions, ...props }) {
+function PromptSidebarLayout({ label, query, onQueryChange, directoryHeading, directoryActions, saving, selection, ...props }) {
   return <EditorSidebarLayout {...props} paneClassName="setting-document" />;
 }

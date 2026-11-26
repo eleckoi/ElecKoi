@@ -1,4 +1,4 @@
-import type { ConversationVariableConfiguration } from '@eleckoi/dsh-product-api/types'
+import type { ConversationMessageDisplayInput, ConversationMessageDisplayResult, ConversationMessageEdit, ConversationVariableConfiguration } from '@eleckoi/dsh-product-api/types'
 import type { Context } from '@deepseek-ai/cordis'
 import type { SessionEventLike, SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ConversationSummary, ConversationCreateInput, ConversationDetailsMetadata, ConversationMessageMetadata, ConversationModelSelection, AuthorConversationState, VariableJsonValue, VariableViewerTimeline } from '@eleckoi/dsh-product-api/types'
@@ -25,6 +25,11 @@ export interface ConversationPendingFile { attachmentId: string; name: string; b
 export interface ConversationClientMessage extends Omit<ConversationMessageMetadata, 'dshTurn'> {
   content?: string
   displayContent?: string
+  roleplayReply?: true
+  roleplayBlocks?: ConversationMessageDisplayInput['roleplayBlocks']
+  roleplayGroups?: ConversationMessageDisplayResult['roleplayGroups']
+  /** DSH steps whose spoken text is already rendered in the chat. */
+  roleplayBodyNodeKeys?: string[]
   status: 'complete' | 'streaming' | 'error' | 'cancelled'
   sequence?: number
   productSequence?: number
@@ -378,7 +383,7 @@ export interface ElecKoiConversations {
   /**
    * 修改聊天开场白并刷新消息。
    * @param conversationId - ElecKoi 聊天编号。
-   * @param content - 要保存的消息文本。
+   * @param content - 完整正文，或按原顺序提交的多人回复各段正文。
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
    */
   updateOpening(conversationId: string, content: string): Promise<ConversationClientDetails | null>
@@ -423,7 +428,7 @@ export interface ElecKoiConversations {
    * @param content - 要保存的消息文本。
    * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
    */
-  editMessage(conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: string): Promise<ConversationClientDetails | null>
+  editMessage(conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: ConversationMessageEdit): Promise<ConversationClientDetails | null>
   /**
    * 从指定消息起回退聊天并刷新显示。
    * @param conversationId - ElecKoi 聊天编号。

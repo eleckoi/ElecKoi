@@ -24,7 +24,10 @@ export function MobileEditorHarness({ presetModel, configuration, preset, charac
     const version = { id: 'v1', name: '合成版本', entries: preset.entries.map((entry, i) => ({ ...entry, content: i === 0 && longText ? longText : entry.content })), groups: [], promptPositions: [], expandedGroupIds: [], listAllExpanded: true };
     const variables = Array.from({ length: 24 }, (_, i) => ({ ...createVariableDraft({ variables: [], objects: [] }), id: `variable-${i}`, title: `合成变量 ${i + 1}`, treeViewOrder: i + 1, description: i === 0 && longText ? longText : '变量的中文说明', updateRule: i === 0 && longText ? longText : '根据实际剧情更新' }));
     const variableVersion = { id: 'v1', name: '合成版本', variables, objects: [], initialStateJson: '{}', schemaCode: '', expandedObjectIds: [] };
-    const item = { id, name: '合成角色', persona: { assistant_name: '合成角色' } };
+    const castCount = new URLSearchParams(location.search).has('single-cast') ? 1 : 10;
+    let item = { id, name: '合成角色', persona: { assistant_name: '合成角色' },
+      cast: Array.from({ length: castCount }, (_, i) => ({ id: `cast-${i + 1}`, name: `登场角色 ${i + 1}` })) };
+    records.cast = () => item.cast;
     window.savedMobileRecords = records;
     return {
       route: { kind: character ? 'character-editor' : 'preset-editor', characterId: id }, guardRef, routeBusy: false,
@@ -33,7 +36,10 @@ export function MobileEditorHarness({ presetModel, configuration, preset, charac
         variables: model('variables', { ...variableVersion, characterId: id, activeVersionId: 'v1', versions: [variableVersion] }),
         openings: model('openings', { characterId: id, defaultOpeningMessageId: 'opening-0', openingMessages: Array.from({ length: 24 }, (_, i) => ({ id: `opening-${i}`, title: `合成开场白 ${i + 1}`, content: i === 0 && longText ? longText : '合成开场白正文' })) }),
       },
-      characters: { refresh: async () => ({ items: [item] }) },
+      characters: {
+        refresh: async () => ({ items: [item] }),
+        update: async patch => { item = { ...item, ...patch }; return { items: [item] }; },
+      },
       chat: { characters: { items: [item], groups: [] }, persona: {}, notify: (type, message) => { window.mobileNotice = { type, message }; } },
       registerBackHandler: handler => { handlers.push(handler); return () => handlers.splice(handlers.indexOf(handler), 1); },
       goBack: () => handlers.at(-1)?.(), scrollPositions: new Map(),

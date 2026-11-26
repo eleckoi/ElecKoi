@@ -5,6 +5,8 @@
   --editor-search-background: var(--control-bg, #ebebeb);
 }
 :root[data-theme=dark] .editor-heading-surface { --editor-search-background:#2f2f30; }
+.editor-search-input:has(> input[type="search"]) { background-color: transparent; }
+.editor-search-input input::placeholder { color: var(--dsw-alias-label-secondary, var(--muted)); opacity: 1; }
 .editor-directory-heading { display:flex; flex-direction:column; flex:none; width:100%; gap:var(--editor-heading-gap,12px); min-width:0; margin-bottom:12px; }
 .editor-directory-topline, .editor-directory-scopebar { display:flex; align-items:center; gap:12px 8px; min-width:0; }
 .editor-directory-topline { align-items:flex-start; }
@@ -32,7 +34,7 @@
 .setting-toolbar-group > :first-child > .setting-toolbar-button { border-start-start-radius:7px; border-end-start-radius:7px; }
 .setting-toolbar-group > .setting-toolbar-button:last-child,
 .setting-toolbar-group > :last-child > .setting-toolbar-button { border-start-end-radius:7px; border-end-end-radius:7px; }
-.setting-toolbar-group > :is(.setting-toolbar-button, :has(> .setting-toolbar-button))
+:not(.character-studio-toolbar) > .setting-toolbar-group > :is(.setting-toolbar-button, :has(> .setting-toolbar-button))
   ~ :is(.setting-toolbar-button, :has(> .setting-toolbar-button)) {
   border-inline-start:1px solid var(--dsw-alias-border-l2, var(--line-strong));
 }

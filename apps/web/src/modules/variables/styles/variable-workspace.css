@@ -1,6 +1,5 @@
 @import '../../settingLibraries/styles/setting-workspace.css';
 
-.character-editor-workspace.is-variable-config:has(.variable-workspace) { padding: 0 8px 8px 0; overflow: hidden; background: var(--list); border-radius: 0; }
 .variable-workspace .variable-browser { display: flex; flex: 1; flex-direction: column; height: auto; min-height: 0; }
 .variable-workspace .vv-directory-title { margin: 0; font-size: 15px; line-height: 24px; font-weight: 600; }
 .vv-workspace .setting-directory-heading { min-height: 34px; }
@@ -11,6 +10,9 @@
 .vv-tree .variable-tree-icon { color: var(--dsw-alias-label-secondary); }
 .vv-tree .variable-tree-row.is-selected .variable-tree-icon { color: var(--dsw-alias-label-primary); }
 .vv-tree .variable-tree-required { padding: 0; background: transparent; color: var(--muted); font-size: 11px; }
+.variable-tree-default, .variable-tree-type { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.variable-tree-default { flex: 0 1 auto; min-width: 0; max-width: 22%; overflow: hidden; text-overflow: ellipsis; }
+.variable-tree-type { flex: none; }
 .vv-properties h2 { margin: 0 0 16px; font-size: 14px; line-height: 20px; font-weight: 600; }
 .vv-properties { flex: 1; display: flex; flex-direction: column; }
 .vv-properties h2 { flex-shrink: 0; }

@@ -171,7 +171,7 @@ export class LocalMediaStore {
   }
 }
 
-function decodeImageDataUrl(value: string): DecodedImage {
+export function decodeImageDataUrl(value: string): DecodedImage {
   const match = /^data:([^;,]+);base64,([a-z0-9+/=\r\n]+)$/i.exec(value)
   if (!match) throw new DesktopError(ELECKOI_FAILURE_CODES.mediaInvalid, '图片数据格式无效。', { what: '图片数据' })
   const mediaType = match[1]!.toLowerCase()

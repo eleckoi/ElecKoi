@@ -47,7 +47,7 @@ function legacyFixture() {
   raw.openingMessages.push({ id: 'unbound', title: 'Unbound', content: 'Unbound opening', variableVersionId: '', initialVariableStateJson: '{"discarded":true}' })
   database.native.prepare('UPDATE character_openings SET configurationJson=?').run(JSON.stringify(raw))
   database.native.exec('ALTER TABLE chat_session_variable_states DROP COLUMN identityJson; ALTER TABLE conversation_state_snapshots DROP COLUMN variableIdentityJson')
-  database.native.pragma('user_version=14')
+  database.native.exec('DROP TABLE character_cast_members; DROP TABLE character_catalog_activity; PRAGMA user_version=14')
   const stable = () => Object.fromEntries(['chat_sessions', 'agent_conversations', 'agent_turns', 'chat_session_variable_states', 'conversation_state_snapshots',
     'variable_config_versions', 'variable_config_objects', 'variable_config_variables'].map(table => [table, database.native.prepare(`SELECT * FROM ${table}`).all().map((row: any) => {
       const { identityJson: _currentIdentity, variableIdentityJson: _snapshotIdentity, ...value } = row

@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { isHiddenToolTimelineEntry } from '@shared/contracts/presets/builtIns';
 import { Button, Input, Menu, SegmentedTabs, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives';
-import { CaretDown, DotsThree, Question, Trash } from '../../../ui/icons/interfaceIcons.jsx';
+import { CaretDown, GearSix, Question, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { DshFolderClosedIcon } from '../../../ui/icons/dshTreeIcons.jsx';
 import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.jsx';
 import { FIXED_ENTRY_IDS } from '../model/settingLibraryEditing.js';
@@ -34,7 +35,7 @@ export function SettingLibraryDocument({ selected, library, nameInputRef, Select
   const [toolbarHost, setToolbarHost] = useState(null), [immersiveHost, setImmersiveHost] = useState(null);
   const nameId = useId();
   const entry = selected.value, group = selected.kind === 'group';
-  const fixed = !group && FIXED_ENTRY_IDS.has(entry.id);
+  const fixed = !group && (FIXED_ENTRY_IDS.has(entry.id) || presetPrompt && isHiddenToolTimelineEntry(entry));
   const normal = !group && !fixed && !readOnly;
   const Glyph = group ? DshFolderClosedIcon : SelectedIcon;
   const showRuleSwitch = normal && entry.kind === 'normal';
@@ -70,7 +71,7 @@ export function SettingLibraryDocument({ selected, library, nameInputRef, Select
         <div className="setting-document-actions">
           {entryActions}
           {group && <Menu open={folderMenuOpen} portal dense onClose={() => setFolderMenuOpen(false)}
-            anchor={<Button data-dsh-control variant="outline" className="setting-folder-more" icon={<DotsThree size={18} />}
+            anchor={<Button data-dsh-control variant="outline" className="setting-folder-more" icon={<GearSix size={18} />}
               aria-label={tUi('文件夹操作')} title={tUi('文件夹操作')} aria-haspopup="menu" aria-expanded={folderMenuOpen} disabled={saving}
               onClick={() => setFolderMenuOpen(!folderMenuOpen)} />}
             items={[{ id: 'delete', label: tUi('删除文件夹'), icon: <Trash size={15} />, danger: true }]}

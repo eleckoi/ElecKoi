@@ -14,7 +14,7 @@
 - `ctx.remote.eleckoiConversationModels`：`current`、`parameters`、`saveParameters`、`select`
 - `ctx.remote.eleckoiConversations`：`authorState`、`changes`、`create`、`delete`、`deleteMessagesFrom`、`details`、`editMessage`、`exportArchive`、`fork`、`importArchive`、`list`、`preparePrompt`、`projectDisplay`、`readGeneratedImage`、`regenerateImage`、`regenerateMessage`、`rename`、`replaceVariableState`、`requestPreview`、`requestPreviews`、`revealFile`、`selectOpening`、`selectVariableVersion`、`startRegeneration`、`updateOpening`、`variableConfiguration`、`variableTimeline`、`waitForGeneration`
 - `ctx.remote.eleckoiCreatorStudio`：`changes`、`create`、`delete`、`list`
-- `ctx.remote.eleckoiCreatorStudioSessions`：`create`、`delete`、`deleteMessagesFrom`、`editUserMessage`、`list`、`messages`、`open`、`pin`、`regenerate`、`rename`、`selectCharacter`
+- `ctx.remote.eleckoiCreatorStudioSessions`：`create`、`delete`、`deleteMessagesFrom`、`editUserMessage`、`editWorkspaceFiles`、`exportWorkspaceFiles`、`importWorkspaceFile`、`list`、`listWorkspaceFiles`、`messages`、`open`、`pin`、`regenerate`、`rename`、`selectCharacter`
 - `ctx.remote.eleckoiDisplayPreferences`：`read`、`setChatDisplay`、`updateUi`
 - `ctx.remote.eleckoiModels`：`discoverModels`、`revealApiKey`
 - `ctx.remote.eleckoiPersona`：`changes`、`read`、`save`
@@ -30,7 +30,7 @@ import type {
   TypertRemoteMethod,
 } from '@deepseek-ai/dsh-typert-protocol'
 import type { FrontendExport, FrontendFile, FrontendFileInput, FrontendFileQuery, FrontendImport, FrontendJson, FrontendOwner, FrontendReplaceFiles, FrontendWorkspace, NativeFrontendChange } from '@eleckoi/dsh-product-api/frontends'
-import type { AgentPreset, AgentPresetCatalog, AgentPresetExportFormat, AgentPresetExportResult, AgentPresetImportDocument, AgentPresetImportResult, AgentPresetImportSource, AgentPresetPurpose, AuthorConversationState, CharacterAssetCatalog, CharacterAssetUpload, CharacterAssetUploadTicket, CharacterCollection, CharacterConfigurationChange, CharacterExportFormat, CharacterExportResult, CharacterGroupAssignment, CharacterImportFile, CharacterImportPreview, CharacterImportResult, CharacterImportSource, CharacterOpeningMessage, CharacterOpenings, CharacterRecord, ConversationChange, ConversationCreateInput, ConversationDetailsMetadata, ConversationMessageDisplayInput, ConversationMessageDisplayResult, ConversationModelSelection, ConversationRequestPreview, ConversationRequestPreviewSummary, ConversationSummary, ConversationVariableConfiguration, CreateCreatorProjectInput, CreatorProjectCollection, CreatorStudioMessage, CreatorStudioSession, CreatorStudioSessionSummary, DisplayPreferencesSnapshot, DisplayPreferenceValue, EditorLibraryAddress, EditorLibrarySaveRequest, EditorLibrarySaveResult, EditorLibraryVersions, ElecKoiHostStatus, GlobalSettingLibraryCollection, ModelDiscoveryInput, ModelDiscoveryResult, NativeAuthorRuleReply, NativeAuthorRuleTask, NativeAuthorScriptCatalog, NativeAuthorScriptIdentity, NativeAuthorScriptSettings, PersonaProfile, ProductRecordChange, RegexEditorTarget, RegexRule, RegexRuleCollection, RegexRuleEditorCollection, RegexRuleEditorImportResult, RegexRuleImportDocument, RegexRuleImportResult, RegexRuleScope, RegexRuleTarget, RegexRuleTestResult, ScriptLibrary, ScriptLibraryScope, ScriptWorkspace, SessionModelParameterPatch, SessionModelParameterState, SettingLibrary, SettingLibraryContent, SettingLibraryConversation, SettingLibraryEntry, SettingLibraryEntryUpdate, TavilyConnection, VariableConfig, VariableViewerTimeline, WebFetchMode, WebSearchMode } from '@eleckoi/dsh-product-api/types'
+import type { AgentPreset, AgentPresetCatalog, AgentPresetExportFormat, AgentPresetExportResult, AgentPresetImportDocument, AgentPresetImportResult, AgentPresetImportSource, AgentPresetPurpose, AuthorConversationState, CharacterAssetCatalog, CharacterAssetUpload, CharacterAssetUploadTicket, CharacterCollection, CharacterConfigurationChange, CharacterExportFormat, CharacterExportResult, CharacterGroupAssignment, CharacterImportFile, CharacterImportPreview, CharacterImportResult, CharacterImportSource, CharacterOpeningMessage, CharacterOpenings, CharacterRecord, ConversationChange, ConversationCreateInput, ConversationDetailsMetadata, ConversationMessageDisplayInput, ConversationMessageDisplayResult, ConversationMessageEdit, ConversationModelSelection, ConversationRequestPreview, ConversationRequestPreviewSummary, ConversationSummary, ConversationVariableConfiguration, CreateCreatorProjectInput, CreatorProjectCollection, CreatorStudioMessage, CreatorStudioSession, CreatorStudioSessionSummary, DisplayPreferencesSnapshot, DisplayPreferenceValue, EditorLibraryAddress, EditorLibrarySaveRequest, EditorLibrarySaveResult, EditorLibraryVersions, ElecKoiHostStatus, GlobalSettingLibraryCollection, ModelDiscoveryInput, ModelDiscoveryResult, NativeAuthorRuleReply, NativeAuthorRuleTask, NativeAuthorScriptCatalog, NativeAuthorScriptIdentity, NativeAuthorScriptSettings, PersonaProfile, ProductRecordChange, RegexEditorTarget, RegexRule, RegexRuleCollection, RegexRuleEditorCollection, RegexRuleEditorImportResult, RegexRuleImportDocument, RegexRuleImportResult, RegexRuleScope, RegexRuleTarget, RegexRuleTestResult, ScriptLibrary, ScriptLibraryScope, ScriptWorkspace, SessionModelParameterPatch, SessionModelParameterState, SettingLibrary, SettingLibraryContent, SettingLibraryConversation, SettingLibraryEntry, SettingLibraryEntryUpdate, TavilyConnection, VariableConfig, VariableViewerTimeline, WebFetchMode, WebSearchMode, WorkspaceFileEdit, WorkspaceFileEntry, WorkspaceFileExport, WorkspaceFileImport, WorkspaceFileSelection } from '@eleckoi/dsh-product-api/types'
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespace$656c65636b6f694167656e7450726573657473 {
@@ -157,7 +157,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     delete: (conversationId: string) => Promise<RemoteResult<void>>
     deleteMessagesFrom: (conversationId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<{ details: ConversationDetailsMetadata; deletedMessageCount: number; remainingMessageCount: number; }>>
     details: (conversationId: string, beforeSequence?: number, limit?: number) => Promise<RemoteResult<ConversationDetailsMetadata>>
-    editMessage: (conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: string) => Promise<RemoteResult<ConversationDetailsMetadata>>
+    editMessage: (conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: ConversationMessageEdit) => Promise<RemoteResult<ConversationDetailsMetadata>>
     exportArchive: (conversationId: string) => Promise<RemoteResult<string>>
     fork: (conversationId: string, atSeq: number | undefined, retainedTurnIds: string[], title: string) => Promise<RemoteResult<string>>
     importArchive: (characterId: string, json: string) => Promise<RemoteResult<string>>
@@ -191,7 +191,11 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     delete: (sessionId: string) => Promise<RemoteResult<void>>
     deleteMessagesFrom: (sessionId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<void>>
     editUserMessage: (sessionId: string, eventSeq: number, content: string) => Promise<RemoteResult<void>>
+    editWorkspaceFiles: (sessionId: SessionId, path: string[], edit: WorkspaceFileEdit, signal?: AbortSignal) => Promise<RemoteResult<void>>
+    exportWorkspaceFiles: (sessionId: SessionId, path: string[], entries: WorkspaceFileSelection[], signal?: AbortSignal) => RemoteStreamHandle<WorkspaceFileExport, true>
+    importWorkspaceFile: (sessionId: SessionId, path: string[], name: string, size: number, signal?: AbortSignal) => RemoteStreamHandle<WorkspaceFileImport, string>
     list: () => Promise<RemoteResult<CreatorStudioSessionSummary[]>>
+    listWorkspaceFiles: (sessionId: SessionId, path: string[], signal?: AbortSignal) => Promise<RemoteResult<{ name: string; entries: WorkspaceFileEntry[]; }>>
     messages: (sessionId: string) => Promise<RemoteResult<CreatorStudioMessage[]>>
     open: (sessionId: string) => Promise<RemoteResult<CreatorStudioSession>>
     pin: (sessionId: string, pinned: boolean) => Promise<RemoteResult<void>>
@@ -331,7 +335,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'eleckoiConversations/delete': (conversationId: string) => Promise<RemoteResult<void>>
     'eleckoiConversations/deleteMessagesFrom': (conversationId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<{ details: ConversationDetailsMetadata; deletedMessageCount: number; remainingMessageCount: number; }>>
     'eleckoiConversations/details': (conversationId: string, beforeSequence?: number, limit?: number) => Promise<RemoteResult<ConversationDetailsMetadata>>
-    'eleckoiConversations/editMessage': (conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: string) => Promise<RemoteResult<ConversationDetailsMetadata>>
+    'eleckoiConversations/editMessage': (conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: ConversationMessageEdit) => Promise<RemoteResult<ConversationDetailsMetadata>>
     'eleckoiConversations/exportArchive': (conversationId: string) => Promise<RemoteResult<string>>
     'eleckoiConversations/fork': (conversationId: string, atSeq: number | undefined, retainedTurnIds: string[], title: string) => Promise<RemoteResult<string>>
     'eleckoiConversations/importArchive': (characterId: string, json: string) => Promise<RemoteResult<string>>
@@ -361,7 +365,11 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'eleckoiCreatorStudioSessions/delete': (sessionId: string) => Promise<RemoteResult<void>>
     'eleckoiCreatorStudioSessions/deleteMessagesFrom': (sessionId: string, eventSeq: number, role: 'user' | 'assistant') => Promise<RemoteResult<void>>
     'eleckoiCreatorStudioSessions/editUserMessage': (sessionId: string, eventSeq: number, content: string) => Promise<RemoteResult<void>>
+    'eleckoiCreatorStudioSessions/editWorkspaceFiles': (sessionId: SessionId, path: string[], edit: WorkspaceFileEdit, signal?: AbortSignal) => Promise<RemoteResult<void>>
+    'eleckoiCreatorStudioSessions/exportWorkspaceFiles': (sessionId: SessionId, path: string[], entries: WorkspaceFileSelection[], signal?: AbortSignal) => RemoteStreamHandle<WorkspaceFileExport, true>
+    'eleckoiCreatorStudioSessions/importWorkspaceFile': (sessionId: SessionId, path: string[], name: string, size: number, signal?: AbortSignal) => RemoteStreamHandle<WorkspaceFileImport, string>
     'eleckoiCreatorStudioSessions/list': () => Promise<RemoteResult<CreatorStudioSessionSummary[]>>
+    'eleckoiCreatorStudioSessions/listWorkspaceFiles': (sessionId: SessionId, path: string[], signal?: AbortSignal) => Promise<RemoteResult<{ name: string; entries: WorkspaceFileEntry[]; }>>
     'eleckoiCreatorStudioSessions/messages': (sessionId: string) => Promise<RemoteResult<CreatorStudioMessage[]>>
     'eleckoiCreatorStudioSessions/open': (sessionId: string) => Promise<RemoteResult<CreatorStudioSession>>
     'eleckoiCreatorStudioSessions/pin': (sessionId: string, pinned: boolean) => Promise<RemoteResult<void>>
@@ -511,7 +519,7 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'eleckoiConversations/delete': TypertRemoteMethod<{ readonly 'conversationId': string }, void>
   readonly 'eleckoiConversations/deleteMessagesFrom': TypertRemoteMethod<{ readonly 'conversationId': string; readonly 'eventSeq': number; readonly 'role': 'user' | 'assistant' }, { details: ConversationDetailsMetadata; deletedMessageCount: number; remainingMessageCount: number; }>
   readonly 'eleckoiConversations/details': TypertRemoteMethod<{ readonly 'conversationId': string; readonly 'beforeSequence'?: number; readonly 'limit'?: number }, ConversationDetailsMetadata>
-  readonly 'eleckoiConversations/editMessage': TypertRemoteMethod<{ readonly 'conversationId': string; readonly 'eventSeq': number; readonly 'role': 'user' | 'assistant'; readonly 'content': string }, ConversationDetailsMetadata>
+  readonly 'eleckoiConversations/editMessage': TypertRemoteMethod<{ readonly 'conversationId': string; readonly 'eventSeq': number; readonly 'role': 'user' | 'assistant'; readonly 'content': ConversationMessageEdit }, ConversationDetailsMetadata>
   readonly 'eleckoiConversations/exportArchive': TypertRemoteMethod<{ readonly 'conversationId': string }, string>
   readonly 'eleckoiConversations/fork': TypertRemoteMethod<{ readonly 'conversationId': string; readonly 'atSeq'?: number | undefined; readonly 'retainedTurnIds': string[]; readonly 'title': string }, string>
   readonly 'eleckoiConversations/importArchive': TypertRemoteMethod<{ readonly 'characterId': string; readonly 'json': string }, string>
@@ -541,7 +549,11 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'eleckoiCreatorStudioSessions/delete': TypertRemoteMethod<{ readonly 'sessionId': string }, void>
   readonly 'eleckoiCreatorStudioSessions/deleteMessagesFrom': TypertRemoteMethod<{ readonly 'sessionId': string; readonly 'eventSeq': number; readonly 'role': 'user' | 'assistant' }, void>
   readonly 'eleckoiCreatorStudioSessions/editUserMessage': TypertRemoteMethod<{ readonly 'sessionId': string; readonly 'eventSeq': number; readonly 'content': string }, void>
+  readonly 'eleckoiCreatorStudioSessions/editWorkspaceFiles': TypertRemoteMethod<{ readonly 'sessionId': SessionId; readonly 'path': string[]; readonly 'edit': WorkspaceFileEdit }, void>
+  readonly 'eleckoiCreatorStudioSessions/exportWorkspaceFiles': TypertRemoteMethod<{ readonly 'sessionId': SessionId; readonly 'path': string[]; readonly 'entries': WorkspaceFileSelection[] }, WorkspaceFileExport, 'stream', true>
+  readonly 'eleckoiCreatorStudioSessions/importWorkspaceFile': TypertRemoteMethod<{ readonly 'sessionId': SessionId; readonly 'path': string[]; readonly 'name': string; readonly 'size': number }, WorkspaceFileImport, 'stream', string>
   readonly 'eleckoiCreatorStudioSessions/list': TypertRemoteMethod<{  }, CreatorStudioSessionSummary[]>
+  readonly 'eleckoiCreatorStudioSessions/listWorkspaceFiles': TypertRemoteMethod<{ readonly 'sessionId': SessionId; readonly 'path': string[] }, { name: string; entries: WorkspaceFileEntry[]; }>
   readonly 'eleckoiCreatorStudioSessions/messages': TypertRemoteMethod<{ readonly 'sessionId': string }, CreatorStudioMessage[]>
   readonly 'eleckoiCreatorStudioSessions/open': TypertRemoteMethod<{ readonly 'sessionId': string }, CreatorStudioSession>
   readonly 'eleckoiCreatorStudioSessions/pin': TypertRemoteMethod<{ readonly 'sessionId': string; readonly 'pinned': boolean }, void>

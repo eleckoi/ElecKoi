@@ -1,7 +1,7 @@
 import type { MouseEvent, ReactNode } from 'react'
 import type { CharacterRecord } from '@eleckoi/dsh-product-api/types'
 
-export type CharacterEditorSection = 'card' | 'openings' | 'lore' | 'variables' | 'regex' | 'scripts' | 'frontend' | 'assets' | 'dynamic'
+export type CharacterEditorSection = 'card' | 'cast' | 'openings' | 'lore' | 'variables' | 'regex' | 'scripts' | 'frontend' | 'assets' | 'dynamic'
 export type CharacterLibrarySurface = 'pc-sidebar' | 'pc-manager' | 'android'
 export type CharacterLibrarySort = 'default' | 'newest' | 'oldest' | 'edited' | 'name'
 
@@ -251,6 +251,11 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
       kind: 'chain'
       scope: 'root'
       owner: CharacterEditorCardOwner
+    }
+    'eleckoi.character.editor.cast': {
+      kind: 'chain'
+      scope: 'root'
+      owner: Pick<CharacterEditorCardOwner, 'fallback' | 'characterId'>
     }
     'eleckoi.character.editor.openings': {
       kind: 'chain'

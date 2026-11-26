@@ -1,7 +1,20 @@
 import { z } from 'zod'
+import { projectionCacheDomainSpec } from '@deepseek-ai/dsh-session-projection-cache'
+import { roleplayReplyText } from '@eleckoi/dsh-product-api'
+import { ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_TOOL, roleplayReplyResult } from './roleplay-reply-tool.mjs'
 
 const schema = z.string().max(480)
+const previewStateSchema = z.object({
+  preview: schema,
+  turn: z.number().int().nonnegative(),
+  reply: schema,
+  selection: z.object({ step: z.number(), names: z.array(z.string()) }).optional(),
+})
 const activitySchema = z.number().int().nonnegative()
+const toPreview = text => [...text.trim()].slice(0, 240).join('')
+const replyBody = blocks => Array.isArray(blocks)
+  ? blocks.map(block => typeof block?.text === 'string' ? block.text.trim() : '').filter(Boolean).join('\n\n')
+  : ''
 
 /** A single replayable timestamp covers new input and regeneration without copying message history. */
 export const conversationActivityProjection = {
@@ -20,16 +33,82 @@ export const conversationActivityProjection = {
 /** The official projection cache owns the bounded catalog preview across restarts and rewinds. */
 export const conversationPreviewProjection = {
   key: 'eleckoiConversationPreview',
-  stateVersion: 1,
-  stateSchema: schema,
-  init: () => '',
+  stateVersion: 5,
+  stateSchema: previewStateSchema,
+  init: () => ({ preview: '', turn: 0, reply: '' }),
   apply(state, event) {
+    if (event.type === 'turn/start') return { preview: state.preview, turn: event.data.turn, reply: '' }
+    if (event.type === 'turn/end' && event.data.turn === state.turn) return { preview: state.preview, turn: 0, reply: '' }
+    if (state.turn && event.data?.turn === state.turn) {
+      const selection = roleplayReplyResult(event)
+      if (selection) {
+        const step = event.data.step + 1
+        const names = state.selection?.step === step ? state.selection.names : []
+        return { ...state, selection: { step, names: [...names, selection.speaker.speakerName] } }
+      }
+      if (event.type === 'assistant/message' && state.selection?.step === event.data.step) {
+        const text = event.data.interrupted || state.selection.names.length !== 1 ? ''
+          : roleplayReplyText(event.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join(''), state.selection.names[0])
+        const reply = toPreview([state.reply, text].filter(Boolean).join('\n\n'))
+        return { ...state, selection: undefined, reply, preview: reply || state.preview }
+      }
+      if (event.type === 'assistant/message' && event.data.message.content.some(block => block.type === 'tool-call' && block.name === ROLEPLAY_REPLY_TOOL)) {
+        return state
+      }
+      if (event.type === ROLEPLAY_OUTPUT_EVENT && typeof event.data.editedText === 'string') {
+        const reply = toPreview(Array.isArray(event.data.editedBlocks) ? replyBody(event.data.editedBlocks) : event.data.editedText)
+        return { ...state, reply, preview: reply }
+      }
+    }
     let message
     if (event.type === 'user/message' && event.data.source?.kind === 'user') message = event.data
-    if (event.type === 'assistant/message' && event.surfaceOp === 'append') message = event.data.message
+    if (event.type === 'assistant/message' && event.surfaceOp === 'append'
+      && !(state.reply && event.data.turn === state.turn)) message = event.data.message
     if (!message) return state
-    const text = message.content.filter(block => block.type === 'text').map(block => block.text).join('').trim()
-    return text ? [...text].slice(0, 240).join('') : state
+    const text = toPreview(message.content.filter(block => block.type === 'text').map(block => block.text).join(''))
+    return text ? { ...state, preview: text } : state
   },
-  wire: { viewSchema: schema, view: state => state }
+  wire: { viewSchema: schema, view: state => state.preview }
+}
+
+/**
+ * RETIRE WHEN: 受支持的升级与备份恢复样本均无 v5 之前的会话摘要缓存。
+ * Host 启动时从原日志重算旧摘要，替换带工具收尾或角色名的缓存值，不改 Session 或 SQLite。
+ * 届时删除本函数、启动调用和专用缓存重算测试。
+ */
+export async function rebuildConversationPreviewCache(ctx, signal) {
+  const key = conversationPreviewProjection.key
+  const version = conversationPreviewProjection.stateVersion
+  const outdatedRow = row => row && row.ver < version
+  const table = ctx.storageDomain.get(projectionCacheDomainSpec.name).table('sessions')
+  const outdated = [...table.entries()].filter(([, record]) => outdatedRow(record.rows[key]))
+  if (!outdated.length) return
+  const sessionIds = new Set(ctx.eleckoiProductData.readConversationCatalog().map(record => record.runtimeSessionId))
+  let changed = false
+  for (const [id, record] of outdated) {
+    if (signal.aborted) break
+    if (!sessionIds.has(id)) continue
+    let reader
+    try {
+      reader = await ctx.sessionPersistence.open(id, 'read', { signal })
+      const { header, inheritedEventCount } = reader
+      const matches = ({ identity }) => identity.formatVersion === header.version
+        && identity.createdAt === header.createdAt && identity.cwd === header.cwd
+        && identity.isSeeded === header.isSeeded && (identity.inheritedEventCount ?? 0) === inheritedEventCount
+      if (!matches(record)) continue
+      const { events } = await reader.read(0, undefined, { signal })
+      if (signal.aborted) break
+      const { checkpoint } = ctx.sessionProjections.restore(record.rows, events, 0, header, inheritedEventCount)
+      const stored = await table.update(id, current => {
+        if (signal.aborted || !matches(current) || !outdatedRow(current.rows[key]) || current.rows[key].seq > checkpoint[key].seq) return current
+        return { ...current, rows: { ...current.rows, [key]: checkpoint[key] } }
+      })
+      changed ||= matches(stored) && stored.rows[key]?.ver === version
+    } catch (error) {
+      if (!signal.aborted) ctx.logger.warn(`更新角色对话摘要缓存失败 (${id})：${String(error)}`)
+    } finally {
+      await reader?.close()
+    }
+  }
+  if (changed && !signal.aborted) ctx.eleckoiConversationChanges.publish({ kind: 'snapshot' })
 }

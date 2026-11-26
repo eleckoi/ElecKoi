@@ -13,6 +13,7 @@ import { SettingLibraryTree, SettingTreeActionsContext } from "./SettingLibraryT
 import { EditorSidebarLayout } from "../../../ui/ui/EditorSidebarLayout.jsx";
 import { EditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
 import { useEditorPresentation } from '../../../ui/ui/EditorPresentationContext.jsx';
+import { SidebarScrollArea } from '../../../ui/ui/SidebarScrollArea.jsx';
 import { MobileEditorActions } from '../../../ui/ui/MobileEditorActions.jsx';
 import { EditorCollectionToolbar, EditorSelectionBar, useEditorMultiSelect } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { selectableTreeIds, selectedTreeRootIds, visibleTreeSelectionIds } from '../../../ui/ui/editorCollectionSelection.js';
@@ -48,7 +49,8 @@ function nodeIcon(entry) {
 
 export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ characterId, settingLibraries, globalSettingLibraries, onDirtyChange }, ref) {
   const tUi = useProductTranslation();
-  const { compact } = useEditorPresentation();
+  const { compact, characterStudio } = useEditorPresentation();
+  const TreeViewport = characterStudio && !compact ? SidebarScrollArea : 'div';
   const scopePanelId = useId();
   const [scope, setScope] = useState('character');
   const [selectedKey, setSelectedKey] = useState("");
@@ -421,7 +423,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
   const Layout = compact ? EditorSidebarLayout : SettingLibraryWorkspace;
   const onManage = () => setManagerAction('manage');
   const layoutProps = { scope, onScopeChange: changeScope, globalAvailable: globals.available, panelId: scopePanelId, query, onQueryChange: setQuery,
-    createItems, selectionActive: multi.active, saving, library, roleLibrary, onLibraryChange: applyManagerChange, onManage, save: saveControl };
+    createItems, selection: { active: multi.active, toggle: toggleSelection }, saving, library, roleLibrary, onLibraryChange: applyManagerChange, onManage, save: saveControl };
 
   const importAction = scope === 'global' ? <GlobalSettingLibraryImport state={globals} settingLibraries={settingLibraries} disabled={saving || multi.active} /> :
     <SettingLibraryImportMenu label={tUi('导入角色设定库')} disabled={saving || !roleLibrary || multi.active}
@@ -450,7 +452,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
           {!compact && <button type="button" className="setting-selection-done" onClick={toggleSelection}>{tUi('完成')}</button>}
         </EditorSelectionBar>
 
-        <div id={scopePanelId} role={globals.available ? 'tabpanel' : undefined} aria-label={scope === 'character' ? tUi("角色设定库") : tUi("全局设定库")} className="setting-library-tree editor-sidebar-directory"
+        <TreeViewport id={scopePanelId} role={globals.available ? 'tabpanel' : undefined} aria-label={scope === 'character' ? tUi("角色设定库") : tUi("全局设定库")} className="setting-library-tree editor-sidebar-directory"
           onMouseDown={scope === 'character' ? handleTreeMouseDown : undefined} onContextMenu={scope === 'character' ? openTreeContextMenu : undefined}>
           {scope === 'global' ? <GlobalSettingLibrariesDirectory state={globals} query={query} disabled={saving} editor={{ compact, selection: multi, selectedKey, clipboard, openEditor, openContextMenu, openTreeContextMenu,
             moveLibrary: (id, drop) => {
@@ -477,7 +479,7 @@ export const SettingLibraryPanel = forwardRef(function SettingLibraryPanel({ cha
           {!library ? error && <p className="setting-library-loading" role="alert">{error}</p> : !searchHasResults ? <p className="setting-library-empty">{tUi("没有匹配的设定")}</p> : null}
           </div>
           </>}
-        </div>
+        </TreeViewport>
         {compact && library && !multi.active && <MobileEditorActions label={tUi("设定操作")} selectionId={selectedKey} busy={saving}
           createItems={createItems}
           canEdit={Boolean(selected.value)} canModify={Boolean(selected.value) && !PINNED_ENTRY_IDS.has(selected.value.id)}

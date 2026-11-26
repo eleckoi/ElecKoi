@@ -6,7 +6,9 @@ import { RoleplayInputMenu } from "./RoleplayInputMenu.jsx";
 import { useConversationWidthPreference } from '../hooks/useConversationWidthPreference.js';
 import { PinnedAvatar } from "./PinnedAvatar.jsx";
 import { AgentProcessDialog } from "./AgentProcessDialog.jsx";
+import { AgentProcessStatus } from "./AgentProcessStatus.jsx";
 import { OfficialProcessNode } from "./OfficialProcessNode.jsx";
+import { liveProcessPresentation } from "../model/agentProcessPresentation.js";
 import { officialProcessPart, officialProcessTurn } from '../model/officialProcessNodes.js';
 import { VariableViewerDialog } from "./VariableViewerDialog.jsx";
 import { RequestPreviewDialog } from "./RequestPreviewDialog.jsx";
@@ -20,6 +22,7 @@ import { DshNewChatIcon } from "../../../ui/icons/dshComposerIcons.jsx";
 import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   chatDisplayCssVariables,
+  roleplayFloorNumbers,
   resolveRoleplayStyle,
   roleplayStyleCssVariables,
   chatTextColorCssVariables,
@@ -266,6 +269,10 @@ export function ChatPanel({
     return () => window.removeEventListener("keydown", switchOpening);
   }, [deleteMode, input, isSending, onSelectOpening, openingMessage, processMessage]);
 
+  const { layout: layoutMode, profile } = resolveChatDisplayProfile(chatDisplay);
+  const floorNumbers = useMemo(() => layoutMode === 'roleplay' ? roleplayFloorNumbers(displayedMessages) : null,
+    [layoutMode, displayedMessages]);
+
   if (!hasActiveChat) {
     return (
       <section className="chat-panel chat-panel-empty-state" aria-label={tUi("未选择聊天")}>
@@ -288,7 +295,10 @@ export function ChatPanel({
     );
   }
 
-  const { layout: layoutMode, profile } = resolveChatDisplayProfile(chatDisplay);
+  const liveRoleplayMessage = layoutMode === "roleplay" && activeView === "chat" && runtimeSessionId && !isSwitchingChat
+    ? displayedMessages.findLast(item => item.role === "assistant" && item.pending && item.runtimeSessionId === runtimeSessionId)
+    : null;
+  const roleplayProcess = liveRoleplayMessage ? liveProcessPresentation(liveRoleplayMessage.process, tUi) : null;
   const roleplayStyle = resolveRoleplayStyle(chatDisplay);
   const avatarShape = resolveChatAvatarShape(layoutMode, profile?.avatar_shape || "portrait");
   const displayStyle = {
@@ -379,12 +389,14 @@ export function ChatPanel({
   const rowProps = {
     conversationId, messages: displayedMessages, layoutMode, profile, avatarShape,
     userAvatar, assistantAvatar,
+    openingCharacter: pageView?.chat?.chatBackgroundCharacter?.id === characterId ? pageView?.chat?.chatBackgroundCharacter : undefined,
     userPinImage: persona.user_portrait || persona.user_square || userAvatar,
     assistantPinImage: persona.assistant_cover || persona.assistant_square || assistantAvatar,
     onPinAvatar: setPinnedAvatar, userName: persona.user_name, assistantName: persona.assistant_name,
     onEditCharacter: characterId ? editChatCharacter : undefined,
     showRoleplayTimestamp: chatDisplay?.roleplay_timestamps_enabled !== false,
     showRoleplayFloor: chatDisplay?.roleplay_message_floors_enabled !== false,
+    floorNumbers,
     onOpenProcess: setProcessMessage, onEditMessage,
     onEditOpening: isSending ? undefined : onEditOpening,
     onSelectOpening: isSending ? undefined : onSelectOpening,
@@ -396,7 +408,7 @@ export function ChatPanel({
   const officialChat = isSwitchingChat ? null : renderRoleplaySlot?.("eleckoi.roleplay.chat", {
     ...dshConversation?.viewOwner,
     before: opening,
-    runningStatusTarget,
+    runningStatusTarget: layoutMode === "roleplay" ? null : runningStatusTarget,
     followTailRequestId: scrollRequest?.source === "regeneration" ? scrollRequest.revision : undefined,
     renderChatNode: (owner, renderOfficial, renderIndex) => {
       const { node } = owner;
@@ -405,7 +417,11 @@ export function ChatPanel({
       const turn = officialProcessTurn(owner);
       const answer = answersByTurn.get(turn);
       const part = officialProcessPart(owner, answer);
-      const row = seat === undefined ? undefined : seat ? <MessageList {...rowProps} seat={seat} officialNode /> : null;
+      const waitingForBody = layoutMode === "roleplay" && seat?.item.role === "assistant" && seat.item.pending
+        && !String(seat.item.displayContent ?? seat.item.content ?? "").trim()
+        && !seat.item.roleplayBlocks?.length;
+      const row = seat === undefined ? undefined
+        : seat && !waitingForBody ? <MessageList {...rowProps} seat={seat} officialNode /> : null;
       if (processTarget && processMessage?.runtimeSessionId === runtimeSessionId
         && processMessage.dshTurn === turn && part && renderOfficial) {
         return <>{row}<OfficialProcessNode target={processTarget} owner={owner} renderOfficial={renderOfficial}
@@ -459,7 +475,11 @@ export function ChatPanel({
               </div>
             ) : (
               <>
-                <div className="chat-running-seat" ref={setRunningStatusTarget} data-chat-running-seat="" />
+                <div className="chat-running-seat" ref={setRunningStatusTarget} data-chat-running-seat="">
+                  {roleplayProcess ? <div className="roleplay-composer-process">
+                    <AgentProcessStatus presentation={roleplayProcess} onClick={() => setProcessMessage(liveRoleplayMessage)} />
+                  </div> : null}
+                </div>
                 {dshInputZone ? renderRoleplaySlot?.("eleckoi.roleplay.conversation.input.dock", dshInputZone) : null}
                 {composedInput}
               </>
@@ -547,6 +567,7 @@ export function MessageList({
   avatarShape,
   userAvatar,
   assistantAvatar,
+  openingCharacter,
   userPinImage,
   assistantPinImage,
   onPinAvatar,
@@ -555,6 +576,7 @@ export function MessageList({
   assistantName,
   showRoleplayTimestamp,
   showRoleplayFloor,
+  floorNumbers,
   onOpenProcess,
   onEditMessage,
   onEditOpening,
@@ -618,12 +640,13 @@ export function MessageList({
           avatarShape={avatarShape}
           userAvatar={userAvatar}
           assistantAvatar={assistantAvatar}
+          openingCharacter={item.id === 'opening' || item.roleplayBlocks?.length ? openingCharacter : undefined}
           userPinImage={userPinImage}
           assistantPinImage={assistantPinImage}
           userName={userName}
           assistantName={assistantName}
           isLatestAssistant={index === latestAssistantIndex}
-          floorNumber={messageFloorNumber(messages, index)}
+          floorNumber={floorNumbers?.numbers[index] ?? floorNumbers?.next ?? messageFloorNumber(messages, index)}
           showRoleplayTimestamp={showRoleplayTimestamp}
           showRoleplayFloor={showRoleplayFloor}
           onOpenProcess={onOpenProcess}
@@ -657,6 +680,7 @@ const MessageRow = memo(function MessageRow({
   avatarShape,
   userAvatar,
   assistantAvatar,
+  openingCharacter,
   userPinImage,
   assistantPinImage,
   userName,
@@ -705,6 +729,7 @@ const MessageRow = memo(function MessageRow({
   const canMutate = item.id === "opening" ? item.canChangeOpening === true : Number.isSafeInteger(item.sessionEventSeq);
   const bubble = <MessageBubble
     message={item}
+    openingCharacter={openingCharacter}
     avatar={item.role === "user" ? userAvatar : assistantAvatar}
     pinSrc={item.role === "user" ? userPinImage : assistantPinImage}
     name={item.role === "user" ? userName : assistantName}

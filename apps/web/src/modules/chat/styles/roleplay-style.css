@@ -16,7 +16,34 @@
 /* The message-flow row owns spacing. A second article margin doubles the gap. */
 .chat-panel:is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-flow-row .message-roleplay { margin-bottom: 0; }
 
-.chat-panel.layout-roleplay[data-roleplay-bubbles] .message-area [data-chat-scroll] { padding-top: 0; }
+.chat-panel.layout-roleplay.view-chat[data-roleplay-bubbles] .message-area [data-chat-scroll] { padding-top: 0; }
+
+.roleplay-reply-waiting {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--chat-line-height, calc(24px + var(--dsh-content-font-delta, 0px)));
+  color: var(--dsw-alias-label-secondary, var(--muted));
+}
+
+.roleplay-reply-waiting > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: .7;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .roleplay-reply-waiting > span { animation: roleplay-reply-dot 1.2s ease-in-out infinite; }
+  .roleplay-reply-waiting > span:nth-child(2) { animation-delay: .14s; }
+  .roleplay-reply-waiting > span:nth-child(3) { animation-delay: .28s; }
+}
+
+@keyframes roleplay-reply-dot {
+  20% { transform: translateY(-3px); opacity: 1; }
+  40%, 100% { transform: translateY(0); opacity: .7; }
+}
 
 :is(.chat-panel, .chat-display-preview):is([data-roleplay-backdrop], [data-roleplay-bubbles]) .message-roleplay {
   padding-block: 14px;
@@ -59,8 +86,10 @@
 }
 
 @container chat-panel (min-width: 600px) {
-  .chat-panel[data-roleplay-backdrop] .message-roleplay {
+  .chat-panel[data-roleplay-backdrop] :is(.message-roleplay, .roleplay-reply-turn) {
     max-width: calc(var(--dsh-chat-user-width, 900px) + 160px);
+  }
+  .chat-panel[data-roleplay-backdrop] .message-roleplay {
     grid-template-columns: calc(var(--chat-avatar-width, 65px) + var(--chat-avatar-gap, 10px) + 21px) minmax(0, 1fr) 64px;
   }
   .chat-panel[data-roleplay-backdrop] .message-roleplay > :is(.avatar, .message-floor) { margin-left: 14px; }

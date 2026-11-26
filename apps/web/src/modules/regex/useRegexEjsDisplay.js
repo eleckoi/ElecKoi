@@ -23,7 +23,7 @@ export function useRegexEjsDisplay(message, content) {
   }, [content, message.id, message.conversationId, message.role, message.status, message.pending,
     message.content, message.variableState, message.nativeVariableStateJson, message.variableStateJson, message.variableSnapshotAvailable]);
   const [accepted, setAccepted] = useState(null);
-  const original = message.role === 'assistant' ? finalReplyText(message.content ?? '') : message.content ?? '';
+  const original = message.role === 'assistant' && !message.roleplayReply ? finalReplyText(message.content ?? '') : message.content ?? '';
   useEffect(() => {
     if (!input) return undefined;
     const controller = new AbortController();

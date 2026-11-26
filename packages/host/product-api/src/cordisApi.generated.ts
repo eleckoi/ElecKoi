@@ -891,9 +891,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '本轮产品保存完成；此方法不启动模型。',
       },
       {
-        signature: '@Remote async editMessage( conversationId: string, eventSeq: number, role: \'user\' | \'assistant\', content: string ): Promise<ConversationDetailsMetadata>',
+        signature: '@Remote async editMessage( conversationId: string, eventSeq: number, role: \'user\' | \'assistant\', content: ConversationMessageEdit ): Promise<ConversationDetailsMetadata>',
         description: '修改同一官方 Session 中的用户或模型消息，刷新投影并发布消息变更。',
-        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'eventSeq', description: '官方 Session 中待修改消息的事件序号。' }, { name: 'role', description: '消息角色，必须与指定事件中的消息一致。' }, { name: 'content', description: '保存后替换原正文的完整文本。' }],
+        parameters: [{ name: 'conversationId', description: 'ElecKoi 聊天编号。' }, { name: 'eventSeq', description: '官方 Session 中待修改消息的事件序号。' }, { name: 'role', description: '消息角色，必须与指定事件中的消息一致。' }, { name: 'content', description: '完整正文，或按原顺序提交的多人回复各段正文。' }],
         returns: '修改后的聊天详情与元数据；消息不存在或角色不一致时抛出错误。',
       },
       {
@@ -964,6 +964,29 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     summary: 'AI 创作工作室的 DSH 会话与永久编辑目标。',
     description: 'AI 创作工作室的 DSH 会话与永久编辑目标。',
     methods: [
+      {
+        signature: '@Remote({ resources: { session: (sessionId) => sessionId } }) async listWorkspaceFiles(sessionId: SessionId, path: string[], signal: AbortSignal): Promise<{ name: string; entries: WorkspaceFileEntry[] }>',
+        description: '读取安卓创作工作室当前文件夹的直接子项。',
+        parameters: [{ name: 'sessionId', description: '当前创作会话。' }, { name: 'path', description: '工作区相对目录的路径分量。' }, { name: 'signal', description: '取消当前目录读取。' }],
+        returns: '工作区名称与当前文件夹的全部直接子项。',
+      },
+      {
+        signature: '@Remote({ resources: { session: (sessionId) => sessionId } }) async editWorkspaceFiles(sessionId: SessionId, path: string[], edit: WorkspaceFileEdit, signal: AbortSignal): Promise<void>',
+        description: '修改安卓创作工作区的文件或文件夹。',
+        parameters: [{ name: 'sessionId', description: '当前创作会话。' }, { name: 'path', description: '工作区相对目录的路径分量。' }, { name: 'edit', description: '用户明确选择的操作、条目版本与目标。' }, { name: 'signal', description: '取消尚未完成的文件操作。' }],
+      },
+      {
+        signature: '@Remote({ mode: \'stream\', resources: { session: (sessionId) => sessionId } }) async *importWorkspaceFile(sessionId: SessionId, path: string[], name: string, size: number, signal: AbortSignal): RemoteStream<WorkspaceFileImport, string>',
+        description: '将系统选中的文件分段写入安卓创作工作区。',
+        parameters: [{ name: 'sessionId', description: '当前创作会话。' }, { name: 'path', description: '导入目标目录的路径分量。' }, { name: 'name', description: '系统文件选择器提供的文件名。' }, { name: 'size', description: '文件的字节数。' }, { name: 'signal', description: '取消传输并清理未完成的文件。' }],
+        returns: '每段确认的字节偏移和最终写入完成事件。',
+      },
+      {
+        signature: '@Remote({ mode: \'stream\', resources: { session: (sessionId) => sessionId } }) async *exportWorkspaceFiles(sessionId: SessionId, path: string[], entries: WorkspaceFileSelection[], signal: AbortSignal): RemoteStream<WorkspaceFileExport, true>',
+        description: '导出安卓创作工作区里选中的文件或文件夹。',
+        parameters: [{ name: 'sessionId', description: '当前创作会话。' }, { name: 'path', description: '所选条目所在目录的路径分量。' }, { name: 'entries', description: '用户选中的文件或文件夹及各自版本。' }, { name: 'signal', description: '取消当前导出。' }],
+        returns: '文件名、按客户端请求发送的字节片段和完成事件。文件夹或多项导出为 ZIP。',
+      },
       {
         signature: '@Remote list(): Promise<CreatorStudioSessionSummary[]>',
         description: '列出工作室的正式 DSH 会话。',
@@ -1154,9 +1177,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '各消息的正式事件与轮次标识。',
       },
       {
-        signature: 'editMessage(sessionId: string, eventSeq: number, role: \'user\' | \'assistant\', content: string): Promise<void>',
+        signature: 'editMessage(sessionId: string, eventSeq: number, role: \'user\' | \'assistant\', content: ConversationMessageEdit): Promise<void>',
         description: '修改一条消息并刷新官方投影。',
-        parameters: [{ name: 'sessionId', description: '官方 Session 编号。' }, { name: 'eventSeq', description: '消息事件序号。' }, { name: 'role', description: '消息角色。' }, { name: 'content', description: '新的完整消息文本。' }],
+        parameters: [{ name: 'sessionId', description: '官方 Session 编号。' }, { name: 'eventSeq', description: '消息事件序号。' }, { name: 'role', description: '消息角色。' }, { name: 'content', description: '完整正文，或按原顺序提交的多人回复各段正文。' }],
         returns: '消息修改和投影刷新完成。',
       },
       {
@@ -1324,6 +1347,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CharacterAssetUploadTicket = Pick<AssetDomain.CharacterAssetUploadTicket, keyof AssetDomain.CharacterAssetUploadTicket>;',
   },
   {
+    name: 'CharacterCastMember',
+    declaration: 'export interface CharacterCastMember {\n    id: string;\n    name: string;\n    portraitAssetId: string | null;\n    circleAssetId: string | null;\n    squareAssetId: string | null;\n    crop: {\n        zoom: number;\n        offset: {\n            x: number;\n            y: number;\n        };\n        rotation: number;\n    } | null;\n}',
+  },
+  {
     name: 'CharacterCollection',
     declaration: 'export interface CharacterCollection {\n    active_character_id: string;\n    groups: string[];\n    items: CharacterRecord[];\n}',
   },
@@ -1365,7 +1392,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterOpeningMessage',
-    declaration: 'export interface CharacterOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string | undefined;\n}',
+    declaration: 'export interface CharacterOpeningMessage {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string | undefined;\n    segments?: Array<{\n        id: string;\n        text: string;\n    } & ({\n        kind: \'cover\';\n    } | {\n        kind: \'speech\';\n        speakerId: string;\n    })> | undefined;\n}',
   },
   {
     name: 'CharacterOpenings',
@@ -1377,7 +1404,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'CharacterRecord',
-    declaration: 'export interface CharacterRecord {\n    id: string;\n    addedAtEpochMs?: number;\n    editedAtEpochMs?: number;\n    authorName?: string;\n    authorAvatar?: string;\n    name?: string;\n    avatar?: string;\n    group?: string;\n    groupName?: string;\n    groupViewOrder?: number;\n    folder?: string;\n    frontendBeautyEnabled?: boolean | number;\n    profileAge?: string;\n    profileSex?: string;\n    profileHeight?: string;\n    profileBirthday?: string;\n    profileLike?: string;\n    showOpening?: boolean | number;\n    chatBackground?: string;\n    chatBackgroundOpacity?: number;\n    chatBackgroundBlur?: number;\n    chatBackgroundScrim?: number;\n    chatBackgroundCustom?: {\n        image: string;\n        opacity: number;\n        blur: number;\n        scrim: number;\n    };\n    primaryOpening?: string;\n    persona?: CharacterPersona;\n}',
+    declaration: 'export interface CharacterRecord {\n    id: string;\n    cast?: CharacterCastMember[] | undefined;\n    addedAtEpochMs?: number;\n    editedAtEpochMs?: number;\n    authorName?: string;\n    authorAvatar?: string;\n    name?: string;\n    avatar?: string;\n    group?: string;\n    groupName?: string;\n    groupViewOrder?: number;\n    folder?: string;\n    frontendBeautyEnabled?: boolean | number;\n    profileAge?: string;\n    profileSex?: string;\n    profileHeight?: string;\n    profileBirthday?: string;\n    profileLike?: string;\n    showOpening?: boolean | number;\n    chatBackground?: string;\n    chatBackgroundOpacity?: number;\n    chatBackgroundBlur?: number;\n    chatBackgroundScrim?: number;\n    chatBackgroundCustom?: {\n        image: string;\n        opacity: number;\n        blur: number;\n        scrim: number;\n    };\n    primaryOpening?: string;\n    persona?: CharacterPersona;\n}',
   },
   {
     name: 'ConversationChange',
@@ -1393,11 +1420,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConversationMessageDisplayInput',
-    declaration: 'export interface ConversationMessageDisplayInput {\n    id: string;\n    role: \'user\' | \'assistant\';\n    content: string;\n    variableStateJson: string;\n    status: \'complete\' | \'streaming\' | \'error\' | \'cancelled\';\n    createdAt: string;\n    reasoning?: ConversationReasoningDisplayInput[];\n}',
+    declaration: 'export interface ConversationMessageDisplayInput {\n    id: string;\n    role: \'user\' | \'assistant\';\n    content: string;\n    roleplayReply?: true;\n    variableStateJson: string;\n    status: \'complete\' | \'streaming\' | \'error\' | \'cancelled\';\n    createdAt: string;\n    reasoning?: ConversationReasoningDisplayInput[];\n    openingSegments?: ConversationOpeningSegmentDisplayInput[];\n    roleplayBlocks?: ConversationRoleplayBlockDisplayInput[];\n}',
   },
   {
     name: 'ConversationMessageDisplayResult',
-    declaration: 'export interface ConversationMessageDisplayResult {\n    id: string;\n    sourceContent: string;\n    displayContent: string;\n    variableStateJson: string;\n    reasoning?: ConversationReasoningDisplayResult[];\n}',
+    declaration: 'export interface ConversationMessageDisplayResult {\n    id: string;\n    sourceContent: string;\n    displayContent: string;\n    variableStateJson: string;\n    reasoning?: ConversationReasoningDisplayResult[];\n    openingSegments?: ConversationOpeningSegmentDisplayResult[];\n    roleplayGroups?: ConversationOpeningSegmentDisplayResult[];\n}',
+  },
+  {
+    name: 'ConversationMessageEdit',
+    declaration: 'export type ConversationMessageEdit = string | Array<{\n    id: string;\n    text: string;\n}>;',
   },
   {
     name: 'ConversationMessageMetadata',
@@ -1413,7 +1444,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'ConversationOpeningOption',
-    declaration: 'export interface ConversationOpeningOption {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string;\n    displayContent?: string;\n    initialVariableStateJson: string;\n}',
+    declaration: 'export interface ConversationOpeningOption {\n    id: string;\n    title: string;\n    content: string;\n    variableVersionId?: string;\n    displayContent?: string;\n    segments?: Array<{\n        id: string;\n        kind: \'cover\' | \'speech\';\n        text: string;\n        speakerId?: string | undefined;\n        speakerName?: string | undefined;\n        speakerAvatar?: string | undefined;\n        speakerCrop?: CharacterCastMember[\'crop\'] | undefined;\n        displayContent?: string | undefined;\n    }>;\n    initialVariableStateJson: string;\n}',
+  },
+  {
+    name: 'ConversationOpeningSegmentDisplayInput',
+    declaration: 'export interface ConversationOpeningSegmentDisplayInput {\n    id: string;\n    text: string;\n}',
+  },
+  {
+    name: 'ConversationOpeningSegmentDisplayResult',
+    declaration: 'export interface ConversationOpeningSegmentDisplayResult {\n    id: string;\n    sourceText: string;\n    displayText: string;\n}',
   },
   {
     name: 'ConversationReasoningDisplayInput',
@@ -1434,6 +1473,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ConversationRequestPreviewSummary',
     declaration: 'export interface ConversationRequestPreviewSummary {\n    id: string;\n    round: number | null;\n    request: number;\n    turn: number;\n    step: number;\n    provider: string;\n    model: string;\n}',
+  },
+  {
+    name: 'ConversationRoleplayBlockDisplayInput',
+    declaration: 'export interface ConversationRoleplayBlockDisplayInput extends ConversationOpeningSegmentDisplayInput {\n    kind: \'speech\' | \'cover\';\n    speakerId?: string;\n    speakerName?: string;\n}',
   },
   {
     name: 'ConversationRuntimeSettingLibrary',
@@ -1782,6 +1825,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'WebSearchMode',
     declaration: 'export type WebSearchMode = \'automatic\' | \'provider_native\' | \'tavily\' | \'deepseek_search_api\';',
+  },
+  {
+    name: 'WorkspaceFileEdit',
+    declaration: 'export type WorkspaceFileEdit = {\n    kind: \'mkdir\';\n    name: string;\n} | {\n    kind: \'rename\';\n    entry: WorkspaceFileSelection;\n    name: string;\n} | {\n    kind: \'delete\';\n    entries: WorkspaceFileSelection[];\n} | {\n    kind: \'copy\' | \'move\';\n    entries: WorkspaceFileSelection[];\n    destination: string[];\n};',
+  },
+  {
+    name: 'WorkspaceFileEntry',
+    declaration: 'export interface WorkspaceFileEntry {\n    name: string;\n    address?: string;\n    kind: \'file\' | \'directory\' | \'other\';\n    bytes: number;\n    modifiedAt: number;\n    version: string;\n}',
+  },
+  {
+    name: 'WorkspaceFileExport',
+    declaration: 'export type WorkspaceFileExport = {\n    kind: \'file\';\n    name: string;\n    mime: string;\n} | {\n    kind: \'chunk\';\n    data: string;\n} | {\n    kind: \'complete\';\n};',
+  },
+  {
+    name: 'WorkspaceFileImport',
+    declaration: 'export type WorkspaceFileImport = {\n    kind: \'ready\';\n    offset: number;\n} | {\n    kind: \'complete\';\n};',
+  },
+  {
+    name: 'WorkspaceFileSelection',
+    declaration: 'export interface WorkspaceFileSelection {\n    name: string;\n    version: string;\n}',
   },
 ]
 

@@ -1,7 +1,7 @@
 import { createNovelAiImageGeneration } from './host/novelai-image-generation.mjs'
 import { capturedImageResult } from '@eleckoi/dsh-client-roleplay/host/generated-image-result.mjs'
 import { illustrationInstructions, prepareAutomaticIllustration, prepareIllustration } from './host/configuration.mjs'
-import { installIllustrationStream } from './host/illustration-stream.mjs'
+import { installReplyIllustrations } from './host/reply-illustrations.mjs'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 
 export const name = 'eleckoi-auto-illustration'
@@ -10,11 +10,13 @@ export const inject = ['agents', 'llm', 'sessions', 'settings', 'credentials', '
 
 export function apply(ctx) {
   const images = createNovelAiImageGeneration(ctx)
+  const replyIllustrations = installReplyIllustrations(ctx, images, id => ctx.eleckoiRoleplaySessions.configuration(id))
   ctx.provide('eleckoiAutoIllustration', {
     instructions(snapshot) {
       const state = prepareAutomaticIllustration(ctx, snapshot)
       return state ? illustrationInstructions(state.settings) : ''
     },
+    validateReplyFrames: replyIllustrations.validate,
     async regenerateImage(sessionId, batchId, frameId, snapshot, signal) {
       const state = prepareIllustration(ctx.settings, snapshot)
       if (!state) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition,
@@ -29,8 +31,7 @@ export function apply(ctx) {
       })
     }
   })
-  const stop = installIllustrationStream(ctx, images, id => ctx.eleckoiRoleplaySessions.configuration(id))
   ctx.effect(() => async () => {
-    try { await stop() } finally { await images.close() }
+    try { await replyIllustrations.stop() } finally { await images.close() }
   }, 'automatic illustration tasks')
 }

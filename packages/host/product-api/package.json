@@ -80,6 +80,7 @@
     "@deepseek-ai/dsh-cordis-host-runner": "0.2.2-rc.5",
     "@deepseek-ai/dsh-cordis-client-runner": "0.2.2-rc.5",
     "@deepseek-ai/dsh-util-values": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-util-workspace-path": "0.2.2-rc.5",
     "@deepseek-ai/dsh-session-query": "0.2.2-rc.5"
   },
   "devDependencies": {
@@ -509,7 +510,7 @@
         "id": "eleckoiCreatorStudioSessionsRemote",
         "kind": "remote",
         "title": "AI 创作工作室会话",
-        "description": "通过正式 DSH 会话创建、恢复工作室对话并选择角色编辑目标。",
+        "description": "创建、恢复工作室对话并选择角色编辑目标。Android Host 还装配了当前会话的工作区文件操作。",
         "mode": "call",
         "scope": "host",
         "relation": "provides",
@@ -524,7 +525,11 @@
           "messages",
           "deleteMessagesFrom",
           "editUserMessage",
-          "regenerate"
+          "regenerate",
+          "listWorkspaceFiles",
+          "editWorkspaceFiles",
+          "importWorkspaceFile",
+          "exportWorkspaceFiles"
         ],
         "owner": "eleckoiCreatorStudioSessions"
       }

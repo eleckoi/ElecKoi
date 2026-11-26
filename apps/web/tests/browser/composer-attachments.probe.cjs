@@ -136,6 +136,28 @@ app.whenReady().then(async () => {
     await wait(`document.querySelector('[role="group"]')?.children.length===2`);
     await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
     writeFileSync(join(dirname(reportPath), 'official-upload.png'), (await win.webContents.capturePage({ x: 0, y: 0, width: 390, height: 90 })).toPNG());
-    writeFileSync(reportPath, JSON.stringify({ attachments: reports, queues, menus, longMenu }, null, 2)); win.destroy(); app.exit(0);
+    const androidBackspace = [];
+    win.webContents.setUserAgent('Mozilla/5.0 (Linux; Android 15; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/137.0.0.0 Mobile Safari/537.36');
+    await win.loadURL(menuUrl.href);
+    await wait('!!window.composerFixture && !!document.querySelector("[data-composer-input]")');
+    const cdp = win.webContents.debugger;
+    cdp.attach();
+    try {
+      for (const [text, start, end] of [['啊啊啊啊啊啊啊啊啊啊', 5, 5], ['（甲）', 2, 2], ['啊甲乙啊', 1, 3], ['啊甲', 2, 2]]) {
+        await evaluate(`window.composerFixture.selectDraft(${JSON.stringify(text)}, ${start}, ${end})`);
+        await settle();
+        // Exercise Blink's cancellable beforeinput without the hardware keydown deletion path.
+        await cdp.sendCommand('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Unidentified', commands: ['DeleteBackward'] });
+        await settle();
+        androidBackspace.push(await evaluate(`({
+          text: document.querySelector('[data-composer-input]').textContent,
+          offset: window.getSelection().anchorOffset,
+          collapsed: window.getSelection().isCollapsed
+        })`));
+      }
+    } finally {
+      cdp.detach();
+    }
+    writeFileSync(reportPath, JSON.stringify({ attachments: reports, queues, menus, longMenu, androidBackspace }, null, 2)); win.destroy(); app.exit(0);
   } catch (cause) { console.error(cause); win.destroy(); app.exit(1); }
 });

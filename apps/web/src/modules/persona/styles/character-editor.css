@@ -1,4 +1,5 @@
 @import "./character-basic-info.css";
+@import "./character-cast.css";
 
 .qq-character-editor-window-shell {
   grid-template-columns: var(--character-editor-sidebar-width, 220px) minmax(0, 1fr);
@@ -139,6 +140,7 @@
 }
 
 .character-editor-workspace.is-basic-info,
+.character-editor-workspace.is-character-cast,
 .character-editor-workspace.is-collection-editor,
 .character-editor-workspace.is-setting-library,
 .character-editor-workspace.is-variable-config,
@@ -204,7 +206,7 @@
     clip-path: inset(50%);
   }
 
-  .character-editor-workspace:not(.is-basic-info):not(.is-frontend):not(.is-collection-editor):not(.is-character-assets) {
+  .character-editor-workspace:not(.is-basic-info):not(.is-frontend):not(.is-collection-editor):not(.is-character-assets):not(.is-character-cast) {
     padding: 24px;
   }
 

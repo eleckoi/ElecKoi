@@ -40,7 +40,7 @@ function loadClient(name, exposed = '') {
   }))
 }
 
-const conversation = loadClient('dsh-client-ui-conversation', ', ConversationNodeAssembler, ConversationEventRegistry, inspectSystemPrompt, inspectRequestPrompt, ContextMeter, ConversationRoot, ConversationContent, ConversationWidthControls, installDraftWheel, keepDraftFocus')
+const conversation = loadClient('dsh-client-ui-conversation', ', BoundConversation, ConversationNodeAssembler, ConversationEventRegistry, inspectSystemPrompt, inspectRequestPrompt, ContextMeter, ConversationRoot, ConversationContent, ConversationWidthControls, installDraftWheel, keepDraftFocus')
 const trajectory = loadClient('dsh-client-ui-trajectory', ', deriveTrajectoryLayout, registerTrajectoryToolDefinition, TrajectoryView, zh')
 export const OfficialTrajectoryView = trajectory.TrajectoryView
 export const officialTrajectoryLayout = trajectory.deriveTrajectoryLayout
@@ -121,6 +121,7 @@ export function officialChatFixture() {
   )
   engine.activateTarget('chat')
   return {
+    bind(feed) { return new conversation.BoundConversation(feed, engine) },
     replace(events) {
       engine.replaceWindow(events.map(event => ({ type: 'durable', event })), false)
       engine.flush()

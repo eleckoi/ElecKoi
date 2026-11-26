@@ -1126,10 +1126,10 @@ Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-a
  * @param conversationId - ElecKoi 聊天编号。
  * @param eventSeq - 官方 Session 中待修改消息的事件序号。
  * @param role - 消息角色，必须与指定事件中的消息一致。
- * @param content - 保存后替换原正文的完整文本。
+ * @param content - 完整正文，或按原顺序提交的多人回复各段正文。
  * @returns 修改后的聊天详情与元数据；消息不存在或角色不一致时抛出错误。
  */
-@Remote async editMessage( conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: string ): Promise<ConversationDetailsMetadata>
+@Remote async editMessage( conversationId: string, eventSeq: number, role: 'user' | 'assistant', content: ConversationMessageEdit ): Promise<ConversationDetailsMetadata>
 
 /**
  * 在同一 Session 中从指定消息回退，恢复相应变量。
@@ -1176,7 +1176,7 @@ Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-a
 @Remote async updateOpening(conversationId: string, content: string): Promise<ConversationDetailsMetadata>
 ```
 
-Types: [AuthorConversationState](types-host.md#authorconversationstate) · [ConversationChange](types-host.md#conversationchange) · [ConversationCreateInput](types-host.md#conversationcreateinput) · [ConversationDetailsMetadata](types-host.md#conversationdetailsmetadata) · [ConversationMessageDisplayInput](types-host.md#conversationmessagedisplayinput) · [ConversationMessageDisplayResult](types-host.md#conversationmessagedisplayresult) · [ConversationRequestPreview](types-host.md#conversationrequestpreview) · [ConversationRequestPreviewSummary](types-host.md#conversationrequestpreviewsummary) · [ConversationSummary](types-host.md#conversationsummary) · [ConversationVariableConfiguration](types-host.md#conversationvariableconfiguration) · [VariableViewerTimeline](types-host.md#variableviewertimeline)
+Types: [AuthorConversationState](types-host.md#authorconversationstate) · [ConversationChange](types-host.md#conversationchange) · [ConversationCreateInput](types-host.md#conversationcreateinput) · [ConversationDetailsMetadata](types-host.md#conversationdetailsmetadata) · [ConversationMessageDisplayInput](types-host.md#conversationmessagedisplayinput) · [ConversationMessageDisplayResult](types-host.md#conversationmessagedisplayresult) · [ConversationMessageEdit](types-host.md#conversationmessageedit) · [ConversationRequestPreview](types-host.md#conversationrequestpreview) · [ConversationRequestPreviewSummary](types-host.md#conversationrequestpreviewsummary) · [ConversationSummary](types-host.md#conversationsummary) · [ConversationVariableConfiguration](types-host.md#conversationvariableconfiguration) · [VariableViewerTimeline](types-host.md#variableviewertimeline)
 
 Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-api/src/index.ts)
 
@@ -1226,6 +1226,45 @@ Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-a
 AI 创作工作室的 DSH 会话与永久编辑目标。
 
 ```ts cordis-catalog
+/**
+ * 读取安卓创作工作室当前文件夹的直接子项。
+ * @param sessionId 当前创作会话。
+ * @param path 工作区相对目录的路径分量。
+ * @param signal 取消当前目录读取。
+ * @returns 工作区名称与当前文件夹的全部直接子项。
+ */
+@Remote({ resources: { session: (sessionId) => sessionId } }) async listWorkspaceFiles(sessionId: SessionId, path: string[], signal: AbortSignal): Promise<{ name: string; entries: WorkspaceFileEntry[] }>
+
+/**
+ * 修改安卓创作工作区的文件或文件夹。
+ * @param sessionId 当前创作会话。
+ * @param path 工作区相对目录的路径分量。
+ * @param edit 用户明确选择的操作、条目版本与目标。
+ * @param signal 取消尚未完成的文件操作。
+ */
+@Remote({ resources: { session: (sessionId) => sessionId } }) async editWorkspaceFiles(sessionId: SessionId, path: string[], edit: WorkspaceFileEdit, signal: AbortSignal): Promise<void>
+
+/**
+ * 将系统选中的文件分段写入安卓创作工作区。
+ * @param sessionId 当前创作会话。
+ * @param path 导入目标目录的路径分量。
+ * @param name 系统文件选择器提供的文件名。
+ * @param size 文件的字节数。
+ * @param signal 取消传输并清理未完成的文件。
+ * @returns 每段确认的字节偏移和最终写入完成事件。
+ */
+@Remote({ mode: 'stream', resources: { session: (sessionId) => sessionId } }) async *importWorkspaceFile(sessionId: SessionId, path: string[], name: string, size: number, signal: AbortSignal): RemoteStream<WorkspaceFileImport, string>
+
+/**
+ * 导出安卓创作工作区里选中的文件或文件夹。
+ * @param sessionId 当前创作会话。
+ * @param path 所选条目所在目录的路径分量。
+ * @param entries 用户选中的文件或文件夹及各自版本。
+ * @param signal 取消当前导出。
+ * @returns 文件名、按客户端请求发送的字节片段和完成事件。文件夹或多项导出为 ZIP。
+ */
+@Remote({ mode: 'stream', resources: { session: (sessionId) => sessionId } }) async *exportWorkspaceFiles(sessionId: SessionId, path: string[], entries: WorkspaceFileSelection[], signal: AbortSignal): RemoteStream<WorkspaceFileExport, true>
+
 /**
  * 列出工作室的正式 DSH 会话。
  * @returns 工作室会话目录。
@@ -1311,7 +1350,7 @@ AI 创作工作室的 DSH 会话与永久编辑目标。
 @Remote regenerate(sessionId: string): Promise<void>
 ```
 
-Types: [CreatorStudioMessage](types-host.md#creatorstudiomessage) · [CreatorStudioSession](types-host.md#creatorstudiosession) · [CreatorStudioSessionSummary](types-host.md#creatorstudiosessionsummary)
+Types: [CreatorStudioMessage](types-host.md#creatorstudiomessage) · [CreatorStudioSession](types-host.md#creatorstudiosession) · [CreatorStudioSessionSummary](types-host.md#creatorstudiosessionsummary) · [WorkspaceFileEdit](types-host.md#workspacefileedit) · [WorkspaceFileEntry](types-host.md#workspacefileentry) · [WorkspaceFileExport](types-host.md#workspacefileexport) · [WorkspaceFileImport](types-host.md#workspacefileimport) · [WorkspaceFileSelection](types-host.md#workspacefileselection)
 
 Source: [`packages/host/product-api/src/index.ts`](../../packages/host/product-api/src/index.ts)
 
@@ -1481,10 +1520,10 @@ importTranscript(sessionId: string, messages: Array<{ role: 'user' | 'assistant'
  * @param sessionId - 官方 Session 编号。
  * @param eventSeq - 消息事件序号。
  * @param role - 消息角色。
- * @param content - 新的完整消息文本。
+ * @param content - 完整正文，或按原顺序提交的多人回复各段正文。
  * @returns 消息修改和投影刷新完成。
  */
-editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', content: string): Promise<void>
+editMessage(sessionId: string, eventSeq: number, role: 'user' | 'assistant', content: ConversationMessageEdit): Promise<void>
 
 /**
  * 删除指定消息及之后的事件，保留其前的完整历史并闭合开放轮次。
@@ -1505,6 +1544,8 @@ deleteMessagesFrom(sessionId: string, eventSeq: number, role: 'user' | 'assistan
  */
 rewind(sessionId: string, fromTurn: number, fromEventSeq?: number, retainInput?: boolean): Promise<number | undefined>
 ```
+
+Types: [ConversationMessageEdit](types-host.md#conversationmessageedit)
 
 Source: [`packages/host/product-api/src/sessionEditor.ts`](../../packages/host/product-api/src/sessionEditor.ts)
 

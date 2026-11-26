@@ -1,6 +1,5 @@
 export interface MessageDisplayCompatibility {
-  prepareAssistantText(text: string, complete: boolean, displayRulePatterns: Iterable<string>): string
-  resolveVariableMacros(text: string, variableStateJson: string, escape?: (value: string) => string): string
+  resolveVariableMacros(text: string, variableStateJson: string, escape?: (value: string) => string, preserveReplyTags?: boolean): string
 }
 
 export const MVU_STATUS_PLACEHOLDER = '<StatusPlaceHolderImpl/>'
@@ -131,12 +130,8 @@ export function hideMvuDisplayMarkers(text: string): string {
 }
 
 export const mvuMessageDisplayCompatibility: MessageDisplayCompatibility = {
-  prepareAssistantText(text, complete, displayRulePatterns) {
-    if (!complete || text.includes(MVU_STATUS_PLACEHOLDER)) return text
-    const referencesPlaceholder = [...displayRulePatterns].some((pattern) => pattern.replace(/\\\//g, '/').includes(MVU_STATUS_PLACEHOLDER))
-    return referencesPlaceholder ? `${text}\n\n${MVU_STATUS_PLACEHOLDER}` : text
-  },
-  resolveVariableMacros(text, variableStateJson, escape) {
-    return hideMvuDisplayMarkers(resolveMvuMessageVariableMacros(text, variableStateJson, escape))
+  resolveVariableMacros(text, variableStateJson, escape, preserveReplyTags) {
+    const resolved = resolveMvuMessageVariableMacros(text, variableStateJson, escape)
+    return preserveReplyTags ? resolved.replaceAll(MVU_STATUS_PLACEHOLDER, '') : hideMvuDisplayMarkers(resolved)
   }
 }

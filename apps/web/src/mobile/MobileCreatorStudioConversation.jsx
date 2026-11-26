@@ -47,6 +47,8 @@ export function MobileCreatorStudioConversation({ model, headerTarget, cornerTar
   }
   const menu = <RoleplayInputMenu key={sessionId} purpose="creator" presetCatalog={view.presets} isSending={session.running}
     onSelectCharacter={onSelectCharacter} onCreateChat={onCreate} onOpenTools={() => setTools(true)}
+    onOpenWorkspaceFiles={globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android' && view.pushRoute
+      ? () => view.pushRoute({ kind: 'creator-workspace-files', sessionId }) : undefined}
     onEnterDeleteMode={openDelete} canDeleteMessages={!session.blank}
     onRegenerate={regenerate} regenerateTargetMessageId={session.blank ? null : sessionId} />;
   const resident = renderSlot('eleckoi.creator-studio.composer.bar', {

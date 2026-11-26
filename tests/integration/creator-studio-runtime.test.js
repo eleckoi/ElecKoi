@@ -145,8 +145,88 @@ describe('AI creator studio official Agent integration', { timeout: 30_000 }, ()
     expect(creation.operations).toHaveLength(1)
     expect(creation.operations[0].inputSchema.required).toContain('name')
     expect(creation.operations[0]).not.toHaveProperty('call_example')
+    const character = await describe({ toolset_id: 'character' })
+    expect(character.toolset.guide.join('\n')).toMatch(/单人卡.*多人卡/)
+    expect(character.operations.map(item => item.id)).toEqual(expect.arrayContaining([
+      'character.create_cast_member', 'character.update_cast_member', 'character.remove_cast_member', 'character.save_openings',
+    ]))
+    const opening = character.operations.find(item => item.id === 'character.save_openings').inputSchema.properties.openingMessages.items
+    const scene = opening.anyOf.find(item => item.required.includes('segments'))
+    expect(scene.required).not.toContain('content')
+    expect(scene.properties.segments.description).toContain('speakerId')
     expect((await describe({ toolset_id: 'character', include_schema: false })).operations.every(item => !('inputSchema' in item))).toBe(true)
     expect((await describe({ toolset_id: 'presetPrompts', include_schema: true })).operations.every(item => item.inputSchema)).toBe(true)
+  })
+
+  it('creates, edits and removes card cast through the Studio tools and saves ordered openings', async () => {
+    const f = await fixture(async function* () { yield* text('Synthetic completion') })
+    const execute = (capability_id, args, character_id) => executeToolCall(f.handle.agent.ctx.tools, {
+      callId: `synthetic-cast-${capability_id}`, name: 'eleckoi_call_capability', agent: f.handle.agent,
+      arguments: { capability_id, ...(args === undefined ? {} : { arguments: args }), ...(character_id ? { character_id } : {}) },
+      signal: new AbortController().signal,
+    })
+    const call = async (...args) => {
+      const result = await execute(...args)
+      expect(result.isError, JSON.stringify(result)).toBe(false)
+      return JSON.parse(result.content[0].text).value
+    }
+    const card = await call('character.create', { name: '飞船上的两位' })
+    const [primary] = card.cast
+    await call('character.update_cast_member', { id: primary.id, changes: { name: '领航员' } })
+    const assets = await call('assets.list')
+    const imported = await call('assets.import', { expectedRevision: assets.revision, name: 'portrait.png', encoding: 'base64',
+      content: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==' })
+    const [portraitAssetId] = imported.importedIds
+    const pilot = await call('character.create_cast_member', { name: '飞行员', portraitAssetId })
+    const crop = { zoom: 1.2, offset: { x: 1, y: 2 }, rotation: 0 }
+    await call('character.update_cast_member', { id: pilot.id, changes: { circleAssetId: portraitAssetId } })
+    expect(await call('character.update_cast_member', { id: pilot.id, changes: { crop } })).toMatchObject({ portraitAssetId, circleAssetId: null, crop })
+    const updated = await call('character.update', { authorName: '合成作者', coverAssetId: portraitAssetId, authorAvatarAssetId: portraitAssetId, profileLike: '合成简介' })
+    expect(updated).toMatchObject({ authorName: '合成作者', profileLike: '合成简介' })
+    expect(updated.authorAvatar).toBeTruthy()
+    expect(updated.persona.assistant_cover).toBeTruthy()
+    expect(updated.cast.map(({ name }) => name)).toEqual(['领航员', '飞行员'])
+
+    const { characterId: _owner, ...openings } = await call('character.read_openings')
+    const { content: _body, ...opening } = openings.openingMessages[0]
+    const segments = [
+      { id: 'cover', kind: 'cover', text: '灯亮了。' },
+      { id: 'pilot', kind: 'speech', speakerId: pilot.id, text: '飞行员推上舱门。\n\n「出发吧。」' },
+      { id: 'primary', kind: 'speech', speakerId: primary.id, text: '「航线已设定。」' },
+    ]
+    const alternate = { id: 'alternate', title: '备用', content: '改天出发。' }
+    const saved = await call('character.save_openings', { ...openings, openingMessages: [{ ...opening, segments }, alternate] })
+    expect(saved.openingMessages).toEqual([{ ...opening, segments, content: segments.map(item => item.text).join('\n\n') }, alternate])
+    await call('character.update_cast_member', { id: pilot.id, changes: { name: '机长' } })
+    const data = f.ctx.eleckoiProductData
+    const chat = data.createConversation({ metadata: { characterId: card.id } })
+    const scene = chat.messages[0].openingOptions[0].segments
+    expect(scene.map(item => item.speakerName)).toEqual(['飞船上的两位', '机长', '领航员'])
+    expect(scene[1]).toMatchObject({ speakerId: pilot.id, speakerAvatar: expect.stringContaining(portraitAssetId), speakerCrop: crop })
+    const runtime = () => data.prepareConversationRuntime(chat.conversation.id, '准备出发').conversationContext
+    expect(runtime().cast.map(({ name }) => name)).toEqual(['领航员', '机长'])
+    expect(runtime().history[0].content).toContain('机长：飞行员推上舱门。')
+
+    const other = data.createCharacter({ id: 'synthetic-other-cast-card', name: '另一张卡片' }).items.find(item => item.id === 'synthetic-other-cast-card')
+    expect((await execute('character.create_cast_member', { name: '不能借用其他卡的图片', portraitAssetId }, other.id)).isError).toBe(true)
+    const otherPilot = await call('character.create_cast_member', { name: '另一张卡片的角色' }, other.id)
+    expect((await execute('character.remove_cast_member', { id: otherPilot.id })).isError).toBe(true)
+    const invalid = await execute('character.save_openings', { ...openings,
+      openingMessages: [{ ...opening, segments: [{ ...segments[1], speakerId: otherPilot.id }] }] })
+    expect(invalid.isError).toBe(true)
+    expect(invalid.content[0].text).toContain('不在本卡登场名单')
+    expect(await call('character.read_openings')).toEqual(saved)
+
+    expect(await call('character.remove_cast_member', { id: pilot.id })).toEqual({ removedId: pilot.id, name: '机长' })
+    expect((await execute('character.remove_cast_member', { id: primary.id })).isError).toBe(true)
+    expect((await call('character.read')).cast.map(item => item.id)).toEqual([primary.id])
+    expect(runtime().cast.map(({ name }) => name)).toEqual(['领航员'])
+    expect((await call('assets.list')).items.some(item => item.id === portraitAssetId)).toBe(true)
+    expect(await call('character.read_openings')).toEqual(saved)
+    expect(data.readConversationDetails(chat.conversation.id).messages[0].openingOptions[0].segments).toEqual(scene)
+    const copied = await call('character.save_openings', { ...openings,
+      openingMessages: [{ ...opening, segments }, alternate, { ...opening, id: 'copied-opening', title: '副本', segments }] })
+    expect(copied.openingMessages.filter(item => item.segments).map(item => item.segments)).toEqual([segments, segments])
   })
 
   it('allows omitted empty read arguments while rejecting required read fields, nulls and omitted write arguments', async () => {

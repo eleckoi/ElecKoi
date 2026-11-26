@@ -3,5 +3,6 @@ export {
   CREATOR_AGENT_TOOL_GROUP_IDS,
   AGENT_TOOL_GROUP_IDS,
   DEFAULT_AGENT_TOOL_GROUP_IDS,
-  agentToolGroups
+  agentToolGroups,
+  withRoleplayReplyGroup
 } from './agentToolGroups'

@@ -99,7 +99,6 @@ describe('角色卡宏', () => {
 
   it('展示消息时解析宏，并在名字变化后废弃旧缓存', () => {
     const projector = new MessageDisplayProjector({
-      prepareAssistantText: (text) => text,
       resolveVariableMacros: (text) => text
     })
     const collection = {

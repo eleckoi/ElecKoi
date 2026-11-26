@@ -1,3 +1,29 @@
+.headless-tree-surface.has-branch-guides,
+.headless-tree-branch {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.headless-tree-branch {
+  position: relative;
+  margin-inline-start: var(--tree-branch-indent);
+}
+
+.headless-tree-branch::before {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--tree-arrow-center, 17px) - var(--tree-branch-indent) - .5px);
+  width: 1px;
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.headless-tree-surface.has-branch-guides [role="treeitem"] {
+  margin-top: 0;
+}
+
 .headless-tree-drop-cursor {
   position: absolute;
   z-index: 2;

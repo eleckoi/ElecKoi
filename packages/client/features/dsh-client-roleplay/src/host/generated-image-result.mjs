@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
+import { roleplayReplyResult } from './roleplay-reply-tool.mjs'
 
 export const IMAGE_EVENT = 'eleckoi/illustration'
 export const IMAGE_PROMPT_OPEN = '<ACTION_CALL name="generate_image">'
@@ -9,7 +10,9 @@ const frameSchema = z.object({ id: z.number().int().min(1), prompt: z.string().t
   seed: z.number().int().min(0).max(4294967295).optional() }).strict()
 const argsSchema = z.object({ frames: z.array(frameSchema).min(1) }).strict()
 
-/** Parse the complete declared image command before the current final-body boundary. */
+// RETIRE WHEN: no supported Session or import contains automatic illustrations
+// authored with ACTION_CALL. Remove this parser, the old regeneration lookup
+// and its historical fixture. Keep lookup by the native reply call ID.
 export function parseImagePrompts(text) {
   const start = text.indexOf(IMAGE_PROMPT_OPEN)
   if (start < 0) return undefined
@@ -24,7 +27,7 @@ export function parseImagePrompts(text) {
   return frames
 }
 
-/** Store only outcomes; scene prompts already belong to the original assistant text. */
+/** Store only outcomes; source prompts remain on the original reply event. */
 export function capturedImageResult(frames, settings, generated) {
   const completed = new Map(generated.frames.map(frame => [frame.id, frame]))
   return { status: generated.status, ...(generated.error ? { error: generated.error } : {}),
@@ -42,6 +45,13 @@ export function findGeneratedImage(events, batchId, frameId) {
   if (!result || result.data.status === 'generating') throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '没有找到这张图片对应的已完成生图记录。', { what: '这张图片的已完成生图记录' })
   const matches = result.data.frames.filter(frame => frame.id === frameId)
   if (matches.length !== 1) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '没有找到选中的图片。', { what: '选中的图片' })
+  if (result.data.replyCallId) {
+    const call = events.find(event => event.type === 'tool/result' && event.data.turn === result.data.turn
+      && event.data.step === result.data.step && event.data.message.source.callId === result.data.replyCallId)
+    const prompt = call && roleplayReplyResult(call)?.frames?.find(frame => frame.id === frameId)
+    if (!prompt) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '回复工具结果中没有这张图片的有效提示词。', { what: '这张图片的有效提示词' })
+    return { event: result, frame: { ...matches[0], ...prompt } }
+  }
   const replies = events.filter(event => event.type === 'assistant/message' && event.data.turn === result.data.turn && event.data.step === result.data.step)
   if (replies.length !== 1) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '没有找到这张图片对应的原始 AI 回复。', { what: '这张图片对应的原始 AI 回复' })
   const text = replies[0].data.message.content.filter(block => block.type === 'text').map(block => block.text).join('')
