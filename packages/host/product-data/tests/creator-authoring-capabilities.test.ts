@@ -34,9 +34,10 @@ async function fixture() {
 describe('Creator authoring matches the native setting, schema, script and regex contracts', { timeout: 30_000 }, () => {
   it('refreshes existing conversations when the card name changes independently of the speaker name', async () => {
     const { data, characterId } = await fixture()
-    const cards = data.updateCharacter({ id: characterId, name: '旧卡名', persona: { assistant_name: '发言名' } })
+    const persona = { assistant_name: '发言名', assistant_avatar: '', assistant_square: '', assistant_cover: '' }
+    const cards = data.updateCharacter({ id: characterId, name: '旧卡名', persona })
     const card = cards.items.find(item => item.id === characterId)!
-    const { conversation } = data.createConversation({ title: '聊天存档', metadata: { characterId, characterPersona: card.persona } })
+    const { conversation } = data.createConversation({ title: '聊天存档', metadata: { characterId, characterPersona: persona } })
     data.updateCharacter({ ...card, name: '新卡名' })
 
     expect(data.readConversationDetails(conversation.id)).toMatchObject({ conversation: { title: '聊天存档' },
