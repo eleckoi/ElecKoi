@@ -3,8 +3,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import type { Conversation, ConversationMetadata, OpeningMessageOption } from '@shared/contracts/entities/chat'
 import { parseJsonObject } from '@shared/foundation/json'
 import { openingSegmentText } from '@shared/foundation/characterOpenings'
-import { requireCharacter } from '@product-data/domain/personas'
-import type { CharacterConversationIdentity } from '@product-data/domain/personas/CharacterRepository'
+import { requireCharacter, type CharacterConversationIdentity } from '@product-data/domain/personas'
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import {
   agentBranches,
