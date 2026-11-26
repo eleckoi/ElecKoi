@@ -1,5 +1,5 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { ELECKOI_FAILURE_CODES, productFailure, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE, roleplayReplyText } from '@eleckoi/dsh-product-api'
+import { DELEGATED_ROLEPLAY_REPLY_EVENT, ELECKOI_FAILURE_CODES, productFailure, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE, roleplayReplyText } from '@eleckoi/dsh-product-api'
 
 export { ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE }
 
@@ -15,7 +15,7 @@ export function roleplayReplyResult(event) {
 }
 
 /** A successful selection owns native text in the next assistant step. */
-export function installRoleplayReply(agent, isEnabled = () => true, readConversation = () => ({}), readIllustration = () => undefined) {
+export function installRoleplayReply(agent, isEnabled = () => true, readConversation = () => ({}), readIllustration = () => undefined, readMainSession) {
   const { ctx, session } = agent
   let unregister, advertisedCast = [], advertisedCardName, advertisedFrames
   const refreshTool = () => {
@@ -32,6 +32,15 @@ export function installRoleplayReply(agent, isEnabled = () => true, readConversa
     advertisedFrames = allowFrames
   }
   let output
+  const settleDelegated = (text = '') => {
+    const delegated = output?.delegated
+    if (!delegated) return
+    output.delegated = undefined
+    const { parent, ...data } = delegated
+    if (readMainSession() !== parent) return
+    parent.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...data, status: text.trim() ? 'complete' : 'cancelled',
+      ...(text.trim() ? { text } : {}) }, { ignorable: true })
+  }
   refreshTool()
   ctx.on('agent/prepare-step', ({ agent: owner }) => {
     if (owner === agent) refreshTool()
@@ -51,17 +60,37 @@ export function installRoleplayReply(agent, isEnabled = () => true, readConversa
     if (result && output.latestAssistant?.data.step === event.data.step) {
       output.selections.push(result.speaker.speakerName)
       if (result.frames) output.framesSubmitted = true
+      if (output.selections.length !== 1) settleDelegated()
+      else {
+        const parent = readMainSession?.()
+        if (parent) {
+          const anchorMessageId = parent.deriveMessages().at(-1)?.id
+          const id = `${agent.id}:${output.turn}:${event.data.step}:${event.data.message.source.callId}`
+          const data = { id, mainSessionId: parent.id, childSessionId: agent.id,
+            childTurn: output.turn, childStep: event.data.step + 1, speakerName: result.speaker.speakerName,
+            ...(anchorMessageId ? { anchorMessageId } : {}),
+            ...(result.speaker.speakerId ? { speakerId: result.speaker.speakerId } : {}) }
+          const anchor = parent.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...data, status: 'waiting' }, { ignorable: true })
+          output.delegated = { ...data, parent, anchorSeq: anchor.seq, startedAt: anchor.time }
+        }
+      }
     }
     if (event.type === 'assistant/message') {
       const [speaker] = output.selections
+      let body = ''
       if (output.selections.length === 1 && event.data.step === output.latestAssistant?.data.step + 1 && !event.data.interrupted) {
         const text = event.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')
-        if (roleplayReplyText(text, speaker).trim()) output.replySeq = event.seq
+        body = roleplayReplyText(text, speaker)
+        if (body.trim()) output.replySeq = event.seq
       }
+      settleDelegated(body)
       output.selections = []
       output.latestAssistant = event
     }
-    if (event.type === 'turn/end') output = undefined
+    if (event.type === 'turn/end') {
+      settleDelegated()
+      output = undefined
+    }
   })
   ctx.on('agent/turn-stopping', ({ agent: owner, turn }) => {
     if (owner !== agent || output?.turn !== turn || !output.enabled) return

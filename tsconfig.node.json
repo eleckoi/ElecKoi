@@ -74,7 +74,7 @@
     "packages/host/product-api/src/productFailure.ts",
     "packages/host/runtime/src/hostDiagnostics.ts",
     "packages/host/product-api/src/client/invalidResponse.ts",
-    "packages/host/product-api/src/client/roleplayReplyArguments.ts",
+    "packages/host/product-api/src/roleplayReplyText.ts",
     "packages/host/product-api/src/client/unwrapFailure.ts",
     "packages/host/product-api/src/client/cordisApi.generated.ts",
     "packages/host/product-api/src/client/remoteApi.generated.ts",

@@ -7,7 +7,7 @@ function messageIndex(messages) {
   if (lookup) return lookup;
   lookup = new Map();
   messages.forEach((message, index) => {
-    for (const [field, value] of [['renderKey', message.renderKey], ['sequence', message.sessionEventSeq], ['request', message.requestId]]) {
+    for (const [field, value] of [['renderKey', message.renderKey], ['sequence', message.sessionEventSeq], ['request', message.requestId], ['nodeKey', message.dshNodeKey]]) {
       if (value === undefined || value === '') continue;
       const key = JSON.stringify([typeof message.runtimeSessionId, message.runtimeSessionId, field, value]);
       if (!lookup.has(key)) lookup.set(key, index);
@@ -28,6 +28,10 @@ function inputAttachments(content = []) {
 }
 
 export function selectRoleplayChatSeat(messages, runtimeSessionId, node) {
+  if (node.kind === 'eleckoi-delegated-roleplay-reply') {
+    const index = indexOf(messages, runtimeSessionId, 'nodeKey', node.key);
+    return index < 0 ? null : { item: messages[index], index };
+  }
   if (node.kind === 'turn-process') {
     const turn = node.location?.turn?.turn;
     if (!Number.isSafeInteger(turn)) return null;

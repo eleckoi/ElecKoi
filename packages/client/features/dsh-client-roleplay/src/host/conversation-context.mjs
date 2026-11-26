@@ -7,7 +7,7 @@ import { readSessionSnapshot } from './session-snapshot.mjs'
 import { requiredSettingCache } from './required-setting-cache.mjs'
 import { resolvePlacedSettingTemplates } from './setting-library-tools.mjs'
 import { INPUT_CONTINUATIONS_PROJECTION } from './input-continuations-projection.mjs'
-import { productFailure, ELECKOI_FAILURE_CODES, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
+import { delegatedRoleplayReplyBlock, isDelegatedRoleplayReply, productFailure, ELECKOI_FAILURE_CODES, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
 import { roleplayReplyEnabled } from './roleplay-reply-tool.mjs'
 
 export const name = 'eleckoi-conversation-context'
@@ -111,7 +111,14 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
 export async function readRoleplayReplies(ctx, sessionId, signal) {
   const observation = await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none', ...(signal ? { signal } : {}) })
   try {
-    return roleplayReplyMessages(observation.events)
+    const delegated = observation.events.filter(isDelegatedRoleplayReply)
+      .sort((left, right) => (left.data.anchorSeq ?? left.seq) - (right.data.anchorSeq ?? right.seq))
+    return [...roleplayReplyMessages(observation.events), ...delegated.map(event => ({
+      event, anchorMessageId: event.data.anchorMessageId,
+      messageId: 'eleckoi-delegated-reply-' + event.data.id,
+      blocks: [delegatedRoleplayReplyBlock(event.data)],
+      content: `${event.data.speakerName}：${event.data.text}`
+    }))]
   } finally { observation[Symbol.dispose]() }
 }
 
@@ -120,7 +127,24 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
   if (!replies.length) return messages
   const presentIds = new Set(messages.map(message => message.id))
   const bodies = new Map(), processIds = new Set()
+  const delegatedAt = new Map()
+  let priorIds
+  const historyReply = (id, content) => freezeMessage({
+    id, role: 'assistant', content: [{ type: 'text', text: content }],
+    source: { kind: 'plugin:eleckoi-product-history' }
+  })
   for (const reply of replies) {
+    if (isDelegatedRoleplayReply(reply.event)) {
+      const { anchorMessageId, messageId, content, blocks } = reply
+      priorIds ??= beforeTurn === Infinity ? presentIds
+        : new Set(messages.slice(0, Math.max(0, messages.findLastIndex(isDirectUserMessage))).map(message => message.id))
+      if (!priorIds.has(anchorMessageId)) continue
+      const anchored = delegatedAt.get(anchorMessageId) ?? []
+      anchored.push(historyReply(messageId, content))
+      delegatedAt.set(anchorMessageId, anchored)
+      roleplayBlocks?.set(messageId, blocks)
+      continue
+    }
     if (reply.event.data.turn >= beforeTurn) continue
     for (const id of reply.processMessageIds) processIds.add(id)
     const { bodyParts } = reply
@@ -149,16 +173,12 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
       roleplayBlocks?.set(anchorId, presentBlocks)
     }
   }
-  if (processIds.size === 0) return messages
+  if (!processIds.size && !delegatedAt.size) return messages
   return messages.flatMap(message => {
     const content = bodies.get(message.id)
-    if (content !== undefined) return [freezeMessage({
-      id: message.id,
-      role: 'assistant',
-      content: [{ type: 'text', text: content }],
-      source: { kind: 'plugin:eleckoi-product-history' }
-    })]
-    return processIds.has(message.id) ? [] : [message]
+    const delegated = delegatedAt.get(message.id) ?? []
+    if (content !== undefined) return [historyReply(message.id, content), ...delegated]
+    return processIds.has(message.id) ? delegated : [message, ...delegated]
   })
 }
 

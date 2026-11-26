@@ -30,6 +30,20 @@ export interface RoleplayInputContinuationsState extends RoleplayInputContinuati
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
     'eleckoi/roleplay-output': { turn: number; replySeq?: number; fallback?: true; toolBacked?: true; nativeText?: true; editedText?: string; editedBlocks?: Array<{ id: string; text: string }> }
+    'eleckoi/delegated-roleplay-reply': {
+      id: string
+      mainSessionId: string
+      childSessionId: string
+      childTurn: number
+      childStep: number
+      speakerName: string
+      speakerId?: string
+      status: 'waiting' | 'complete' | 'cancelled'
+      anchorSeq?: number
+      anchorMessageId?: string
+      startedAt?: number
+      text?: string
+    }
     'eleckoi/illustration': {
       batchId: string
       turn: number

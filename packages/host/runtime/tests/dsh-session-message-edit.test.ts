@@ -6,13 +6,13 @@ import { Context } from '@deepseek-ai/cordis'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { createAssistantMessage, createToolResultMessage, createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
-import { roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE } from '@eleckoi/dsh-product-api'
+import { DELEGATED_ROLEPLAY_REPLY_EVENT, isDelegatedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE } from '@eleckoi/dsh-product-api'
 import { deleteDshSessionMessagesFrom, editDshSessionMessage, readDshSessionLog } from '@eleckoi/dsh-runtime'
 
 const cleanups: Array<() => void | Promise<void>> = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
 
-async function fixture(multipart = false) {
+async function fixture(mode: 'plain' | 'multipart' | 'delegated' = 'plain') {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-message-edit-'))
   cleanups.push(() => rmSync(root, { recursive: true, force: true }))
   const ctx = new Context()
@@ -41,7 +41,13 @@ async function fixture(multipart = false) {
   }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 2, step: 1 })
   session.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
-  if (multipart) {
+  if (mode === 'delegated') {
+    const selection = { id: 'child-reply', mainSessionId: session.id, childSessionId: 'child',
+      childTurn: 1, childStep: 2, speakerName: '合成角色乙', speakerId: 'actor-b' }
+    const anchor = session.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...selection, status: 'waiting' }, { ignorable: true })
+    session.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...selection, status: 'complete', anchorSeq: anchor.seq, text: '来了。' }, { ignorable: true })
+  }
+  if (mode === 'multipart') {
     const turn = 3, name = 'eleckoi_roleplay_reply'
     session.append('turn/start', { turn })
     session.append(ROLEPLAY_OUTPUT_EVENT, { turn, nativeText: true }, { ignorable: true })
@@ -129,7 +135,7 @@ describe('DSH message edit', { timeout: 30_000 }, () => {
   })
 
   it('saves texts for the original reply blocks without rewriting its tool result or any other event', async () => {
-    const { root, sessionId, readSession } = await fixture(true)
+    const { root, sessionId, readSession } = await fixture('multipart')
     const { events: before } = await readSession()
     const { addressSeq, event } = roleplayReplyMessages(before)[0]!
     const edits = [{ id: 'speaker-1:0', text: '门开了。' }, { id: 'speaker-2:0', text: '我进来了。' }]
@@ -145,5 +151,17 @@ describe('DSH message edit', { timeout: 30_000 }, () => {
     expect(deleted.filter(event => !('turn' in event.data) || event.data.turn !== 3)).toEqual(
       before.filter(event => !('turn' in event.data) || event.data.turn !== 3))
     expect(deleted.some(event => event.type === 'assistant/message' && event.data.turn === 3)).toBe(false)
+  })
+
+  it('edits the delegated speaker in the main log and deletes from its displayed position', async () => {
+    const { root, sessionId, readSession } = await fixture('delegated')
+    const { events } = await readSession()
+    const reply = events.find(isDelegatedRoleplayReply)!
+    editDshSessionMessage(root, sessionId, reply.seq, 'assistant', '改过的正文。')
+    expect((await readSession()).events.find(isDelegatedRoleplayReply)?.data).toMatchObject({
+      speakerId: 'actor-b', text: '改过的正文。'
+    })
+    deleteDshSessionMessagesFrom(root, sessionId, reply.seq, 'assistant')
+    expect((await readSession()).events).toEqual(events.slice(0, reply.data.anchorSeq))
   })
 })

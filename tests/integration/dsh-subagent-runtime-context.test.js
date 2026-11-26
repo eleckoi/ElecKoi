@@ -8,7 +8,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import Loader from '@deepseek-ai/cordis-plugin-loader'
 import { AgentRegistry } from '@deepseek-ai/dsh-agent'
+import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry'
+import LocalFileSystem from '@deepseek-ai/dsh-fs-local'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SessionQuery from '@deepseek-ai/dsh-session-query-sqlite'
@@ -35,8 +38,9 @@ import {
 import { apply as applySettingLibraryTools } from '../../apps/desktop/resources/dsh/setting-library-tools.mjs'
 import { apply as applyVariableTools } from '../../apps/desktop/resources/dsh/variable-tools.mjs'
 import { restoreRuntimeContext } from '../../packages/client/features/dsh-client-roleplay/src/host/runtime-contexts.mjs'
-import { installRoleplayReply } from '../../packages/client/features/dsh-client-roleplay/src/host/roleplay-reply-tool.mjs'
-import { roleplayReplyMessages } from '@eleckoi/dsh-product-api'
+import { projectRoleplayDialogue, readRoleplayReplies, visibleDialogueHistory } from '../../packages/client/features/dsh-client-roleplay/src/host/conversation-context.mjs'
+import { installRoleplayReply, ROLEPLAY_REPLY_GROUP_ID, ROLEPLAY_REPLY_TOOL } from '../../packages/client/features/dsh-client-roleplay/src/host/roleplay-reply-tool.mjs'
+import { DELEGATED_ROLEPLAY_REPLY_EVENT, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
 
 const directories = []
 const previousSessionRoot = process.env.DSH_SESSION_ROOT
@@ -54,6 +58,8 @@ describe('DSH subagent runtime context inheritance', () => {
     const ctx = new Context(), childEntered = Promise.withResolvers(), release = Promise.withResolvers(), stopped = Promise.withResolvers()
     const counts = new Map(), requests = []
     const rootId = SessionId('synthetic-roleplay-parent')
+    const cast = [{ id: 'speaker-a', name: '合成角色甲' }, { id: 'speaker-b', name: '合成角色乙' }]
+    const replySchema = request => request.tools.find(tool => tool.name === ROLEPLAY_REPLY_TOOL)
     try {
       for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry]) await ctx.plugin(plugin)
       const directory = mkdtempSync(join(tmpdir(), 'eleckoi-subagent-turn-'))
@@ -77,7 +83,7 @@ describe('DSH subagent runtime context inheritance', () => {
         async resolveModel(provider, id) { return { provider, id, name: id } }
         async *stream(options) {
           requests.push(options)
-          if (options.sessionId === rootId && hasRoleplayReplyResult(options)) {
+          if (hasRoleplayReplyResult(options)) {
             yield* streamNextRoleplayReply(options)
             return
           }
@@ -87,21 +93,36 @@ describe('DSH subagent runtime context inheritance', () => {
             if (step === 1) yield* call('subagent', { description: 'Synthetic task', prompt: 'Synthetic child input' })
             else {
               if (step === 2) stopped.resolve()
-              yield* streamRoleplayReply(step === 2 ? 'Synthetic pending child' : 'Synthetic final child result', options)
+              const text = step === 2 ? 'Synthetic pending child' : 'Synthetic final child result'
+              yield* streamRoleplayReply(deleting ? text : [{ name: cast[0].name, text }], options)
             }
           } else if (step === 1) {
             childEntered.resolve()
             await Promise.race([release.promise, new Promise((_, reject) => options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true }))])
             yield* call('send_message', { agent: rootId, message: 'Synthetic delivered result' })
-          } else yield* reply('Synthetic child closing result')
+          } else yield* streamRoleplayReply([{ name: cast[1].name, text: 'Synthetic child closing result' }])
         }
       }
       ctx.llm.registerAdapter(['synthetic'], new Adapter())
       const root = await ctx.agents.create({ sessionId: rootId, agentOptions: { provider: 'synthetic', model: 'synthetic' } })
-      installRoleplayReply(root.agent)
+      if (deleting) installRoleplayReply(root.agent)
+      else {
+        const fixture = runtimeFixture(rootId)
+        await ctx.plugin(LocalFileSystem)
+        await ctx.plugin(Loader)
+        await ctx.plugin(AgentPresetRegistry, { default: 'eleckoi-active' })
+        await applyAgentPresetBridge(ctx)
+        await ctx.agentPresets.mount(root.agent.ctx, 'eleckoi-active')
+        const runtime = fixture.contexts.get(rootId)
+        runtime.conversationContext = { cast }
+        ctx.eleckoiRuntimeContexts.set(rootId, runtime)
+        installRoleplayReply(root.agent, undefined, () => runtime.conversationContext)
+      }
       root.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Synthetic delegation' }], source: { kind: 'user' } }))
-      await Promise.all([childEntered.promise, stopped.promise])
       await root.agent.whenIdle()
+      const delegation = root.agent.session.snapshotEvents().find(event => event.type === 'tool/result')
+      expect(delegation?.data.message.isError, JSON.stringify(delegation?.data.message.content)).toBe(false)
+      await Promise.all([childEntered.promise, stopped.promise])
       expect(root.agent.session.snapshotEvents().filter(event => event.type === 'turn/start')).toHaveLength(1)
       expect(roleplayReplyMessages(root.agent.session.snapshotEvents()).flatMap(result => result.blocks.map(block => block.text)))
         .toEqual(['Synthetic pending child'])
@@ -143,11 +164,28 @@ describe('DSH subagent runtime context inheritance', () => {
         const sources = events.filter(event => event.type === 'user/message').map(event => event.data.source.kind)
         const childId = events.find(event => event.type === 'subagent/catalog').data.childId
         await ctx.sessionPersistence.flush()
-        const childResults = readDshSessionLog(directory, childId).events.filter(event => event.type === 'tool/result')
-        expect(sources, JSON.stringify(childResults)).toEqual(expect.arrayContaining(['user', 'agent-message', 'subagent-settled']))
+        const childEvents = readDshSessionLog(directory, childId).events
+        expect(sources).toEqual(expect.arrayContaining(['user', 'agent-message', 'subagent-settled']))
+        expect(replySchema(requests.find(request => request.sessionId === childId)))
+          .toEqual(replySchema(requests.find(request => request.sessionId === rootId)))
+        expect(roleplayReplyMessages(childEvents).flatMap(result => result.blocks)).toEqual([
+          expect.objectContaining({ speakerId: 'speaker-b', text: 'Synthetic child closing result' })
+        ])
+        expect(roleplayReplyMessages(events).flatMap(result => result.blocks.map(block => block.text)))
+          .not.toContain('Synthetic child closing result')
+        const [selection, publication] = events.filter(event => event.type === DELEGATED_ROLEPLAY_REPLY_EVENT)
+        expect(selection.data).toMatchObject({ childSessionId: childId, childStep: 3, speakerId: 'speaker-b', status: 'waiting' })
+        expect(publication.data).toMatchObject({ id: selection.data.id, anchorSeq: selection.seq,
+          speakerId: 'speaker-b', status: 'complete', text: 'Synthetic child closing result' })
+        const replyHistory = await readRoleplayReplies(ctx, rootId)
+        const dialogue = visibleDialogueHistory(projectRoleplayDialogue(root.agent.session.deriveMessages(), replyHistory))
+        expect(dialogue.filter(message => message.content.includes('Synthetic child closing result')))
+          .toEqual([{ role: 'assistant', content: '合成角色乙：Synthetic child closing result' }])
         const final = requests.filter(request => request.sessionId === rootId).at(-1)
-        expect(JSON.stringify(final.messages)).toContain('Synthetic delivered result')
-        expect(JSON.stringify(final.messages)).toContain('its closing message is omitted')
+        expect(final.messages.find(message => message.source.kind === 'agent-message')?.content)
+          .toContainEqual({ type: 'text', text: 'Synthetic delivered result' })
+        expect(final.messages.find(message => message.source.kind === 'subagent-settled')?.content)
+          .toContainEqual({ type: 'text', text: '<合成角色乙>Synthetic child closing result</合成角色乙>' })
       }
       expect(ctx.agents.list().filter(agent => agent.session.header.origin === 'subagent')).toHaveLength(0)
       await root.dispose()
@@ -416,7 +454,9 @@ describe('DSH subagent runtime context inheritance', () => {
 
     const childA = runtimeAgent('child-a', { origin: 'subagent', parentSession: 'root-session' })
     await created({ agent: childA })
-    expect(childA.ctx.on).not.toHaveBeenCalled()
+    const [definition, activation] = childA.ctx.tools.register.mock.calls[0]
+    expect(definition.name).toBe(ROLEPLAY_REPLY_TOOL)
+    expect(activation.when()).toBe(true)
     await expect(toolResultFor(ctx.eleckoiRuntimeContexts, 'child-a', 'eleckoi_glob_setting_files', { pattern: '**' }))
       .resolves.toMatchObject({ files: [{ path: '世界/港口', title: '港口' }] })
     await expect(toolResultFor(ctx.eleckoiRuntimeContexts, 'child-a', 'eleckoi_grep_setting_files', {
@@ -437,7 +477,11 @@ describe('DSH subagent runtime context inheritance', () => {
 
     const childB = runtimeAgent('child-b', { origin: 'subagent', parentSession: 'child-a' })
     await created({ agent: childB })
-    expect(childB.ctx.on).not.toHaveBeenCalled()
+    const rootSnapshot = snapshotPath(fixture.snapshotRoot, 'root-session')
+    writeFileSync(rootSnapshot, JSON.stringify({ ...JSON.parse(readFileSync(rootSnapshot, 'utf8')),
+      disabledToolGroupIds: [ROLEPLAY_REPLY_GROUP_ID] }))
+    expect(activation.when()).toBe(false)
+    expect(childB.ctx.tools.register.mock.calls[0][1].when()).toBe(false)
     await expect(toolResultFor(ctx.eleckoiRuntimeContexts, 'child-b', 'eleckoi_read_setting_files', { paths: ['世界/港口'] }))
       .resolves.toMatchObject({ files: [{ content: '港口终年晴朗。' }] })
     await expect(toolResultFor(ctx.eleckoiRuntimeContexts, 'child-b', 'eleckoi_read_variables', { paths: ['/状态/好感度'] }))
@@ -445,7 +489,7 @@ describe('DSH subagent runtime context inheritance', () => {
 
     const resumedChild = runtimeAgent('child-resumed', { origin: 'subagent', parentSession: 'root-session' })
     await created({ agent: resumedChild })
-    expect(resumedChild.ctx.on).not.toHaveBeenCalled()
+    expect(resumedChild.ctx.tools.register.mock.calls[0][1].when()).toBe(false)
     expect(JSON.parse(readFileSync(join(fixture.snapshotRoot, 'child-resumed.json'), 'utf8')))
       .toMatchObject({ inheritedFromSessionId: 'root-session', rootRuntimeThreadId: 'root-session' })
     const inherited = JSON.parse(readFileSync(join(fixture.snapshotRoot, 'child-resumed.json'), 'utf8'))
@@ -494,13 +538,6 @@ async function* call(name, args) {
   yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: `synthetic-${name}`, name, arguments: JSON.stringify(args) } }
   yield { type: 'finish', reason: { kind: 'tool-calls' } }
 }
-async function* reply(text) {
-  yield { type: 'block-start', index: 0, blockType: 'text' }
-  yield { type: 'text-delta', index: 0, text: `<FINAL>${text}</FINAL>` }
-  yield { type: 'block-end', index: 0, block: { type: 'text', text: `<FINAL>${text}</FINAL>` } }
-  yield { type: 'finish', reason: { kind: 'stop' } }
-}
-
 function agentCreatedListener(ctx) {
   return ctx.on.mock.calls.find(([name]) => name === 'agent/created')[1]
 }
@@ -526,7 +563,7 @@ function runtimeAgent(id, header = {}, session = {}) {
   }
 }
 
-function runtimeFixture() {
+function runtimeFixture(rootId = 'root-session') {
   const directory = mkdtempSync(join(tmpdir(), 'eleckoi-subagent-context-'))
   directories.push(directory)
   const snapshotRoot = join(directory, 'session-snapshots')
@@ -567,9 +604,9 @@ function runtimeFixture() {
     },
     state: { 状态: { 好感度: 10 } }
   }
-  writeFileSync(join(snapshotRoot, 'root-session.json'), JSON.stringify({
+  writeFileSync(snapshotPath(snapshotRoot, rootId), JSON.stringify({
     conversationId: 'conversation-a',
-    runtimeThreadId: 'root-session',
+    runtimeThreadId: rootId,
     mountedPresetId: 'eleckoi-active',
     mountedPresetRevision: 'fixture-revision',
     model: { provider: 'provider-main', model: 'model-main' },
@@ -579,7 +616,7 @@ function runtimeFixture() {
     disabledToolGroupIds: [],
     conversationContext: { characterId: 'character-a', characterName: '测试角色', persona: {}, history: [] }
   }, null, 2), { flag: 'wx' })
-  const contexts = runtimeContextsFor('root-session', { conversationId: 'conversation-a', settings: settingState,
+  const contexts = runtimeContextsFor(rootId, { conversationId: 'conversation-a', settings: settingState,
     variables: variableState, settingLibraryBaseline: { source: settingState.library, projected: settingState.library } })
   return { directory, snapshotRoot, contexts }
 }

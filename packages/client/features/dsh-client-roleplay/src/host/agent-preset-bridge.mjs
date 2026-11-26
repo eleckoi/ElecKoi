@@ -206,10 +206,12 @@ export async function apply(ctx) {
         await restoreRuntimeContext(ctx, agent.session, snapshot)
       }
       await registerActivePreset()
+      const replyPolicySessionId = child ? runtimeContexts.get(agent.id).rootSessionId : agent.id
+      installRoleplayReply(agent, () => roleplayReplyEnabled(readSessionSnapshot(snapshotRoot, replyPolicySessionId)),
+        () => runtimeContexts.get(agent.id).conversationContext,
+        () => child ? undefined : readSessionSnapshot(snapshotRoot, agent.id).autoIllustration,
+        child ? () => ctx.sessions.get(replyPolicySessionId) : undefined)
       if (!child) {
-        installRoleplayReply(agent, () => roleplayReplyEnabled(readSessionSnapshot(snapshotRoot, agent.id)),
-          () => runtimeContexts.get(agent.id).conversationContext,
-          () => readSessionSnapshot(snapshotRoot, agent.id).autoIllustration)
         // Restoring history and the picker does not need a routable model.
         // Refresh model capabilities only when this Agent starts a request.
         agent.ctx.on('agent/prepare-step', async ({ agent: preparing }) => {

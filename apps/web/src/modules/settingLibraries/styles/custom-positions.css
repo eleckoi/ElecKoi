@@ -30,6 +30,11 @@
 .setting-position-guide.is-sorting .setting-position-guide-row { will-change: transform; }
 .setting-position-guide-row.is-overlay { cursor: grabbing; pointer-events: none; color: var(--text); }
 .setting-position-guide-row.is-overlay::before { border-color: var(--line-strong); box-shadow: 0 3px 8px color-mix(in srgb, var(--shadow-color) 65%, transparent), 0 12px 28px color-mix(in srgb, var(--shadow-color) 80%, transparent); }
+.setting-position-guide-row.is-custom.is-selected:not(.is-dragging)::before {
+  background-color: color-mix(in srgb, var(--dsw-alias-label-primary) 8%, var(--surface-raised));
+  border-color: var(--dsw-alias-border-l4);
+  box-shadow: none;
+}
 .setting-position-overlay-more { display: grid; place-items: center; color: var(--muted); }
 .setting-position-guide-row.is-custom > * { position: relative; z-index: 1; }
 .setting-position-guide-track { display: grid; grid-template-rows: 1fr 12px 1fr; place-items: center; width: 28px; }
@@ -47,14 +52,15 @@
 .setting-position-guide.is-sorting .setting-position-drag-handle { cursor: grabbing; }
 .setting-position-guide-main { display: flex; align-items: center; min-width: 0; gap: 8px; padding: 0 4px; text-align: left; color: var(--text); }
 .setting-position-guide-main strong { overflow: hidden; font-size: 14px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
-.setting-position-guide-main span { flex: none; padding: 2px 4px; color: var(--blue); font-size: 11px; }
+.setting-position-guide-main span { flex: none; padding: 2px 4px; color: var(--dsw-alias-label-secondary); font-size: 11px; }
+.setting-position-guide-row.is-selected .setting-position-guide-main strong { font-weight: 600; }
 
 .setting-position-more { position: relative; align-self: center; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; color: var(--muted); cursor: pointer; }
 
 .setting-position-manager button:focus-visible:not([data-dsh-control]) { outline: 2px solid var(--blue); outline-offset: 2px; }
 .setting-position-manager button:hover:not([data-dsh-control]) { background: var(--active); }
-.setting-position-manager .setting-position-drag-handle:hover,
-.setting-position-manager .setting-position-guide-main:hover { color: var(--text); background: transparent; }
+.setting-position-manager .setting-position-drag-handle:hover { color: var(--text); background: transparent; }
+.setting-position-manager .setting-position-guide-row > button.setting-position-guide-main:hover { color: var(--dsw-alias-label-primary); background: transparent; }
 .setting-library-placement-heading .setting-library-position-manage { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
 .setting-position-guide::-webkit-scrollbar { width: 8px; }
 .setting-position-guide::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; corner-shape: round; background: color-mix(in srgb, var(--muted) 42%, transparent); background-clip: content-box; }

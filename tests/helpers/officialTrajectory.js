@@ -121,6 +121,7 @@ export function officialChatFixture() {
   )
   engine.activateTarget('chat')
   return {
+    events,
     bind(feed) { return new conversation.BoundConversation(feed, engine) },
     replace(events) {
       engine.replaceWindow(events.map(event => ({ type: 'durable', event })), false)

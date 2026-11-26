@@ -9,8 +9,9 @@ import { productFailure } from './productFailure.js'
 import { ELECKOI_FAILURE_CODES } from './errorCodes.generated.js'
 import { registerHostApiInspect } from './hostInspect.js'
 import { readSessionInspection } from './sessionInspection.js'
-import { isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from './roleplayReplyMessages.js'
-export { isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE } from './roleplayReplyMessages.js'
+import { isDelegatedRoleplayReply, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from './roleplayReplyMessages.js'
+export { delegatedRoleplayReplyBlock, DELEGATED_ROLEPLAY_REPLY_EVENT, isDelegatedRoleplayReply, isToolBackedRoleplayReply,
+  roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE } from './roleplayReplyMessages.js'
 export { roleplayReplyText } from './roleplayReplyText.js'
 import { SESSION_MODEL_PARAMETERS_EVENT, sessionModelParameterKey, sessionModelParameterPatchSchema, sessionModelParametersProjection } from './sessionModelParameters.js'
 import type { SessionModelParameterPatch, SessionModelParameterState } from './sessionModelParameters.js'
@@ -947,10 +948,11 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     const targetIndex = inspection.events.findIndex(event => Number(event.seq) === atSeq)
     if (targetIndex < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, `Branch event does not exist: ${atSeq}`, { what: '分支边界的聊天消息' })
     const sourceTurn = sessionMessageTurn(inspection.events, targetIndex), target = inspection.events[targetIndex]!
-    const assistant = target.type === 'assistant/message' || isToolBackedRoleplayReply(target)
+    const delegated = isDelegatedRoleplayReply(target) ? target : undefined
+    const assistant = target.type === 'assistant/message' || isToolBackedRoleplayReply(target) || delegated !== undefined
     const roleplayReply = assistant ? roleplayReplyMessages(inspection.events).find(reply => reply.addressSeq === atSeq) : undefined
     if (!visibleSessionMessages(inspection.events).some(message => message.seq === atSeq)
-      || (assistant && !(roleplayReply?.content ?? settledSessionReplyText(jsonRecord(target))).trim())) {
+      || (assistant && !(delegated?.data.text ?? roleplayReply?.content ?? settledSessionReplyText(jsonRecord(target))).trim())) {
       throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, '只能从正式显示的聊天消息创建分支，不能把中间工具步骤当成完整回复状态。', { what: '选择一条正式显示的聊天消息' })
     }
     const fork = await this.ownerContext.sessionController.fork({ sessionId: source as SessionId, atSeq: roleplayReply?.event.seq ?? atSeq })
@@ -1078,10 +1080,14 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
       const retainedSeq = retainedUser?.seq
       try {
         await this.ownerContext.eleckoiSessionEditor.transaction(runtimeSessionId, async () => {
-          const rewound = await this.ownerContext.eleckoiSessionEditor.rewind(
-            runtimeSessionId, fromTurn, retainedSeq === undefined ? eventSeq : Number(retainedSeq), retainedSeq !== undefined
-          )
-          if (rewound === undefined) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '当前 DSH Session 不能安全回退。', { what: '当前 DSH 会话的回退状态' })
+          if (isDelegatedRoleplayReply(target.event)) {
+            await this.ownerContext.eleckoiSessionEditor.deleteMessagesFrom(runtimeSessionId, eventSeq, role)
+          } else {
+            const rewound = await this.ownerContext.eleckoiSessionEditor.rewind(
+              runtimeSessionId, fromTurn, retainedSeq === undefined ? eventSeq : Number(retainedSeq), retainedSeq !== undefined
+            )
+            if (rewound === undefined) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '当前 DSH Session 不能安全回退。', { what: '当前 DSH 会话的回退状态' })
+          }
           const retained = await readSessionInspection(this.ownerContext, runtimeSessionId as SessionId)
           restoreRuntime.apply(retainedInputMessageIds(retained.events))
         })
@@ -1282,7 +1288,7 @@ export function requireSessionMessage(
   const index = inspection.events.findIndex((candidate) => {
     const event = jsonRecord(candidate)
     if (event.seq !== eventSeq) return false
-    if (role === 'assistant' && isToolBackedRoleplayReply(candidate)) return true
+    if (role === 'assistant' && (isToolBackedRoleplayReply(candidate) || isDelegatedRoleplayReply(candidate))) return true
     if (event.type !== expectedType || event.surfaceOp !== 'append') return false
     if (role !== 'user') return true
     return jsonRecord(jsonRecord(event.data).source).kind === 'user'
@@ -1302,6 +1308,14 @@ function historicalInputId(events: readonly unknown[], index: number): string | 
 }
 
 export function sessionMessageTurn(events: readonly unknown[], index: number): number {
+  const selected = events[index]
+  if (isDelegatedRoleplayReply(selected)) {
+    const anchor = selected.data.anchorSeq ?? index
+    for (let cursor = anchor - 1; cursor >= 0; cursor -= 1) {
+      const candidate = jsonRecord(events[cursor])
+      if (candidate.type === 'turn/start') return Number(jsonRecord(candidate.data).turn)
+    }
+  }
   // DSH normally stamps the turn on assistant events.  The user event is
   // allowed to be queued either before `turn/start` or after it, and some
   // persisted assistant events can omit the redundant stamp.  Resolve both
@@ -1384,9 +1398,11 @@ function roleplayReplyAddresses(events: readonly SessionEvent[]): Map<number, nu
 
 function visibleSessionMessages(events: readonly SessionEvent[]): Array<{ seq: number; role: 'user' | 'assistant' }> {
   const messages: Array<{ seq: number; role: 'user' | 'assistant' }> = []
+  const delegatedAnchors = new Map<number, number>()
   const replies = roleplayReplyAddresses(events)
   for (const event of events) {
-    if (isToolBackedRoleplayReply(event)) {
+    if (isDelegatedRoleplayReply(event)) delegatedAnchors.set(Number(event.seq), event.data.anchorSeq ?? Number(event.seq))
+    if (isToolBackedRoleplayReply(event) || isDelegatedRoleplayReply(event)) {
       messages.push({ seq: Number(event.seq), role: 'assistant' })
       continue
     }
@@ -1400,6 +1416,8 @@ function visibleSessionMessages(events: readonly SessionEvent[]): Array<{ seq: n
       messages.push({ seq: Number(event.seq), role: 'user' })
     }
   }
+  if (delegatedAnchors.size) messages.sort((left, right) =>
+    (delegatedAnchors.get(left.seq) ?? left.seq) - (delegatedAnchors.get(right.seq) ?? right.seq))
   return messages
 }
 

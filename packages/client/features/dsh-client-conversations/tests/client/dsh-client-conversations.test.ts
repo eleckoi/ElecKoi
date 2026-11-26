@@ -250,6 +250,7 @@ function mountCatalog(
     cancelAnimationFrame?: (id: number) => void
     onConsoleError?: (...args: unknown[]) => void
     json?: Pick<JSON, 'parse' | 'stringify'>
+    uiConversation?: unknown
     sessions?: { list: { getSnapshot: () => { byId: Record<string, { updatedAt: number; projectionValues?: { eleckoiConversationActivity: number } }> }; subscribe: (listener: () => void) => () => void } }
   } = {}
 ) {
@@ -283,6 +284,7 @@ function mountCatalog(
   dshClientPlugin(registration!).apply({
     remote: conversationRemote(read, changes),
     sessions: runtime.sessions,
+    uiConversation: runtime.uiConversation,
     conversation: runtime.conversation,
     provide: (name: string, value: typeof catalog) => {
       expect(name).toBe('eleckoiConversations')
@@ -301,6 +303,75 @@ function mountCatalog(
 }
 
 describe('DSH ElecKoi conversation client model', () => {
+  it('shows a delegated speaker before streaming its child DSH step into the main chat', async () => {
+    const publishable = () => {
+      const fixture = officialChatFixture()
+      let snapshot = fixture.replace([])
+      const listeners = new Set<() => void>()
+      const subscribe = (listener: () => void) => {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      }
+      return {
+        fixture, target: { getSnapshot: () => snapshot, subscribe },
+        append(type: string, seq: number, data: unknown, surfaceOp?: 'append') {
+          snapshot = fixture.append({ type, seq, time: 1000 + seq, data, ...(surfaceOp ? { surfaceOp } : {}) })
+          for (const listener of [...listeners]) listener()
+        }
+      }
+    }
+    const main = publishable(), child = publishable()
+    const mainSession = { getSnapshot: () => ({ running: false }), subscribe: () => () => {} }
+    const childSession = { getSnapshot: () => ({ running: true }), subscribe: () => () => {} }
+    const eventSource = { getSnapshot: () => ({ entries: [], hasMore: false }), subscribe: () => () => {} }
+    const mainBinding = { session: mainSession, eventSource }
+    const childBinding = { session: childSession }
+    const release = vi.fn()
+    const mounted = mountCatalog(async () => ({ ok: true, data: [] }), {
+      uiConversation: { events: main.fixture.events,
+        binding: (binding: unknown) => ({ target: () => binding === mainBinding ? main.target : child.target }) }
+    })
+    const catalog = mounted.catalog as any
+    const source = { id: 'selection', mainSessionId: 'root', childSessionId: 'child', childTurn: 2, childStep: 3, speakerName: '合成角色乙', speakerId: 'actor-b' }
+    const read = () => catalog.getDetailsSnapshot().details.messages
+    try {
+      await settle()
+      catalog.detailsSnapshot = { id: 'chat', status: 'ready', runtimeSessionId: 'root', error: '',
+        details: { conversation: { id: 'chat' }, metadata: {}, messages: [], hasMore: false } }
+      catalog.sessionReference = { sessionId: 'root', release: vi.fn(), binding: mainBinding, ready: Promise.resolve(mainBinding) }
+      catalog.sessions = { retain: vi.fn(() => ({ ready: Promise.resolve(childBinding), release })) }
+      await catalog.bindOfficialSession('chat', 'root')
+      main.append('eleckoi/delegated-roleplay-reply', 1, { ...source, status: 'waiting' })
+      await settle()
+      expect(catalog.sessions.retain).toHaveBeenCalledWith('child', { source: 'eleckoiDelegatedRoleplayReply' })
+      const waiting = read()[0]
+      expect(waiting).toMatchObject({ status: 'streaming', roleplayBlocks: [{ speakerId: 'actor-b', text: '' }] })
+      const node = main.target.getSnapshot().nodes.get(waiting.dshNodeKey)
+      expect(selectRoleplayChatSeat(read(), 'root', node)?.item.id).toBe(waiting.id)
+      child.append('turn/start', 1, { turn: 2 })
+      child.append('step/start', 2, { turn: 2, step: 3 })
+      const chunk = (seq: number, text: string) => child.append('assistant/live-chunk', seq,
+        { turn: 2, step: 3, attemptId: 'child-attempt', chunk: { type: 'text-delta', index: 0, text } })
+      chunk(2.1, '<合成')
+      expect(read()[0].roleplayBlocks[0].text).toBe('')
+      chunk(2.2, '角色乙>先显示')
+      expect(read()[0].roleplayBlocks[0].text).toBe('先显示')
+      chunk(2.3, '这一段。</合成')
+      expect(read()[0].roleplayBlocks[0].text).toBe('先显示这一段。')
+      main.append('eleckoi/delegated-roleplay-reply', 3, { ...source, status: 'complete', anchorSeq: 1, text: '先显示这一段。' })
+      expect(read()).toHaveLength(1)
+      expect(read()[0]).toMatchObject({ id: waiting.id, status: 'complete', sessionEventSeq: 3,
+        roleplayBlocks: [{ speakerId: 'actor-b', text: '先显示这一段。' }] })
+      expect(release).toHaveBeenCalledOnce()
+      main.append('eleckoi/delegated-roleplay-reply', 4, { ...source, id: 'empty', status: 'waiting' })
+      main.append('eleckoi/delegated-roleplay-reply', 5, { ...source, id: 'empty', anchorSeq: 4, status: 'cancelled' })
+      expect(read()).toHaveLength(1)
+      main.append('eleckoi/delegated-roleplay-reply', 6, { ...source, id: 'other', mainSessionId: 'original', status: 'waiting' })
+      expect(read()).toHaveLength(1)
+      expect(catalog.sessions.retain).toHaveBeenCalledTimes(2)
+    } finally { mounted.dispose() }
+  })
+
   it('observes only the selected Session model and releases the prior projection on a chat switch', async () => {
     const mounted = mountCatalog(async () => ({ ok: true, data: [] }))
     const catalog = mounted.catalog as any

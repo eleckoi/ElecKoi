@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { ELECKOI_FAILURE_CODES, productFailure, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from '@eleckoi/dsh-product-api'
+import { ELECKOI_FAILURE_CODES, productFailure, isDelegatedRoleplayReply, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from '@eleckoi/dsh-product-api'
 import type { ConversationMessageEdit } from '@eleckoi/dsh-product-api/types'
 import { readDshSessionLog } from './trajectory'
 import { retainSessionModelPreferences } from './sessionModelPreferences'
@@ -20,7 +20,8 @@ export function deleteDshSessionMessagesFrom(
   const log = readEditableDshSessionLog(sessionRoot, sessionId)
   const type = role === 'user' ? 'user/message' : 'assistant/message'
   const index = log.events.findIndex(event => event.seq === eventSeq
-    && ((event.type === type && event.surfaceOp === 'append') || (role === 'assistant' && isToolBackedRoleplayReply(event))))
+    && ((event.type === type && event.surfaceOp === 'append')
+      || (role === 'assistant' && (isToolBackedRoleplayReply(event) || isDelegatedRoleplayReply(event)))))
   if (index < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到要删除的消息；原聊天记录未修改。', { what: '要删除的消息' })
   const output = role === 'assistant' ? replyOutputMarker(log.events, eventSeq) : undefined
   const toolBacked = output && !output.fallback
@@ -28,7 +29,9 @@ export function deleteDshSessionMessagesFrom(
     && event.data.turn === output.turn && event.data.message.content.some(block => block.type === 'tool-call' && block.name === ROLEPLAY_REPLY_TOOL)) : -1
   if (toolBacked && (firstBatch < 0 || firstBatch >= index)) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch,
     '角色正文缺少对应的回复工具记录，未修改对话。', { what: '角色正文的回复工具记录' })
-  const events = log.events.slice(0, toolBacked ? firstBatch : index)
+  const selected = log.events[index]
+  const cut = isDelegatedRoleplayReply(selected) ? selected.data.anchorSeq ?? index : toolBacked ? firstBatch : index
+  const events = log.events.slice(0, cut)
   // This is an explicit user edit, not recovery from a crashed Host.
   events.push(...interruptedTurnClosers(events).map(event => event.type === 'turn/end'
     ? { ...event, data: { ...event.data, reason: { kind: 'aborted', reason: { kind: 'user' } } } } as SessionEvent
@@ -46,6 +49,13 @@ export function editDshSessionMessage(
     throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '消息编辑参数不正确。', { field: '消息编辑参数' })
   }
   const log = readEditableDshSessionLog(sessionRoot, sessionId)
+  const delegated = role === 'assistant' ? log.events.find(event => event.seq === eventSeq && isDelegatedRoleplayReply(event)) : undefined
+  if (isDelegatedRoleplayReply(delegated)) {
+    if (typeof content !== 'string') throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '这条消息只接受一段正文。', { field: '消息正文' })
+    rewriteDshSessionEvents(sessionRoot, log,
+      log.events.map(event => event === delegated ? { ...delegated, data: { ...delegated.data, text: content } } : event))
+    return
+  }
   const reply = role === 'assistant' ? log.events.find(event => event.type === ROLEPLAY_OUTPUT_EVENT
     && (event.data.toolBacked ? event.seq : event.data.replySeq) === eventSeq) : undefined
   if (reply?.type === ROLEPLAY_OUTPUT_EVENT) {

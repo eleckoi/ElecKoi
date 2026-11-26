@@ -3,8 +3,20 @@ import { roleplayReplyText } from './roleplayReplyText.js'
 
 export const ROLEPLAY_OUTPUT_EVENT = 'eleckoi/roleplay-output'
 export const ROLEPLAY_REPLY_SOURCE = 'eleckoi-roleplay-reply'
+export const DELEGATED_ROLEPLAY_REPLY_EVENT = 'eleckoi/delegated-roleplay-reply'
 
 type ReplyBlock = { id: string; kind: 'speech'; text: string; speakerName: string; speakerId?: string }
+
+export function isDelegatedRoleplayReply(event: unknown): event is Extract<SessionEvent, { type: typeof DELEGATED_ROLEPLAY_REPLY_EVENT }> {
+  const candidate = event as { type?: unknown; data?: { status?: unknown; text?: unknown } } | undefined
+  return candidate?.type === DELEGATED_ROLEPLAY_REPLY_EVENT && candidate.data?.status === 'complete'
+    && typeof candidate.data.text === 'string' && Boolean(candidate.data.text.trim())
+}
+
+export function delegatedRoleplayReplyBlock(data: Extract<SessionEvent, { type: typeof DELEGATED_ROLEPLAY_REPLY_EVENT }>['data']): ReplyBlock {
+  return { id: data.id + ':0', kind: 'speech', text: data.text ?? '', speakerName: data.speakerName,
+    ...(data.speakerId ? { speakerId: data.speakerId } : {}) }
+}
 
 export function isToolBackedRoleplayReply(event: unknown): event is Extract<SessionEvent, { type: typeof ROLEPLAY_OUTPUT_EVENT }> {
   const candidate = event as { type?: unknown; data?: { toolBacked?: unknown } } | undefined

@@ -161,7 +161,7 @@ window.__ModuleLoader__.load({
         if (source[key] === message[key]) return true
         if (key === 'processTiming') return sameRecord(source[key], message[key])
         if (key === 'process' || key === 'roleplayBodyNodeKeys') return sameReferences(source[key], message[key])
-        return messageAttachmentFields.has(key) && Array.isArray(source[key]) && Array.isArray(message[key])
+        return (messageAttachmentFields.has(key) || key === 'roleplayBlocks') && Array.isArray(source[key]) && Array.isArray(message[key])
           && source[key].length === message[key].length
           && source[key].every((item, index) => sameRecord(item, message[key][index]))
       }) ? source : message
@@ -175,6 +175,34 @@ window.__ModuleLoader__.load({
 
     const roleplayResultSource = 'eleckoi-roleplay-reply'
     const roleplayReplyTool = 'eleckoi_roleplay_reply'
+    const delegatedReplyEvent = 'eleckoi/delegated-roleplay-reply'
+    const delegatedReplyNode = 'eleckoi-delegated-roleplay-reply'
+    const delegatedReplyDefinition = {
+      kind: delegatedReplyNode,
+      target: 'chat',
+      match: event => event.type === delegatedReplyEvent ? { id: event.data.id, role: 'start' } : null,
+      start: (_context, { event }) => event,
+      update: (_context, { event }) => event,
+      buildViewNode({ key, id, state }) {
+        if (!state) return null
+        return { key, id, kind: delegatedReplyNode, target: 'chat', location: { kind: 'session' },
+          visibility: state.data.status === 'cancelled' ? 'hidden' : 'visible',
+          anchorSeq: state.data.anchorSeq ?? state.seq, data: state }
+      }
+    }
+
+    function delegatedAssistant(node, runtimeSessionId, delegatedStreams) {
+      const { seq, time, data } = node.data
+      const stream = delegatedStreams.get(node.key)
+      if (data.status === 'waiting' && (data.mainSessionId !== runtimeSessionId || stream?.closed && !stream.text)) return []
+      const text = data.status === 'complete' ? data.text : stream?.text ?? ''
+      return [{
+        role: 'assistant', seq, time: data.startedAt ?? time, nodeKey: node.key, content: text, displayContent: text,
+        pending: data.status === 'waiting' && !stream?.closed, sessionEventSeq: data.status === 'complete' ? seq : undefined,
+        roleplayBlocks: [{ id: data.id + ':0', kind: 'speech', speakerName: data.speakerName,
+          speakerId: data.speakerId, text }]
+      }]
+    }
 
     function roleplayOutputByTurn(nodes, markers) {
       const outputs = new Map()
@@ -511,7 +539,7 @@ window.__ModuleLoader__.load({
       })
     }
 
-    function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = [], regeneratingInputTurn, illustrations = [], loadedEntries, roleplayOutput = new Map()) {
+    function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = [], regeneratingInputTurn, illustrations = [], loadedEntries, roleplayOutput = new Map(), delegatedStreams = new Map()) {
       if (!snapshot) return (details?.messages || []).filter(message => message.id === 'opening')
       const submissionsByRequest = new Map(pendingSubmissions.map(submission => [submission.requestId, submission]))
       const entries = loadedEntries || orderedChatEntries(snapshot)
@@ -565,6 +593,7 @@ window.__ModuleLoader__.load({
       })
       const projected = entries.flatMap((entry, nodeIndex) => {
         const node = entry.node
+        if (node.kind === delegatedReplyNode) return delegatedAssistant(node, runtimeSessionId, delegatedStreams)
         if (node.kind === 'user' || node.kind === 'steering') {
           const input = node.data
           const dshTurn = userTurns.get(node)
@@ -725,7 +754,7 @@ window.__ModuleLoader__.load({
           // the current visible position in the official display order.
           sequence: item.seq, messageIndex: index,
           role: item.role, content: item.content,
-          ...(item.role === 'assistant' && roleplayOutput.has(item.dshTurn) ? { roleplayReply: true } : {}),
+          ...(item.role === 'assistant' && (item.roleplayBlocks?.length || roleplayOutput.has(item.dshTurn)) ? { roleplayReply: true } : {}),
           ...(item.roleplayBlocks?.length ? { roleplayBlocks: item.roleplayBlocks } : {}),
           ...(item.role === 'assistant' && roleplayOutput.get(item.dshTurn)?.bodyNodeKeys
             ? { roleplayBodyNodeKeys: roleplayOutput.get(item.dshTurn).bodyNodeKeys } : {}),
@@ -781,6 +810,7 @@ window.__ModuleLoader__.load({
         this.modelSelectionSnapshot = { provider: '', model: '' }
         this.modelSelectionListeners = new Set()
         this.detailGeneration = 0
+        this.delegatedReplySources = new Map()
         this.timelineSnapshot = { id: '', status: 'idle', timeline: null, error: '' }
         this.timelineListeners = new Set()
         this.timelineGeneration = 0
@@ -1620,6 +1650,8 @@ window.__ModuleLoader__.load({
 
       releaseOfficialSession() {
         const reference = this.sessionReference
+        for (const source of this.delegatedReplySources.values()) source.release()
+        this.delegatedReplySources.clear()
         this.stopSessionGeneration()
         this.stopSessionGeneration = () => {}
         if (reference && this.sessionTarget) this.publishGeneration({
@@ -1655,12 +1687,56 @@ window.__ModuleLoader__.load({
           .flatMap(entry => entry.type === 'event' && entry.event.type === 'eleckoi/roleplay-output' ? [entry.event] : [])
       }
 
+      delegatedReplyStreams(nodes, runtimeSessionId, publish) {
+        const waiting = nodes.filter(node => node.kind === delegatedReplyNode
+          && node.data.data.status === 'waiting' && node.data.data.mainSessionId === runtimeSessionId)
+        const required = new Set(waiting.map(node => node.data.data.childSessionId))
+        for (const [id, source] of this.delegatedReplySources) {
+          if (!required.has(id)) {
+            this.delegatedReplySources.delete(id)
+            source.release()
+          }
+        }
+        for (const id of required) {
+          if (this.delegatedReplySources.has(id)) continue
+          const reference = this.sessions.retain(id, { source: 'eleckoiDelegatedRoleplayReply' })
+          let unsubscribe = () => {}
+          const source = { release() { unsubscribe(); reference.release() } }
+          this.delegatedReplySources.set(id, source)
+          void reference.ready.then(binding => {
+            if (this.delegatedReplySources.get(id) !== source) return
+            const target = this.uiConversation.binding(binding).target('chat')
+            source.target = target
+            source.session = binding.session
+            const stopChat = target.subscribe(publish)
+            const stopSession = binding.session.subscribe(publish)
+            unsubscribe = () => { stopChat(); stopSession() }
+            publish()
+          }).catch(error => {
+            if (this.delegatedReplySources.get(id) !== source) return
+            reportClientFailure('读取子代理的角色正文失败', error)
+            source.failed = true
+            publish()
+          })
+        }
+        return new Map(waiting.map(node => {
+          const { childSessionId, childTurn, childStep, speakerName } = node.data.data
+          const source = this.delegatedReplySources.get(childSessionId)
+          const assistant = orderedChatNodes(source?.target?.getSnapshot()).findLast(candidate =>
+            candidate.kind === 'assistant-step' && nodeTurn(candidate) === childTurn && candidate.data?.step === childStep)
+          const text = assistant && assistant.data.status !== 'interrupted'
+            ? roleplayReplyText(assistantText(assistant.data.blocks), speakerName, assistant.data.status === 'running') : ''
+          return [node.key, { text, closed: source?.failed === true || source?.session?.getSnapshot().running === false }]
+        }))
+      }
+
       projectOfficialMessages(chat, details, runtimeSessionId, pendingSubmissions, sessionRunning,
         entries = orderedChatEntries(chat), output = roleplayOutputByTurn(entries.map(entry => entry.node), this.roleplayOutputMarkers()),
-        process = this.officialProcess(chat, entries.map(entry => entry.node), output)) {
+        process = this.officialProcess(chat, entries.map(entry => entry.node), output),
+        delegatedStreams = this.officialProjectionSignature?.delegatedStreams) {
         return officialMessages(chat, details, runtimeSessionId, process, pendingSubmissions, sessionRunning,
           this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId),
-          this.illustrations(runtimeSessionId), entries, output)
+          this.illustrations(runtimeSessionId), entries, output, delegatedStreams)
       }
 
       officialProcess(chat, nodes, roleplayOutput) {
@@ -1710,7 +1786,7 @@ window.__ModuleLoader__.load({
         return Array.isArray(value?.abortedTurns) ? value.abortedTurns : []
       }
 
-      createOfficialProjectionSignature(chat, runtimeSessionId, hasMore, pendingSubmissions = [], sessionRunning, loadedNodes) {
+      createOfficialProjectionSignature(chat, runtimeSessionId, hasMore, pendingSubmissions = [], sessionRunning, loadedNodes, delegatedStreams) {
         const nodes = loadedNodes || orderedChatNodes(chat)
         return {
           runtimeSessionId,
@@ -1723,9 +1799,11 @@ window.__ModuleLoader__.load({
           canChangeOpening: this.openingChangeAllowed(this.detailsSnapshot.id, runtimeSessionId),
           sessionRunning,
           pendingSubmissions,
+          delegatedStreams,
           compactions: (this.sessionTrajectoryTarget?.getSnapshot()?.requests || [])
             .filter(request => request.purpose === 'compaction' && Number.isSafeInteger(request.turn) && request.turn > 0),
           nodes: nodes.filter(node => node.kind === 'user' || node.kind === 'steering'
+            || node.kind === delegatedReplyNode
             || node.kind === 'turn-tail' || node.kind === 'turn-process'
             || node.kind === 'assistant-step' || node.kind === 'tool-call' || node.kind === 'model-retry'
             || node.kind === 'turn-error' || node.kind === 'turn-max-tokens')
@@ -1735,6 +1813,8 @@ window.__ModuleLoader__.load({
       sameOfficialProjection(left, right) {
         return left?.runtimeSessionId === right?.runtimeSessionId
           && left?.hasMore === right?.hasMore
+          && left?.delegatedStreams?.size === right?.delegatedStreams?.size
+          && (!left?.delegatedStreams || [...left.delegatedStreams].every(([key, value]) => sameRecord(value, right.delegatedStreams.get(key))))
           && sameReferences(left?.roleplayOutputMarkers, right?.roleplayOutputMarkers)
           && left?.inputContinuations?.length === right?.inputContinuations?.length
           && left.inputContinuations.every((item, index) => sameRecord(item, right.inputContinuations[index]))
@@ -1907,7 +1987,10 @@ window.__ModuleLoader__.load({
         const entries = orderedChatEntries(chat)
         const nodes = entries.map(entry => entry.node)
         const hasMore = Boolean(eventWindow?.hasMore)
-        const signature = this.createOfficialProjectionSignature(chat, runtimeSessionId, hasMore, pendingSubmissions, sessionRunning, nodes)
+        const delegatedStreams = this.delegatedReplyStreams(nodes, runtimeSessionId, () => {
+          if (this.sessionTarget === target) this.acceptOfficialSession(id, runtimeSessionId, session, target)
+        })
+        const signature = this.createOfficialProjectionSignature(chat, runtimeSessionId, hasMore, pendingSubmissions, sessionRunning, nodes, delegatedStreams)
         // Session and target notifications can describe one publication. Skip
         // repeated work only if lifecycle, official nodes and displayed state agree.
         if (accepted?.details === this.detailsSnapshot && accepted.stream === this.streamState
@@ -1922,7 +2005,7 @@ window.__ModuleLoader__.load({
             const next = {
               ...details, runtimeSessionId,
               messages: this.projectOfficialMessages(chat, { ...details, hasMore }, runtimeSessionId,
-                pendingSubmissions, sessionRunning, entries, output, processByTurn),
+                pendingSubmissions, sessionRunning, entries, output, processByTurn, delegatedStreams),
               hasMore,
             }
             next.beforeSequence = next.messages.find(message => message.id !== 'opening')?.sequence ?? null
@@ -2648,6 +2731,7 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
+      ctx.uiConversation?.events?.register(delegatedReplyDefinition)
       const catalog = new ConversationCatalog(ctx.remote, ctx.sessions, ctx.uiConversation, ctx.fileUpload, ctx.eleckoiRegexRules, ctx.conversation)
       ctx.provide('eleckoiConversations', catalog)
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'messages', registrant: '@eleckoi/dsh-client-conversations' },
