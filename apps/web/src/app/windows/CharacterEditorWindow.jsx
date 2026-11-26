@@ -1,4 +1,6 @@
 import { CharacterAssetLibrary } from '../../modules/characterAssets/index.js';
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
+import { DesktopError } from '@shared/foundation/DesktopError';
 import { useCatalogSlots } from '../../ui/ui/CatalogSlotsContext.jsx';
 import { EditorNavigationRail } from '../../ui/ui/EditorNavigationRail.jsx';
 import { localizeUiCopy } from "../i18n/productCopy.js";
@@ -240,7 +242,7 @@ export function CharacterEditorWindow({ characterCatalog, characterConfiguration
     try {
       const saved = await characterCatalog.update({ id: character.id, cast: character.cast ?? [] });
       const savedCharacter = saved.items.find(item => item.id === character.id);
-      if (!savedCharacter) throw new Error(tUi("角色不存在"));
+      if (!savedCharacter) throw new DesktopError(ELECKOI_FAILURE_CODES.characterNotFound, '角色不存在', { what: '角色卡' });
       collectionRef.current = saved;
       setPersistedCharacter(savedCharacter);
       setCharacter(savedCharacter);

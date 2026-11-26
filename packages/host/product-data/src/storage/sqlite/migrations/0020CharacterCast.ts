@@ -1,7 +1,9 @@
 import type Database from 'better-sqlite3'
 import { commonSchemaSql } from './commonSchemaSql'
 import { ROLEPLAY_REPLY_GROUP_ID } from '@shared/contracts/agent/tools'
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { HIDDEN_TOOL_TIMELINE_ENTRY_ID } from '@shared/contracts/presets/builtIns'
+import { DesktopError } from '@shared/foundation/DesktopError'
 import { upgradeFinalReplyEntry, upgradeFinalReplyPlan, upgradeFinalReplyPosition } from '../../../domain/agentPresets/upgradeFinalRoleplayPreset'
 
 // RETIRE WHEN: 停止支持 v19 及更早版本直接升级，且受支持数据库的
@@ -11,7 +13,11 @@ export const migration0020 = {
   fromVersion: 19, toVersion: 20, name: 'character-cast', acceptedBaselines: [] as const,
   apply(database: Database.Database): void {
     const tableSql = commonSchemaSql.match(/^CREATE TABLE IF NOT EXISTS `character_cast_members` .*;$/m)
-    if (!tableSql) throw new Error('Missing canonical schema for character_cast_members')
+    if (!tableSql) {
+      throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, 'Missing canonical schema for character_cast_members', {
+        what: '登场角色表', expected: 'CREATE TABLE character_cast_members'
+      })
+    }
     database.exec(tableSql[0])
     database.exec(`
       INSERT INTO character_cast_members (characterId, id, name, sortIndex, pendingLegacyMedia)

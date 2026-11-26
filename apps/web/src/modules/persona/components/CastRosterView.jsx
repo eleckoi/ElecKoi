@@ -8,6 +8,8 @@ import {
   Trash,
 } from '@phosphor-icons/react';
 import { characterAssetBaseUrl } from '@shared/foundation/characterAssetReference';
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
+import { DesktopError } from '@shared/foundation/DesktopError';
 import { useCharacterAssets } from '../../characterAssets/useCharacterAssets.js';
 import { resolveFailure } from '../../../utils/failureText.js';
 import { AvatarCropModal } from '../../../ui/ui/AvatarCropModal.jsx';
@@ -109,7 +111,7 @@ export function CastRosterView({
     setUploading(true);
     try {
       const uploaded = await assets.upload([file]);
-      if (!uploaded?.[0]) throw new Error('上传图片未完成，请重试。');
+      if (!uploaded?.[0]) throw new DesktopError(ELECKOI_FAILURE_CODES.ioFailed, '上传图片未完成，请重试。', { operation: 'write' });
       patchRole({ portraitAssetId: uploaded[0], circleAssetId: null, squareAssetId: null, crop: null }, target);
       setCropEditor(null);
     } finally {
@@ -127,7 +129,7 @@ export function CastRosterView({
     setError('');
     try {
       const response = await fetch(images(selected.portraitAssetId));
-      if (!response.ok) throw new Error('读取图片失败');
+      if (!response.ok) throw new DesktopError(ELECKOI_FAILURE_CODES.ioFailed, `读取图片失败，HTTP ${response.status}`, { operation: 'read' });
       const blob = await response.blob();
       setCropEditor({
         kind: 'circle',
