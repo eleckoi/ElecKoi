@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
         const heading=tools?.parentElement.querySelector('.message-heading');
         return {body:rect(body),column:rect(column),bodyClient:body.clientWidth,bodyScroll:body.scrollWidth,
           code:rect(code),table:rect(table),tableClient:table.clientWidth,tableScroll:table.scrollWidth,
-          tableOverflow:getComputedStyle(table).overflowX,
+          tableOverflow:getComputedStyle(table).overflowX, bubbleColor:getComputedStyle(body).backgroundColor,
           more:button?rect(button.querySelector('svg')):null,
           edit:edit?rect(edit.querySelector('svg')):null, heading:heading?rect(heading):null,viewport:innerWidth};
       })()`);

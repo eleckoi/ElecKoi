@@ -109,13 +109,6 @@ function liveToolDetail(item) {
   return liveDetail(item.toolName);
 }
 
-export function shouldShowInlineAgentProcess(message, displayedContent) {
-  return message?.role === 'assistant'
-    && message?.pending === true
-    && (message?.process || []).some(Boolean)
-    && !String(displayedContent || '').trim();
-}
-
 function stateTitle(item, running, complete, failed, tUi = sourceText) {
   return item.status === 'running' ? running : item.status === 'error' ? failed : item.status === 'cancelled' ? tUi("已取消") : complete;
 }

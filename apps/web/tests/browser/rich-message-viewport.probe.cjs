@@ -17,7 +17,13 @@ app.whenReady().then(async () => {
   const inspect = () => evaluate(`(() => {
     const frame = document.querySelector('iframe'), page = frame?.contentWindow;
     const image = page?.document.querySelector('img'), block = page?.document.querySelector('#block');
+    const bubble = frame?.closest('.bubble'), agentRow = frame?.closest('.message-agent');
+    const innerWidth = element => {
+      const style = getComputedStyle(element);
+      return element.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    };
     return { name:frame?.name, frame:frame?.getBoundingClientRect().height, width:frame?.clientWidth,
+      bubbleWidth:bubble?.clientWidth, innerBubble:bubble ? innerWidth(bubble) : undefined, innerRow:agentRow ? innerWidth(agentRow) : undefined,
       hostHeight:innerHeight, image:image?.getBoundingClientRect().height, loaded:image?.complete && image?.naturalWidth === 512,
       block:block?.getBoundingClientRect().height, literal:page?.document.body?.style.getPropertyValue('--literal'),
       url:page?.document.body?.style.getPropertyValue('--image'),
@@ -76,6 +82,13 @@ app.whenReady().then(async () => {
       if (last.name !== first.name || last.literal !== '"72vh"' || !last.url.includes('icon72vh.svg') || last.diagnostics) {
         throw new Error(`Document changed or CSS tokens corrupted: ${JSON.stringify(last)}`);
       }
+      win.setContentSize(1100, 800);
+      await evaluate(`window.renderPresentation(${JSON.stringify({ native, key: `agent-${native}`, source, layoutMode: 'agent' })})`);
+      const fitsMessage = state => state.loaded && near(state.bubbleWidth, state.innerRow)
+        && near(state.width, state.innerBubble);
+      const wide = await waitFor(`agent-wide-${native}`, state => state.innerRow > 700 && fitsMessage(state));
+      win.setContentSize(400, 800);
+      await waitFor(`agent-narrow-${native}`, state => state.innerRow < 400 && fitsMessage(state) && state.name === wide.name);
     }
     if (errors.length) throw new Error(errors.join('\n'));
     writeFileSync(reportPath, JSON.stringify(reports));

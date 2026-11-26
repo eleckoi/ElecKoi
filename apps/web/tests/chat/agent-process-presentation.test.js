@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { liveProcessPresentation, processItemPresentation, shouldShowInlineAgentProcess } from '../../src/modules/chat/model/agentProcessPresentation.js';
-
-const pendingAssistant = {
-  role: 'assistant',
-  pending: true,
-  process: [{ id: 'read-variables', status: 'running' }],
-};
+import { liveProcessPresentation, processItemPresentation } from '../../src/modules/chat/model/agentProcessPresentation.js';
 
 describe('inline agent process presentation', () => {
   it('updates the one-line reasoning detail from the latest nonempty paragraph', () => {
@@ -77,15 +71,4 @@ describe('inline agent process presentation', () => {
     ])).toMatchObject({ title: '子 Agent 正在处理', target: '搜索资讯' });
   });
 
-  it('owns the message body slot before reply content arrives', () => {
-    expect(shouldShowInlineAgentProcess(pendingAssistant, '')).toBe(true);
-  });
-
-  it('hands the slot to the reply as soon as content arrives', () => {
-    expect(shouldShowInlineAgentProcess(pendingAssistant, '第一段正文')).toBe(false);
-  });
-
-  it('does not return after the turn completes', () => {
-    expect(shouldShowInlineAgentProcess({ ...pendingAssistant, pending: false }, '')).toBe(false);
-  });
 });

@@ -30,7 +30,7 @@ it('keeps viewport-sized rich content stable through media loading, host resizin
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/rich-message-viewport.probe.cjs'), htmlPath, reportPath],
       { env, timeout: 60000, windowsHide: true });
     const reports = JSON.parse(await readFile(reportPath, 'utf8'));
-    expect(reports).toHaveLength(20);
+    expect(reports).toHaveLength(24);
     expect(reports.every(report => report.frame > 1 && !report.diagnostics)).toBe(true);
   } finally {
     const path = relative(tmpdir(), directory);

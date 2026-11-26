@@ -359,60 +359,72 @@
   margin: 0 auto;
 }
 
-.chat-running-seat:empty {
-  display: none;
+.chat-panel.view-chat [data-conversation-frame] {
+  --chat-process-line-height: max(24px, calc(var(--dsh-content-font-size, 14px) * 1.5));
 }
 
-.chat-panel.layout-roleplay.view-chat [data-conversation-frame] {
-  --roleplay-process-line-height: max(24px, calc(var(--dsh-content-font-size, 14px) * 1.5));
-}
-
-.chat-panel.layout-roleplay.view-chat .chat-composer-region:has(> .chat-running-seat) {
+.chat-panel.view-chat .chat-composer-region:has(> .chat-running-seat) {
   position: relative;
 }
 
 /* Reserve the status row in history clearance without moving the official bottom button. */
-.chat-panel.layout-roleplay.view-chat [data-conversation-frame]:has(> [data-composer-seat] .chat-running-seat)
+.chat-panel.view-chat [data-conversation-frame]:has(> [data-composer-seat] .chat-running-seat)
   [data-chat-column] {
-  padding-block-end: var(--roleplay-process-line-height);
+  padding-block-end: var(--chat-process-line-height);
 }
 
-.chat-panel.layout-roleplay.view-chat .chat-running-seat {
+.chat-panel.view-chat .chat-running-seat {
   display: block;
   position: absolute;
   inset-inline: 0;
   inset-block-end: 100%;
-  min-block-size: var(--roleplay-process-line-height);
+  min-block-size: var(--chat-process-line-height);
   pointer-events: none;
 }
 
-.chat-running-seat [data-chat-running] {
-  inset-block-start: 3px;
-  margin: 0;
-  /* Match the InputBar text inset and bring the indicator close to the card. */
-  padding: 6px 14px 0;
-}
-
-.chat-running-seat [data-chat-running] > [aria-hidden="true"] {
-  display: none !important;
-}
-
-.roleplay-composer-process {
+.chat-composer-process {
   padding-inline: 14px;
 }
 
-.roleplay-composer-process .agent-process-inline {
+.chat-composer-process .agent-process-inline {
   width: fit-content;
-  line-height: var(--roleplay-process-line-height);
+  line-height: var(--chat-process-line-height);
   pointer-events: auto;
 }
 
-.roleplay-composer-process .agent-process-inline-chevron {
+.chat-composer-process .agent-process-inline-chevron {
   display: none;
 }
 
-.roleplay-composer-process .agent-process-inline:is(:hover, :focus-visible) .agent-process-inline-icon {
+.chat-composer-process .agent-process-inline:is(:hover, :focus-visible) .agent-process-inline-icon {
   opacity: 1;
+}
+
+.chat-reply-waiting {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--chat-line-height, calc(24px + var(--dsh-content-font-delta, 0px)));
+  color: var(--dsw-alias-label-secondary, var(--muted));
+}
+
+.chat-reply-waiting > span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: currentColor;
+  opacity: .7;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chat-reply-waiting > span { animation: chat-reply-dot 1.2s ease-in-out infinite; }
+  .chat-reply-waiting > span:nth-child(2) { animation-delay: .14s; }
+  .chat-reply-waiting > span:nth-child(3) { animation-delay: .28s; }
+}
+
+@keyframes chat-reply-dot {
+  20% { transform: translateY(-3px); opacity: 1; }
+  40%, 100% { transform: translateY(0); opacity: .7; }
 }
 
 .message-flow.is-conversation-entering {
@@ -641,6 +653,10 @@
   grid-column: 1 / -1;
 }
 
+.message-agent.theirs .message-content > .chat-reply-waiting {
+  grid-column: 2;
+}
+
 .message-agent .message-author {
   display: block;
   color: var(--bubble-fg);
@@ -724,7 +740,11 @@
   padding: 9px 12px;
   border: 0;
   border-radius: var(--chat-bubble-radius, 12px);
-  background: light-dark(var(--dsw-static-neutral-100), var(--bubble-bg));
+  background: light-dark(#f7f7f7, var(--bubble-bg));
+}
+
+.assistant-bubble-enabled .message-agent.theirs .bubble:has(.rich-message-presentation) {
+  width: 100%;
 }
 
 .agent-user-actions {

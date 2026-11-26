@@ -19,7 +19,7 @@ app.whenReady().then(async () => {
   const measure = () => evaluate(`(() => {
     const scroller = document.querySelector('[data-conversation-scroll]'), composer = document.querySelector('[data-composer-card]');
     const button = document.querySelector('[data-chat-to-bottom] button'), rect = button?.getBoundingClientRect();
-    const status = document.querySelector('.roleplay-composer-process button'), statusRect = status?.getBoundingClientRect();
+    const status = document.querySelector('.chat-composer-process button'), statusRect = status?.getBoundingClientRect();
     return { composerTop: composer.getBoundingClientRect().top, buttonTop: rect?.top, buttonBottom: rect?.bottom,
       buttonHit: !!rect && button.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.bottom - 2)),
       statusBottom: statusRect?.bottom,
@@ -29,7 +29,8 @@ app.whenReady().then(async () => {
   })()`);
   try {
     const reports = [];
-    for (const [width, height, query] of [[1200, 800, 'layout=agent'], [1200, 800, ''], [1200, 800, 'running'], [400, 760, 'mobile&running']]) {
+    for (const [width, height, query] of [[1200, 800, 'layout=agent'], [1200, 800, ''], [1200, 800, 'running'],
+      [400, 760, 'mobile&running'], [1200, 800, 'layout=agent&running'], [400, 760, 'mobile&layout=agent&running']]) {
       win.setContentSize(width, height);
       await win.loadURL(pathToFileURL(htmlPath).href + '?' + query);
       await waitFor('Boolean(document.querySelector("[data-chat-following-tail]"))');

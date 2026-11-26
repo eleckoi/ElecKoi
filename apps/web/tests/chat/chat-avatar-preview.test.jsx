@@ -171,11 +171,11 @@ describe("chat avatar preview trigger", () => {
       const speaker = { id: 'next:0', kind: 'speech', speakerName: '合成发言乙', text: '' };
       const reply = { ...message, pending: true, roleplayBlocks: [...previous, speaker] };
       await mount({ message: reply });
-      const waiting = () => host.querySelector('.roleplay-reply-waiting');
+      const waiting = () => host.querySelector('.chat-reply-waiting');
       expect(waiting().getAttribute('aria-label')).toBe('正在回复...');
       expect(waiting().children).toHaveLength(3);
       expect(waiting().closest('[data-roleplay-block]').textContent).toContain('合成发言乙');
-      expect(host.querySelectorAll('.roleplay-reply-waiting')).toHaveLength(1);
+      expect(host.querySelectorAll('.chat-reply-waiting')).toHaveLength(1);
 
       const render = next => act(async () => root.render(<ProductLocaleProvider><MessageBubble message={next} /></ProductLocaleProvider>));
       await render({ ...reply, roleplayBlocks: [...previous, { ...speaker, text: '开始回复。' }] });

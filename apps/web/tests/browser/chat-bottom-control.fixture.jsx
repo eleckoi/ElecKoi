@@ -94,7 +94,7 @@ function Fixture() {
         </div>
         <div className="chat-composer-region" data-composer-seat="" ref={composer}>
           <div className="chat-running-seat" data-chat-running-seat="">
-            {query.has('running') ? <div className="roleplay-composer-process">
+            {query.has('running') ? <div className="chat-composer-process">
               <button type="button" className="agent-process-inline">合成运行状态</button>
             </div> : null}
           </div>

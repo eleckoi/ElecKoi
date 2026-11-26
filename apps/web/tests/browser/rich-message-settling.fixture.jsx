@@ -35,7 +35,7 @@ const runtime = { mountDocument(target, conversationId, messageId) {
 const connection = { getSnapshot: () => runtime, subscribe: () => () => {} };
 const view = { characterConfiguration: { scriptRuntimeConnection: connection } };
 const root = createRoot(document.querySelector('#root'));
-window.renderPresentation = ({ enabled = false, native = false, key = 'first', source } = {}) => {
+window.renderPresentation = ({ enabled = false, native = false, key = 'first', source, layoutMode = 'roleplay' } = {}) => {
   nativeVariables = { counter: 7 };
   const narrative = Array.from({ length: 18 }, (_, index) => `Synthetic narrative paragraph ${index}.`).join('\n\n');
   const message = { id: 'synthetic-reply', conversationId: key, role: 'assistant', status: 'complete',
@@ -55,11 +55,12 @@ window.renderPresentation = ({ enabled = false, native = false, key = 'first', s
       await new Promise(() => {});
     </script><script type="module">syntheticModuleOrder.push('second')</script>` : ''}</body></html>`)).join('\n');
   root.render(<MainPageContext.Provider value={view}><OfficialMarkdownProvider component={MarkdownText}>
-    <section className="chat-panel view-chat layout-roleplay" style={{ height: '100vh' }}>
-      <div className="chat-conversation-body"><div className="message-area layout-roleplay" data-conversation-scroll="">
+    <section className={`chat-panel view-chat layout-${layoutMode}${layoutMode === 'agent' ? ' assistant-bubble-enabled' : ''}`}
+      style={{ height: '100vh', '--chat-composer-card-max-width': '900px' }}>
+      <div className="chat-conversation-body"><div className={`message-area layout-${layoutMode}`} data-conversation-scroll="">
         <div className="chat-transcript-region">
           <RichMessageRenderProvider key={key} messages={[message]} enabled={enabled} floorLimit={1}>
-            <MessageBubble message={message} />
+            <MessageBubble message={message} layoutMode={layoutMode} />
           </RichMessageRenderProvider>
         </div>
         <div className="chat-composer-region" data-composer-seat=""><textarea aria-label="Synthetic composer" /></div>

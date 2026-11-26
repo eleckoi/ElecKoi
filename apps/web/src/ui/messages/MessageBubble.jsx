@@ -18,7 +18,7 @@ import { ChatImageGallery } from "./ChatImageGallery.jsx";
 import { generatedImagesByBlock, generatedImageSegments } from './generatedImagePresentation.js';
 import { ChatFileCards } from "../../modules/chat/components/ChatFileCards.jsx";
 import { TurnUsage } from "../../modules/chat/components/TurnUsage.jsx";
-import { liveProcessPresentation, processItemPresentation, shouldShowInlineAgentProcess } from "../../modules/chat/model/agentProcessPresentation.js";
+import { processItemPresentation } from "../../modules/chat/model/agentProcessPresentation.js";
 import { RichMessageFrame } from "../../modules/authorFrontend/index.js";
 import { detectRichMessagePresentation } from "@shared/foundation/richMessage";
 import { finalReplyText } from "@shared/foundation/finalReply";
@@ -282,9 +282,6 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, openingCha
     && (message.id !== "opening" || message.canChangeOpening === true && (openingScene?.length ?? 0) <= 1);
   const selectedIndex = Math.max(0, options.findIndex((option) => option.id === message.selectedOpeningId));
   const pagerSelectedIndex = Math.max(0, options.findIndex((option) => option.id === pagerOpeningId));
-  const liveProcess = layoutMode !== "roleplay" && shouldShowInlineAgentProcess(message, displayContent)
-    ? liveProcessPresentation(message.process, tUi)
-    : null;
   const terminalItem = !isUser && !pending && message.process?.findLast(item =>
     item.toolName === 'turn_error' || item.toolName === 'turn_max_tokens');
   const terminalProcess = terminalItem ? { ...processItemPresentation(terminalItem, tUi), running: false } : null;
@@ -294,7 +291,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, openingCha
   );
   const markdownRef = useRef(null);
   const toneHighlightsRef = useRef(null);
-  const toneHighlightsEnabled = Boolean(displayContent && !editing && !liveProcess && !firstSegment);
+  const toneHighlightsEnabled = Boolean(displayContent && !editing && !firstSegment);
   const requestedPage = Number(pageInput);
   const requestedIndex = Number.isInteger(requestedPage) ? requestedPage - 1 : -1;
   const requestedPageValid = requestedIndex >= 0 && requestedIndex < options.length;
@@ -473,8 +470,8 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, openingCha
   const renderGroup = (group, speaker, first, last) => {
     if (!editing && group.mergedSegment) {
       if (group.mergedSegment.text) return renderSegment(group.mergedSegment);
-      if (groupedReply && !isUser && pending && last) {
-        return <div className="roleplay-reply-waiting" role="status" aria-label={tUi("正在回复...")}>
+      if (!isUser && pending && last) {
+        return <div className="chat-reply-waiting" role="status" aria-label={tUi("正在回复...")}>
           <span aria-hidden="true" />
           <span aria-hidden="true" />
           <span aria-hidden="true" />
@@ -511,7 +508,7 @@ function MessageBubbleComponent({ message = {}, avatar, pinSrc, name, openingCha
         {isUser ? <ChatFileCards files={message.inputFileAttachments || []}
           onOpen={(file) => onOpenFile?.(message.conversationId, file.attachmentId, file.name)} /> : null}
         {editing && !multipart ? renderEditor() : firstGroup ? renderGroup(firstGroup, identity, true, !hasFollowups)
-          : liveProcess ? <AgentProcessStatus presentation={liveProcess} onClick={openProcess} /> : displayContent ? <div ref={markdownRef} className="bubble markdown-message">
+          : displayContent ? <div ref={markdownRef} className="bubble markdown-message">
           {!isUser && message.generatedImageAttachments?.length ? generatedImageSegments(markdownTonePresentation.markdown, message.generatedImageAttachments, pending).map((segment, index) => segment.type === 'images'
             ? <ChatImageGallery key={`images-${index}`} images={segment.images} conversationId={message.conversationId} agentMessage={layoutMode === 'agent'} loadImage={loadImage} onRegenerateImage={onRegenerateImage} />
             : <MessagePresentation key={`text-${index}`} message={message} content={segment.content} streaming={pending || renderedDisplay.pending} renderMessageContent={renderMessageContent} />) : <MessagePresentation

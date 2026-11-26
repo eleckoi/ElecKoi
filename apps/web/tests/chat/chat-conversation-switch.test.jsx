@@ -102,7 +102,7 @@ describe('conversation switching', async () => {
     }
   });
 
-  it('docks the original roleplay process and renders speakers only after output arrives', async () => {
+  it.each(['roleplay', 'agent'])('docks the process and shows the selected speaker waiting in %s layout', async layout => {
     vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
     vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
     const sessionId = 'roleplay-live';
@@ -138,17 +138,19 @@ describe('conversation switching', async () => {
     document.body.append(container);
     const root = createRoot(container);
     const render = (message, chatDisplay) => act(async () => root.render(<WithOfficialMarkdown>
-      <ChatPanel {...props} chatDisplay={chatDisplay} messages={[message]} isSending={message.pending} />
+      <ChatPanel {...props} chatDisplay={{ ...chatDisplay, layout }} messages={[message]} isSending={message.pending} />
     </WithOfficialMarkdown>));
     try {
       await render(pendingReply);
-      expect(container.querySelector('.message-roleplay.theirs')).toBeNull();
+      const replySelector = `.message-${layout}.theirs`;
+      expect(container.querySelector(replySelector)).toBeNull();
       expect(container.querySelector('[data-chat-running]')).toBeNull();
       expect(container.querySelector('[data-chat-running-seat]').childElementCount).toBe(0);
 
       await render({ ...pendingReply, process: [search] });
       const controlButton = container.querySelector('[data-chat-running-seat] .agent-process-inline');
       expect(controlButton.textContent).toBe('正在读取设定正文 · 录音室');
+      expect(container.querySelector('[data-chat-running]')).toBeNull();
       expect(container.querySelector('.chat-transcript-region .agent-process-inline')).toBeNull();
       expect(container.textContent).not.toContain('卡片封面名');
       await act(async () => controlButton.click());
@@ -161,25 +163,30 @@ describe('conversation switching', async () => {
       const bubbles = { roleplay_style: { bubbles_enabled: true } };
       await render({ ...spoken, content: '', displayContent: '',
         roleplayBlocks: [{ ...spoken.roleplayBlocks[0], text: '' }] }, bubbles);
-      const firstRow = container.querySelector('.message-roleplay.theirs');
+      const firstRow = container.querySelector(replySelector);
       expect(firstRow.querySelector('.avatar')).not.toBeNull();
       expect(firstRow.querySelector('.message-author').textContent).toBe('发言角色');
-      expect(firstRow.querySelector('.message-floor').textContent).toBe('#0');
-      expect(firstRow.querySelector('.message-timestamp')).not.toBeNull();
+      if (layout === 'roleplay') {
+        expect(firstRow.querySelector('.message-floor').textContent).toBe('#0');
+        expect(firstRow.querySelector('.message-timestamp')).not.toBeNull();
+      }
+      expect(firstRow.querySelector('[aria-label="正在回复..."]').children).toHaveLength(3);
       expect(firstRow.querySelector('.markdown-message')).toBeNull();
       await render(spoken, bubbles);
-      expect(container.querySelector('.message-roleplay.theirs')).toBe(firstRow);
+      expect(container.querySelector(replySelector)).toBe(firstRow);
+      expect(firstRow.querySelector('.chat-reply-waiting')).toBeNull();
       expect(firstRow.querySelector('.markdown-message').textContent).toBe('听到了');
       await render({ ...spoken, roleplayBlocks: [...spoken.roleplayBlocks,
         { id: 'speech-b', kind: 'speech', speakerName: '下一位角色', text: '' }] }, bubbles);
-      const nextRow = container.querySelector('.roleplay-reply-followups .message-roleplay');
+      const nextRow = container.querySelector(`.opening-message-followups ${replySelector}, .roleplay-reply-followups ${replySelector}`);
       expect(nextRow.querySelector('.message-author').textContent).toBe('下一位角色');
-      expect(nextRow.querySelector('.message-floor').textContent).toBe('#1');
+      if (layout === 'roleplay') expect(nextRow.querySelector('.message-floor').textContent).toBe('#1');
+      expect(nextRow.querySelector('.chat-reply-waiting')).not.toBeNull();
       expect(nextRow.querySelector('.markdown-message')).toBeNull();
       const nextTool = { ...search, id: 'read-again', arguments: '{"path":"采样备注"}' };
       await render({ ...spoken, process: [{ ...search, status: 'complete' }, nextTool] }, { roleplay_style: { bubbles_enabled: false } });
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 160)); });
-      expect(container.querySelector('.message-roleplay.theirs')).toBe(firstRow);
+      expect(container.querySelector(replySelector)).toBe(firstRow);
       expect(container.querySelector('[data-chat-running-seat] .agent-process-inline')).toBe(controlButton);
       expect(controlButton.textContent).toBe('正在读取设定正文 · 采样备注');
       expect(container.querySelector('[data-roleplay-bubbles]')).toBeNull();
@@ -188,12 +195,7 @@ describe('conversation switching', async () => {
       await act(async () => fixture.update({ session: { ...fixture.state.session, running: false } }));
       await render(finished);
       expect(container.querySelector('[data-chat-running-seat]').childElementCount).toBe(0);
-      expect(container.querySelector('.message-roleplay.theirs')).toBe(firstRow);
-
-      await act(async () => fixture.update({ session: { ...fixture.state.session, running: true } }));
-      await render({ ...pendingReply, process: [search] }, { layout: 'agent' });
-      expect(container.querySelector('[data-chat-running]')?.parentElement).toBe(container.querySelector('[data-chat-running-seat]'));
-      expect(container.querySelector('.message-agent.theirs .agent-process-inline')).not.toBeNull();
+      expect(container.querySelector(replySelector)).toBe(firstRow);
     } finally {
       await act(async () => root.unmount());
       container.remove();

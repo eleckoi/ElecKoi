@@ -144,7 +144,6 @@ export function ChatPanel({
   const [deletingMessages, setDeletingMessages] = useState(false);
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
   const [pinnedAvatar, setPinnedAvatar] = useState(null);
-  const [runningStatusTarget, setRunningStatusTarget] = useState(null);
   const chatPanelRef = useRef(null);
   const pageView = useContext(MainPageContext);
   const chatWallpaper = wallpaper ?? resolveChatWallpaper({
@@ -295,10 +294,11 @@ export function ChatPanel({
     );
   }
 
-  const liveRoleplayMessage = layoutMode === "roleplay" && activeView === "chat" && runtimeSessionId && !isSwitchingChat
-    ? displayedMessages.findLast(item => item.role === "assistant" && item.pending && item.runtimeSessionId === runtimeSessionId)
+  const liveReply = activeView === "chat" && runtimeSessionId && !isSwitchingChat
+    ? displayedMessages.findLast(item => item.role === "assistant" && item.pending
+      && item.runtimeSessionId === runtimeSessionId && item.process?.length)
     : null;
-  const roleplayProcess = liveRoleplayMessage ? liveProcessPresentation(liveRoleplayMessage.process, tUi) : null;
+  const liveProcess = liveReply ? liveProcessPresentation(liveReply.process, tUi) : null;
   const roleplayStyle = resolveRoleplayStyle(chatDisplay);
   const avatarShape = resolveChatAvatarShape(layoutMode, profile?.avatar_shape || "portrait");
   const displayStyle = {
@@ -408,7 +408,7 @@ export function ChatPanel({
   const officialChat = isSwitchingChat ? null : renderRoleplaySlot?.("eleckoi.roleplay.chat", {
     ...dshConversation?.viewOwner,
     before: opening,
-    runningStatusTarget: layoutMode === "roleplay" ? null : runningStatusTarget,
+    runningStatusTarget: null,
     followTailRequestId: scrollRequest?.source === "regeneration" ? scrollRequest.revision : undefined,
     renderChatNode: (owner, renderOfficial, renderIndex) => {
       const { node } = owner;
@@ -417,7 +417,7 @@ export function ChatPanel({
       const turn = officialProcessTurn(owner);
       const answer = answersByTurn.get(turn);
       const part = officialProcessPart(owner, answer);
-      const waitingForBody = layoutMode === "roleplay" && seat?.item.role === "assistant" && seat.item.pending
+      const waitingForBody = seat?.item.role === "assistant" && seat.item.pending
         && !String(seat.item.displayContent ?? seat.item.content ?? "").trim()
         && !seat.item.roleplayBlocks?.length;
       const row = seat === undefined ? undefined
@@ -475,9 +475,9 @@ export function ChatPanel({
               </div>
             ) : (
               <>
-                <div className="chat-running-seat" ref={setRunningStatusTarget} data-chat-running-seat="">
-                  {roleplayProcess ? <div className="roleplay-composer-process">
-                    <AgentProcessStatus presentation={roleplayProcess} onClick={() => setProcessMessage(liveRoleplayMessage)} />
+                <div className="chat-running-seat" data-chat-running-seat="">
+                  {liveProcess ? <div className="chat-composer-process">
+                    <AgentProcessStatus presentation={liveProcess} onClick={() => setProcessMessage(liveReply)} />
                   </div> : null}
                 </div>
                 {dshInputZone ? renderRoleplaySlot?.("eleckoi.roleplay.conversation.input.dock", dshInputZone) : null}

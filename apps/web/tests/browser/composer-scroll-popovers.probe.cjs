@@ -52,13 +52,13 @@ app.whenReady().then(async () => {
       await win.loadURL(url.href);
       await wait('!!window.scrollPopoverFixture');
       await evaluate(`window.scrollPopoverFixture.setCount(24);window.scrollPopoverFixture.roleplayRunning(true,${bubbles})`);
-      await wait('!!document.querySelector(".roleplay-composer-process") && !!document.querySelector("article.roleplay-reply-turn .roleplay-reply-followups")');
+      await wait('!!document.querySelector(".chat-composer-process") && !!document.querySelector("article.roleplay-reply-turn .roleplay-reply-followups")');
       await evaluate(`(() => { const scroll = document.querySelector('[data-conversation-scroll]');
         scroll.scrollTop = scroll.scrollHeight; scroll.dispatchEvent(new Event('scroll')); scroll.dispatchEvent(new Event('scrollend')); })()`);
       await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
       const before = await statusGeometry();
       await evaluate(`window.scrollPopoverFixture.roleplayRunning(false,${bubbles})`);
-      await wait('!document.querySelector(".roleplay-composer-process")');
+      await wait('!document.querySelector(".chat-composer-process")');
       await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
       roleplayStatus.push({ width, bubbles, before, after: await statusGeometry() });
     }

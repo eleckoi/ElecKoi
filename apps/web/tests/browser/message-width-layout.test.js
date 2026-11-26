@@ -19,6 +19,7 @@ it('bounds Markdown to its reading column and scrolls wide tables within it on P
     const { reports, shortReplies } = JSON.parse(await readFile(reportPath, 'utf8'));
     for (const report of reports) {
       const detail = JSON.stringify(report);
+      if (report.query.includes('assistant-bubble')) expect(report.bubbleColor, detail).toBe('rgb(247, 247, 247)');
       expect(report.body.right, detail).toBeLessThanOrEqual(report.column.right + 1);
       expect(report.body.right, detail).toBeLessThanOrEqual(report.viewport);
       expect(report.bodyScroll, detail).toBeLessThanOrEqual(report.bodyClient + 1);

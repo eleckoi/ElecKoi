@@ -55,7 +55,7 @@ it('keeps official chat controls and extension content on their shared layout tr
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/chat-bottom-control.probe.cjs'), htmlPath, reportPath],
       { env, timeout: 45000, windowsHide: true });
     const { scroll: reports, alignment } = JSON.parse(await readFile(reportPath, 'utf8'));
-    expect(reports).toHaveLength(4);
+    expect(reports).toHaveLength(6);
     const expectedGap = reports[0].long.composerTop - reports[0].long.buttonBottom;
     expect(expectedGap).toBe(16);
     for (const report of reports) {
