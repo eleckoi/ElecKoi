@@ -4,6 +4,7 @@ export { DynamicSettingsPanel } from "./components/DynamicSettingsPanel.jsx";
 export { SettingLibraryDocument } from './components/SettingLibraryDocument.jsx';
 export { MarkdownTextareaField } from "./components/MarkdownTextareaField.jsx";
 export { EditorWritingBoard } from './components/EditorWritingBoard.jsx';
+export { ImmersiveMarkdownEditor } from './components/ImmersiveMarkdownEditor.jsx';
 export { SettingEntryGlyph } from "./components/SettingEntryFields.jsx";
 export { ConfirmationDialog, SaveControl } from "./components/SettingLibraryControls.jsx";
 export { SettingLibraryTree, SettingTreeActionsContext, SettingTreeNode } from "./components/SettingLibraryTree.jsx";

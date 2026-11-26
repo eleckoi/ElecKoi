@@ -23,12 +23,10 @@ import { includeImportedRulesInActiveVersion } from '@shared/foundation/regex/Re
 import type { SettingLibraryRepository } from '@product-data/domain/settingLibraries'
 import type { VariableConfigRepository } from '@product-data/domain/variables'
 import type { ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
-import type { CharacterRepository } from '@product-data/domain/personas'
-import { prepareLegacyCast } from '@product-data/domain/personas/legacyCharacterCast'
+import { characterExists, prepareLegacyCast, type CharacterRepository } from '@product-data/domain/personas'
 import type { LocalMediaStore } from '@product-data/storage/media/LocalMediaStore'
 import { ScriptLibraryRepository } from '@product-data/domain/scripts'
 import { agentPresetExists } from '@product-data/domain/agentPresets'
-import { characterExists } from '@product-data/domain/personas'
 import {
   decodeCharacterCard,
   encodeCharacterBundle,

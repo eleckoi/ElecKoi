@@ -21,6 +21,7 @@ import { ElecKoiWordmark } from "../../ui/icons/ElecKoiWordmark.jsx";
 import { FileCode, Folder, SlidersHorizontal } from '../../ui/icons/interfaceIcons.jsx';
 import { resolveFailure } from '../../utils/failureText.js';
 import {
+  CastRosterView,
   CharacterBasicInfoPanel,
 } from "../../modules/persona/index.js";
 import { applyAppearanceTheme } from "../../modules/appearance/index.js";
@@ -40,7 +41,6 @@ import { EditorPresentationContext, useEditorFeedbackHost } from '../../ui/ui/Ed
 import { useMobileEditorCaret } from '../../ui/hooks/useMobileEditorCaret.js';
 import { usePageFade } from '../../ui/hooks/usePageFade.js';
 import { bestEffort } from "../../utils/swallowedFailure.js";
-import { CastRosterView } from '../../modules/persona/components/CastRosterView.jsx';
 
 const EDITOR_SECTIONS = [
   { id: "card", label: "基础资料", Icon: IdentificationCard },

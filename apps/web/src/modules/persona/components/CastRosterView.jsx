@@ -10,7 +10,7 @@ import {
 import { characterAssetBaseUrl } from '@shared/foundation/characterAssetReference';
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
 import { DesktopError } from '@shared/foundation/DesktopError';
-import { useCharacterAssets } from '../../characterAssets/useCharacterAssets.js';
+import { useCharacterAssets } from '../../characterAssets/index.js';
 import { resolveFailure } from '../../../utils/failureText.js';
 import { AvatarCropModal } from '../../../ui/ui/AvatarCropModal.jsx';
 import { EditorContextMenu, useEditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';

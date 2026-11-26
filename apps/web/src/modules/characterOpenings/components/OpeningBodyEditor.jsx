@@ -6,7 +6,7 @@ import { useProductTranslation } from '../../../app/i18n/ProductLocaleContext.js
 import { ArrowDown, ArrowUp, CaretDown, ChatCircleDots, CornersOut, Plus, Trash } from '../../../ui/icons/interfaceIcons.jsx';
 import { EditorTextInput } from '../../../ui/ui/EditorTextInput.jsx';
 import { CastPortrait } from '../../persona/index.js';
-import { ImmersiveMarkdownEditor } from '../../settingLibraries/components/ImmersiveMarkdownEditor.jsx';
+import { ImmersiveMarkdownEditor } from '../../settingLibraries/index.js';
 import { editableOpeningSegments } from '../model/openingEditing.js';
 
 function openingRolePhoto(character, role) {
