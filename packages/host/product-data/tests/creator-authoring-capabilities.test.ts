@@ -32,6 +32,18 @@ async function fixture() {
 }
 
 describe('Creator authoring matches the native setting, schema, script and regex contracts', { timeout: 30_000 }, () => {
+  it('refreshes existing conversations when the card name changes independently of the speaker name', async () => {
+    const { data, characterId } = await fixture()
+    const cards = data.updateCharacter({ id: characterId, name: '旧卡名', persona: { assistant_name: '发言名' } })
+    const card = cards.items.find(item => item.id === characterId)!
+    const { conversation } = data.createConversation({ title: '聊天存档', metadata: { characterId, characterPersona: card.persona } })
+    data.updateCharacter({ ...card, name: '新卡名' })
+
+    expect(data.readConversationDetails(conversation.id)).toMatchObject({ conversation: { title: '聊天存档' },
+      metadata: { characterName: '新卡名', characterPersona: { assistant_name: '发言名' } } })
+    expect(data.readConversationCatalog().find(chat => chat.id === conversation.id)?.metadata.characterName).toBe('新卡名')
+  })
+
   it('edits character positions and complete setting versions with a role-bound revision and preserves other scopes', async () => {
     const f = await fixture(), body = 'Synthetic retained long setting 𠮷\n'.repeat(3000)
     const entry = f.call('settings.create', { title: 'Synthetic positioned entry', content: body, order: 8 })

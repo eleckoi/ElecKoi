@@ -4,6 +4,7 @@ import type { Conversation, ConversationMetadata, OpeningMessageOption } from '@
 import { parseJsonObject } from '@shared/foundation/json'
 import { openingSegmentText } from '@shared/foundation/characterOpenings'
 import { requireCharacter } from '@product-data/domain/personas'
+import type { CharacterConversationIdentity } from '@product-data/domain/personas/CharacterRepository'
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import {
   agentBranches,
@@ -224,15 +225,10 @@ export class ConversationRepository {
     return this.get(id, db)
   }
 
-  refreshCharacterIdentity(characterId: string, identity: {
-    name: string
-    avatar: string
-    square: string
-    portrait: string
-  }, db: ElecKoiDatabase = this.store.db): void {
-    db.update(chatSessions).set({ characterName: identity.name, characterAvatar: identity.avatar })
+  refreshCharacterIdentity(characterId: string, identity: CharacterConversationIdentity, db: ElecKoiDatabase = this.store.db): void {
+    db.update(chatSessions).set({ characterName: identity.cardName, characterAvatar: identity.avatar })
       .where(eq(chatSessions.characterId, characterId)).run()
-    db.update(conversationSpeakers).set({ displayName: identity.name, avatarAssetId: identity.avatar })
+    db.update(conversationSpeakers).set({ displayName: identity.speakerName, avatarAssetId: identity.avatar })
       .where(eq(conversationSpeakers.sourceSpeakerId, characterId)).run()
     const sessions = db.select({ id: chatSessions.id }).from(chatSessions).where(eq(chatSessions.characterId, characterId)).all()
     for (const session of sessions) {
@@ -242,7 +238,7 @@ export class ConversationRepository {
       const persona = parseJsonObject(snapshot.personaJson)
       const next = JSON.stringify({
         ...persona,
-        assistant_name: identity.name,
+        assistant_name: identity.speakerName,
         assistant_avatar: identity.avatar,
         assistant_square: identity.square,
         assistant_cover: identity.portrait

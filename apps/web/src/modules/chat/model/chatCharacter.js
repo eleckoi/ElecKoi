@@ -36,13 +36,13 @@ export function normalizeChatCharacter(character = {}) {
 
 export function normalizeCharacterFromLibrary(character = {}) {
   const persona = character.persona || {};
-  const name = persona.assistant_name || character.name || "未命名角色";
+  const name = character.name || persona.assistant_name || "未命名角色";
   const avatar = persona.assistant_avatar || character.avatar || "";
   return normalizeChatCharacter({
     character_id: character.id || "",
     character_name: name,
     character_avatar: avatar,
-    assistant_name: name,
+    assistant_name: persona.assistant_name || name,
     assistant_avatar: avatar,
     assistant_square: persona.assistant_square || character.squareImage || "",
     assistant_cover: persona.assistant_cover || character.coverImage || "",
@@ -60,7 +60,7 @@ export function withLatestCharacter(chat, lookup) {
   if (!latest) return chat;
   return {
     ...chat,
-    character_name: latest.assistant_name || latest.character_name || chat.character_name,
+    character_name: latest.character_name || chat.character_name,
     character_avatar: latest.assistant_avatar || latest.character_avatar || chat.character_avatar,
     character_persona: {
       ...(chat.character_persona || {}),

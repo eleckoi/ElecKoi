@@ -80,5 +80,5 @@ export function filterConversationSessions(conversationSessions, keyword) {
 export function currentChatTitle(displaySessions, sessionId, chatCharacter) {
   if (!sessionId) return "";
   const currentSession = displaySessions.find((item) => item.id === sessionId);
-  return currentSession?.character_name || chatCharacter.assistant_name || chatCharacter.character_name || "";
+  return currentSession?.character_name || chatCharacter.character_name || chatCharacter.assistant_name || "";
 }

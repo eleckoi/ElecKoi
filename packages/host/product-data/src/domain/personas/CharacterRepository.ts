@@ -29,14 +29,17 @@ function normalizedGroups(values: unknown[]): string[] {
   return [...new Set(values.map(normalizedGroup).filter(Boolean))]
 }
 
+export interface CharacterConversationIdentity {
+  cardName: string
+  speakerName: string
+  avatar: string
+  square: string
+  portrait: string
+}
+
 export interface CharacterConversationCleanup {
   deleteForCharacter(characterId: string): void
-  refreshCharacterIdentity(characterId: string, identity: {
-    name: string
-    avatar: string
-    square: string
-    portrait: string
-  }, db: ElecKoiDatabase): void
+  refreshCharacterIdentity(characterId: string, identity: CharacterConversationIdentity, db: ElecKoiDatabase): void
 }
 
 export class CharacterRepository {
@@ -271,7 +274,8 @@ export class CharacterRepository {
     if (!previous) db.insert(characterOpenings).values({ characterId: input.id,
       configurationJson: JSON.stringify(createCharacterOpenings(input.id, string(persona.opening), Boolean(persona.show_opening ?? input.showOpening ?? true))) }).run()
     this.conversationCleanup.refreshCharacterIdentity(input.id, {
-      name: row.assistantName,
+      cardName: row.name,
+      speakerName: row.assistantName,
       avatar: row.assistantAvatar,
       square: row.squareImage,
       portrait: row.coverImage

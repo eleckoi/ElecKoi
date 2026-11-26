@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { normalizeChatItemCharacter } from "../../src/modules/chat/model/chatCharacter.js";
 import {
+  applyLatestCharactersToSessions,
   collapseSessionsByCharacter,
+  createCharacterLookup,
+  currentChatTitle,
   filterHiddenConversationEntries,
   hideConversationEntry,
   restoreConversationEntry,
@@ -18,6 +22,17 @@ function session(id, characterId, updatedAt) {
 }
 
 describe("conversation list entries", () => {
+  it("shows the renamed card in an existing chat while retaining its speaker name", () => {
+    const chat = { id: "chat-a", title: "旧卡名", character_id: "card-a", character_name: "旧卡名" };
+    const characters = { items: [{ id: "card-a", name: "新卡名", persona: { assistant_name: "发言名" } }] };
+    const displayed = applyLatestCharactersToSessions([chat], createCharacterLookup(characters));
+    const active = normalizeChatItemCharacter(displayed[0]);
+
+    expect(currentChatTitle(displayed, chat.id, active)).toBe("新卡名");
+    expect(currentChatTitle([], chat.id, active)).toBe("新卡名");
+    expect(active.assistant_name).toBe("发言名");
+  });
+
   it("moves the latest chat below pinned entries while retaining the chosen pin order", () => {
     const allSessions = [
       session("pin-a", "character-pin-a", "2026-11-01T01:00:00Z"),

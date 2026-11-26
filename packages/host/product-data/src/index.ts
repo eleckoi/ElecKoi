@@ -15,7 +15,7 @@ import { eq } from 'drizzle-orm'
 import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes'
 import { DesktopError } from '@shared/foundation/DesktopError'
 import { PersonaRepository } from '@product-data/domain/personas/PersonaRepository'
-import { CharacterRepository } from '@product-data/domain/personas/CharacterRepository'
+import { CharacterRepository, type CharacterConversationIdentity } from '@product-data/domain/personas/CharacterRepository'
 import { canDeleteCastAssets, readCharacterCastForCharacter } from '@product-data/domain/personas/characterCastStorage'
 import { migrateLegacyCastMedia } from '@product-data/domain/personas/legacyCharacterCast'
 import { CharacterTransferService } from '@product-data/domain/characterTransfer/CharacterTransferService'
@@ -155,15 +155,10 @@ class HostPersonaConversationSync {
     }
   }
 
-  refreshCharacterIdentity(characterId: string, identity: {
-    name: string
-    avatar: string
-    square: string
-    portrait: string
-  }, db: ElecKoiDatabase): void {
-    db.update(chatSessions).set({ characterName: identity.name, characterAvatar: identity.avatar })
+  refreshCharacterIdentity(characterId: string, identity: CharacterConversationIdentity, db: ElecKoiDatabase): void {
+    db.update(chatSessions).set({ characterName: identity.cardName, characterAvatar: identity.avatar })
       .where(eq(chatSessions.characterId, characterId)).run()
-    db.update(conversationSpeakers).set({ displayName: identity.name, avatarAssetId: identity.avatar })
+    db.update(conversationSpeakers).set({ displayName: identity.speakerName, avatarAssetId: identity.avatar })
       .where(eq(conversationSpeakers.sourceSpeakerId, characterId)).run()
     const sessions = db.select({ id: chatSessions.id }).from(chatSessions)
       .where(eq(chatSessions.characterId, characterId)).all()
@@ -174,7 +169,7 @@ class HostPersonaConversationSync {
       const persona = parseJsonObject(snapshot.personaJson)
       const next = JSON.stringify({
         ...persona,
-        assistant_name: identity.name,
+        assistant_name: identity.speakerName,
         assistant_avatar: identity.avatar,
         assistant_square: identity.square,
         assistant_cover: identity.portrait

@@ -122,7 +122,7 @@ export function useChatClient({ conversations, characters: characterCatalog, mod
     const latestPersona = character.persona || {};
     await chatSessions.openCharacterChat({
       id: character.id,
-      name: latestPersona.assistant_name || character.name || "未命名角色",
+      name: character.name || latestPersona.assistant_name || "未命名角色",
       avatar: latestPersona.assistant_avatar || character.avatar || "",
       assistant_name: latestPersona.assistant_name || character.name || "",
       assistant_avatar: latestPersona.assistant_avatar || character.avatar || "",
