@@ -7,7 +7,7 @@ export const HISTORY_COMPACTION_ENTRY_ID = 'built-in-roleplay-history-compaction
 export const HISTORY_COMPACTION_ENTRY_TITLE = '自动压缩摘要模板'
 
 export const HIDDEN_TOOL_TIMELINE_REPLY_PHASE = `reply_phase:
-  output: "完成必要的设定和变量准备后，若 eleckoi_roleplay_reply 可用，先用它选发言角色。调用后，下一步必须用 <角色名>对应的角色扮演内容</角色名> 把正文直接发给玩家，标签使用选中的角色名。单人调用一次。多人还有角色要发言时，写完当前角色正文后，在同一条消息末尾调用工具选下一位。"`
+  output: "设定和变量准备后，若 eleckoi_roleplay_reply 可用，一次选出本轮发言角色。下一步按工具给出的格式直接输出正文。"`
 
 export const DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT = `<roleplay_output_protocol>
 tool_phase:

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { ELECKOI_FAILURE_CODES, productFailure, isDelegatedRoleplayReply, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from '@eleckoi/dsh-product-api'
+import { delegatedRoleplayReplyBlocks, ELECKOI_FAILURE_CODES, productFailure, isDelegatedRoleplayReply, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from '@eleckoi/dsh-product-api'
 import type { ConversationMessageEdit } from '@eleckoi/dsh-product-api/types'
 import { readDshSessionLog } from './trajectory'
 import { retainSessionModelPreferences } from './sessionModelPreferences'
@@ -11,6 +11,16 @@ import { buildForkSeed } from '@deepseek-ai/dsh-session/fork'
 import { ROLEPLAY_REPLY_TOOL } from '@eleckoi/dsh-client-roleplay/host/roleplay-reply-tool.mjs'
 
 type MessageRole = 'user' | 'assistant'
+
+function editReplyBlocks<T extends { id: string; text: string }>(blocks: T[] | undefined, edits: Exclude<ConversationMessageEdit, string>): T[] {
+  if (!blocks || blocks.length < 2 || edits.length !== blocks.length || blocks.some((block, index) => {
+    const edit = edits[index]
+    return edit?.id !== block.id || typeof edit.text !== 'string' || !edit.text.trim()
+  })) {
+    throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '请提交原有各段的正文。', { field: '回复段落' })
+  }
+  return blocks.map((block, index) => ({ ...block, text: edits[index]!.text }))
+}
 
 /** Delete the selected message and its suffix, preserving the exact earlier history. */
 export function deleteDshSessionMessagesFrom(
@@ -51,9 +61,14 @@ export function editDshSessionMessage(
   const log = readEditableDshSessionLog(sessionRoot, sessionId)
   const delegated = role === 'assistant' ? log.events.find(event => event.seq === eventSeq && isDelegatedRoleplayReply(event)) : undefined
   if (isDelegatedRoleplayReply(delegated)) {
-    if (typeof content !== 'string') throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '这条消息只接受一段正文。', { field: '消息正文' })
+    const original = delegatedRoleplayReplyBlocks(delegated.data)
+    if (typeof content === 'string' && original.length > 1) {
+      throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '请按段编辑这条回复。', { field: '回复段落' })
+    }
+    const blocks = typeof content === 'string' ? original.map(block => ({ ...block, text: content })) : editReplyBlocks(original, content)
+    const data = { ...delegated.data, blocks, text: blocks.map(block => block.text).join('\n\n') }
     rewriteDshSessionEvents(sessionRoot, log,
-      log.events.map(event => event === delegated ? { ...delegated, data: { ...delegated.data, text: content } } : event))
+      log.events.map(event => event === delegated ? { ...delegated, data } : event))
     return
   }
   const reply = role === 'assistant' ? log.events.find(event => event.type === ROLEPLAY_OUTPUT_EVENT
@@ -62,17 +77,9 @@ export function editDshSessionMessage(
     const blocks = reply.data.toolBacked ? roleplayReplyMessages(log.events).find(item => item.event === reply)?.blocks : undefined
     const data = { ...reply.data }
     if (Array.isArray(content)) {
-      if (!blocks || blocks.length < 2 || content.length !== blocks.length || blocks.some((block, index) => {
-        const edit = content[index]
-        return edit?.id !== block.id || typeof edit.text !== 'string' || !edit.text.trim()
-      })) {
-        throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '请提交原有各段的正文。', { field: '回复段落' })
-      }
-      data.editedBlocks = content.map(({ id, text }) => ({ id, text }))
-      data.editedText = blocks.map((block, index) => {
-        const text = content[index]!.text
-        return block.speakerName ? `${block.speakerName}：${text}` : text
-      }).join('\n\n')
+      const updated = editReplyBlocks(blocks, content)
+      data.editedBlocks = updated.map(({ id, text }) => ({ id, text }))
+      data.editedText = updated.map(({ speakerName, text }) => `${speakerName}：${text}`).join('\n\n')
     } else {
       if (blocks && blocks.length > 1 && (data.editedText === undefined || data.editedBlocks)) {
         throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '请按段编辑这条回复。', { field: '回复段落' })

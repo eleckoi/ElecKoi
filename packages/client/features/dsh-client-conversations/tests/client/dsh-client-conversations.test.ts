@@ -694,23 +694,23 @@ describe('DSH ElecKoi conversation client model', () => {
       window = { revision: window.revision + 1, entries: eventEntries, change: { kind: 'append', entries: [record] } }
       for (const listener of listeners) listener()
     }
-    const select = (seq: number, step: number, callId: string, speakerName: string) => {
-      append('tool/call', seq, { turn: 1, step, callId, name: 'eleckoi_roleplay_reply', arguments: JSON.stringify({ name: speakerName }) })
-      append('tool/result', seq + 1, { turn: 1, step, meta: { source: 'eleckoi-roleplay-reply', speaker: { kind: 'speech', speakerName } },
+    const select = (seq: number, step: number, callId: string, names: string[]) => {
+      append('tool/call', seq, { turn: 1, step, callId, name: 'eleckoi_roleplay_reply', arguments: JSON.stringify({ names }) })
+      append('tool/result', seq + 1, { turn: 1, step, meta: { source: 'eleckoi-roleplay-reply', speakers: names.map(speakerName => ({ kind: 'speech', speakerName })) },
         message: { id: 'result-' + callId, role: 'tool', toolCallId: callId, source: { kind: 'tool', callId }, content: [{ type: 'text', text: '已选定角色' }] } }, 'append')
       append('step/end', seq + 2, { turn: 1, step })
     }
     const stream = (seq: number, step: number, text: string) => append('assistant/live-chunk', seq, { turn: 1, step, attemptId: 'attempt-' + step,
       chunk: { type: 'text-delta', index: 0, text } })
-    const message = (seq: number, step: number, text: string, callId?: string, speakerName?: string) => append('assistant/message', seq, {
+    const message = (seq: number, step: number, text: string, callId?: string, names?: string[]) => append('assistant/message', seq, {
       turn: 1, step, stream: [], message: { id: 'assistant-' + step, role: 'assistant',
         source: { kind: 'model', provider: 'synthetic', model: 'synthetic' }, content: [
           ...(text ? [{ type: 'text', text }] : []),
-          ...(callId ? [{ type: 'tool-call', id: callId, name: 'eleckoi_roleplay_reply', arguments: JSON.stringify({ name: speakerName }) }] : [])] }
+          ...(callId ? [{ type: 'tool-call', id: callId, name: 'eleckoi_roleplay_reply', arguments: JSON.stringify({ names }) }] : [])] }
     }, 'append')
-    const liveSpeaker = (seq: number, step: number, callId: string, speakerName: string) => append('assistant/live-chunk', seq, {
+    const liveSpeakers = (seq: number, step: number, callId: string, names: string[]) => append('assistant/live-chunk', seq, {
       turn: 1, step, attemptId: 'attempt-' + step, chunk: { type: 'tool-call-delta', index: 1, id: callId,
-        name: 'eleckoi_roleplay_reply', argumentsDelta: JSON.stringify({ name: speakerName }) }
+        name: 'eleckoi_roleplay_reply', argumentsDelta: JSON.stringify({ names }) }
     })
     const latest = () => catalog.getDetailsSnapshot().details.messages.at(-1)
     try {
@@ -724,12 +724,14 @@ describe('DSH ElecKoi conversation client model', () => {
       append('user/message', 2, { id: 'user', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '你好' }] }, 'append')
       append('eleckoi/roleplay-output', 3, { turn: 1, nativeText: true })
       append('step/start', 4, { turn: 1, step: 1 })
-      liveSpeaker(4.1, 1, 'first', '合成发言甲')
-      const first = { id: 'first:0', kind: 'speech', speakerName: '合成发言甲' }
+      const names = ['合成发言乙', '合成发言甲', '合成发言丙']
+      liveSpeakers(4.1, 1, 'batch', names)
+      const first = { id: 'batch:0', kind: 'speech', speakerName: '合成发言甲' }
+      const second = { id: 'batch:1', kind: 'speech', speakerName: '合成发言乙' }
       paint()
-      expect(latest().roleplayBlocks).toEqual([{ ...first, text: '' }])
-      message(5, 1, '', 'first', '合成发言甲')
-      select(6, 1, 'first', '合成发言甲')
+      expect(latest()?.roleplayBlocks ?? []).toEqual([])
+      message(5, 1, '', 'batch', names)
+      select(6, 1, 'batch', names)
       append('step/start', 9, { turn: 1, step: 2 })
       stream(9.1, 2, '<合成')
       paint()
@@ -740,19 +742,14 @@ describe('DSH ElecKoi conversation client model', () => {
       stream(9.3, 2, '继续"。</合成')
       paint()
       expect(latest().roleplayBlocks).toEqual([{ ...first, text: '他说 "继续"。' }])
-      stream(9.4, 2, '发言甲>')
-      liveSpeaker(9.5, 2, 'second', '合成发言乙')
-      const second = { id: 'second:0', kind: 'speech', speakerName: '合成发言乙' }
+      stream(9.4, 2, '发言甲>\n<合成发言乙>')
       paint()
       expect(latest().roleplayBlocks).toEqual([{ ...first, text: '他说 "继续"。' }, { ...second, text: '' }])
-      message(10, 2, '<合成发言甲>他说 "继续"。</合成发言甲>', 'second', '合成发言乙')
-      select(11, 2, 'second', '合成发言乙')
-      append('step/start', 14, { turn: 1, step: 3 })
-      stream(14.1, 3, '<合成发言乙>第二段。')
+      stream(9.5, 2, '第二段。')
       paint()
       expect(latest().roleplayBlocks).toEqual([{ ...first, text: '他说 "继续"。' }, { ...second, text: '第二段。' }])
-      message(15, 3, '<合成发言乙>第二段。</合成发言乙>')
-      append('step/end', 16, { turn: 1, step: 3 })
+      message(15, 2, '<合成发言甲>他说 "继续"。</合成发言甲>\n<合成发言乙>第二段。</合成发言乙>')
+      append('step/end', 16, { turn: 1, step: 2 })
       append('eleckoi/roleplay-output', 17, { turn: 1, replySeq: 15, toolBacked: true, nativeText: true })
       running = false
       append('turn/end', 18, { turn: 1, reason: { kind: 'completed' } })

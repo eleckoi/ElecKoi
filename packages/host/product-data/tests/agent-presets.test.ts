@@ -198,7 +198,7 @@ describe('agent preset repository', () => {
     expect(prompt).toContain('先检查航海日志')
     expect(prompt).toMatch(/^<roleplay_output_protocol>\n/)
     expect(prompt).toContain('\ntool_phase:')
-    expect(prompt).toMatch(/reply_phase:\n  output: .*eleckoi_roleplay_reply.*下一步必须用 <角色名>对应的角色扮演内容<\/角色名>.*单人调用一次.*多人/)
+    expect(prompt).toMatch(/reply_phase:\n  output: .*eleckoi_roleplay_reply.*一次选出本轮发言角色。下一步按工具给出的格式直接输出正文。/)
     expect(prompt).not.toMatch(/<FINAL>|final_phase|visible_output/)
     const storedVersionEntry = database.native.prepare('SELECT payloadJson FROM agent_preset_version_entries WHERE presetId = ? AND entryId = ?')
       .get(preset.id, 'built-in-hidden-tool-timeline') as { payloadJson: string }

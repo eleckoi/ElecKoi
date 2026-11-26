@@ -100,7 +100,10 @@ describe('DSH subagent runtime context inheritance', () => {
             childEntered.resolve()
             await Promise.race([release.promise, new Promise((_, reject) => options.signal.addEventListener('abort', () => reject(options.signal.reason), { once: true }))])
             yield* call('send_message', { agent: rootId, message: 'Synthetic delivered result' })
-          } else yield* streamRoleplayReply([{ name: cast[1].name, text: 'Synthetic child closing result' }])
+          } else yield* streamRoleplayReply([
+            { name: cast[1].name, text: 'Synthetic child closing result' },
+            { name: cast[0].name, text: 'Synthetic second speaker' }
+          ])
         }
       }
       ctx.llm.registerAdapter(['synthetic'], new Adapter())
@@ -169,23 +172,26 @@ describe('DSH subagent runtime context inheritance', () => {
         expect(replySchema(requests.find(request => request.sessionId === childId)))
           .toEqual(replySchema(requests.find(request => request.sessionId === rootId)))
         expect(roleplayReplyMessages(childEvents).flatMap(result => result.blocks)).toEqual([
-          expect.objectContaining({ speakerId: 'speaker-b', text: 'Synthetic child closing result' })
+          expect.objectContaining({ speakerId: 'speaker-b', text: 'Synthetic child closing result' }),
+          expect.objectContaining({ speakerId: 'speaker-a', text: 'Synthetic second speaker' })
         ])
         expect(roleplayReplyMessages(events).flatMap(result => result.blocks.map(block => block.text)))
           .not.toContain('Synthetic child closing result')
         const [selection, publication] = events.filter(event => event.type === DELEGATED_ROLEPLAY_REPLY_EVENT)
-        expect(selection.data).toMatchObject({ childSessionId: childId, childStep: 3, speakerId: 'speaker-b', status: 'waiting' })
+        expect(selection.data).toMatchObject({ childSessionId: childId, childStep: 3, status: 'waiting',
+          speakers: [{ speakerId: 'speaker-b' }, { speakerId: 'speaker-a' }] })
         expect(publication.data).toMatchObject({ id: selection.data.id, anchorSeq: selection.seq,
-          speakerId: 'speaker-b', status: 'complete', text: 'Synthetic child closing result' })
+          status: 'complete', blocks: [{ speakerId: 'speaker-b', text: 'Synthetic child closing result' },
+            { speakerId: 'speaker-a', text: 'Synthetic second speaker' }] })
         const replyHistory = await readRoleplayReplies(ctx, rootId)
         const dialogue = visibleDialogueHistory(projectRoleplayDialogue(root.agent.session.deriveMessages(), replyHistory))
         expect(dialogue.filter(message => message.content.includes('Synthetic child closing result')))
-          .toEqual([{ role: 'assistant', content: '合成角色乙：Synthetic child closing result' }])
+          .toEqual([{ role: 'assistant', content: '合成角色乙：Synthetic child closing result\n\n合成角色甲：Synthetic second speaker' }])
         const final = requests.filter(request => request.sessionId === rootId).at(-1)
         expect(final.messages.find(message => message.source.kind === 'agent-message')?.content)
           .toContainEqual({ type: 'text', text: 'Synthetic delivered result' })
         expect(final.messages.find(message => message.source.kind === 'subagent-settled')?.content)
-          .toContainEqual({ type: 'text', text: '<合成角色乙>Synthetic child closing result</合成角色乙>' })
+          .toContainEqual({ type: 'text', text: '<合成角色乙>Synthetic child closing result</合成角色乙>\n\n<合成角色甲>Synthetic second speaker</合成角色甲>' })
       }
       expect(ctx.agents.list().filter(agent => agent.session.header.origin === 'subagent')).toHaveLength(0)
       await root.dispose()

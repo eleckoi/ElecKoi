@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     // 边界⑥ 的信封拆解只有一份实现（@eleckoi/dsh-product-api 的 client 面）。
-    const { unwrapOrFail, internalFailure, failureAlreadyPublished, rejectionIsAwaitedElsewhere, bestEffort, productFailure, ELECKOI_FAILURE_CODES, roleplayReplyText } = require('@eleckoi/dsh-product-api')
+    const { unwrapOrFail, internalFailure, failureAlreadyPublished, rejectionIsAwaitedElsewhere, bestEffort, productFailure, ELECKOI_FAILURE_CODES, appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers } = require('@eleckoi/dsh-product-api')
     /**
      * 载体不是产品失败（例如 LLM 的 `LlmFailure`：`{ message, code, status }`）时的折法：
      * 折成兜底码，provider 的 message 当诊断（不写 `details.what`，所以它仍能给用户看），
@@ -195,12 +195,19 @@ window.__ModuleLoader__.load({
       const { seq, time, data } = node.data
       const stream = delegatedStreams.get(node.key)
       if (data.status === 'waiting' && (data.mainSessionId !== runtimeSessionId || stream?.closed && !stream.text)) return []
-      const text = data.status === 'complete' ? data.text : stream?.text ?? ''
+      const blocks = []
+      const speakers = roleplayReplySpeakers({ speakers: data.speakers, speaker: data })
+      // RETIRE WHEN: supported Session histories and imports always store completed delegated reply blocks.
+      // Remove the stored text fallback and its regression coverage. Keep the live child text projection.
+      const source = data.blocks ?? roleplayReplyBlocks(data.text ?? stream?.text ?? '', speakers, data.id,
+        data.status === 'waiting' && !stream?.closed && stream?.streaming !== false)
+      for (const block of source) appendRoleplayReplyBlock(blocks, { ...block })
+      if (!blocks.length) return []
+      const text = blocks.map(block => block.text).join('\n\n')
       return [{
         role: 'assistant', seq, time: data.startedAt ?? time, nodeKey: node.key, content: text, displayContent: text,
         pending: data.status === 'waiting' && !stream?.closed, sessionEventSeq: data.status === 'complete' ? seq : undefined,
-        roleplayBlocks: [{ id: data.id + ':0', kind: 'speech', speakerName: data.speakerName,
-          speakerId: data.speakerId, text }]
+        roleplayBlocks: blocks
       }]
     }
 
@@ -217,7 +224,7 @@ window.__ModuleLoader__.load({
         if (!Number.isSafeInteger(sourceStep)) continue
         const step = node.kind === 'tool-call' ? sourceStep + 1 : sourceStep
         let part = output.steps.get(step)
-        if (!part) output.steps.set(step, part = { speakers: [] })
+        if (!part) output.steps.set(step, part = { selections: [] })
         if (node.kind === 'assistant-step') {
           if (node.data.status !== 'interrupted' && !node.data.finalNode?.interrupted) {
             part.text = assistantText(node.data.blocks)
@@ -230,30 +237,26 @@ window.__ModuleLoader__.load({
           const confirmed = root?.kind === 'tool-result'
           if (confirmed && (root.isError || root.meta?.source !== roleplayResultSource)) continue
           if (!confirmed && (output.replySeq !== undefined || root?.name !== roleplayReplyTool)) continue
-          const speaker = confirmed ? root.meta.speaker : undefined
-          const speakerName = speaker?.speakerName ?? (root.args?.complete('name') ? root.args.text('name') : undefined)
-          if (typeof speakerName !== 'string' || !speakerName.trim()) continue
-          part.speakers.push({ id: root.callId + ':0', kind: 'speech', text: '', speakerName,
-            ...(typeof speaker?.speakerId === 'string' ? { speakerId: speaker.speakerId } : {}) })
+          const names = !confirmed && root.args?.value('names')
+          const speakers = confirmed ? roleplayReplySpeakers(root.meta)
+            : Array.isArray(names) ? [...new Set(names)].filter(name => typeof name === 'string' && name.trim())
+              .map(speakerName => ({ speakerName })) : []
+          if (speakers.length) part.selections.push({ callId: root.callId, speakers })
         }
       }
       for (const output of outputs.values()) {
         const blocks = []
         const bodyNodeKeys = []
         for (const [, part] of [...output.steps].sort(([left], [right]) => left - right)) {
-          if (part.speakers.length !== 1) continue
-          const [speaker] = part.speakers
-          const text = roleplayReplyText(part.text ?? '', speaker.speakerName, part.streaming)
-          const previous = blocks.at(-1)
-          const { speakerId, speakerName } = speaker
-          const sameSpeaker = previous && (previous.speakerId && speakerId
-            ? previous.speakerId === speakerId : previous.speakerName === speakerName)
-          if (text.trim()) {
-            if (sameSpeaker) previous.text = previous.text + '\n\n' + text
-            else blocks.push({ ...speaker, text })
+          if (part.selections.length !== 1) continue
+          const [{ callId, speakers }] = part.selections
+          const reply = roleplayReplyBlocks(part.text ?? '', speakers, callId,
+            output.replySeq === undefined && (part.streaming || !part.nodeKey))
+          if (reply.some(block => block.text.trim())) {
             bodyNodeKeys.push(part.nodeKey)
             output.bodySeq = part.seq
-          } else if (!sameSpeaker && output.replySeq === undefined) blocks.push(speaker)
+          }
+          for (const block of reply) appendRoleplayReplyBlock(blocks, block)
         }
         if (bodyNodeKeys.length) output.bodyNodeKeys = bodyNodeKeys
         const edits = new Map(output.editedBlocks?.map(block => [block.id, block.text]))
@@ -1720,13 +1723,13 @@ window.__ModuleLoader__.load({
           })
         }
         return new Map(waiting.map(node => {
-          const { childSessionId, childTurn, childStep, speakerName } = node.data.data
+          const { childSessionId, childTurn, childStep } = node.data.data
           const source = this.delegatedReplySources.get(childSessionId)
           const assistant = orderedChatNodes(source?.target?.getSnapshot()).findLast(candidate =>
             candidate.kind === 'assistant-step' && nodeTurn(candidate) === childTurn && candidate.data?.step === childStep)
-          const text = assistant && assistant.data.status !== 'interrupted'
-            ? roleplayReplyText(assistantText(assistant.data.blocks), speakerName, assistant.data.status === 'running') : ''
-          return [node.key, { text, closed: source?.failed === true || source?.session?.getSnapshot().running === false }]
+          const text = assistant && assistant.data.status !== 'interrupted' ? assistantText(assistant.data.blocks) : ''
+          return [node.key, { text, streaming: assistant ? assistant.data.status === 'running' : undefined,
+            closed: source?.failed === true || source?.session?.getSnapshot().running === false }]
         }))
       }
 

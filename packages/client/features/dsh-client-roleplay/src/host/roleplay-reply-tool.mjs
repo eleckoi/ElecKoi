@@ -1,5 +1,5 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
-import { DELEGATED_ROLEPLAY_REPLY_EVENT, ELECKOI_FAILURE_CODES, productFailure, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE, roleplayReplyText } from '@eleckoi/dsh-product-api'
+import { appendRoleplayReplyBlock, DELEGATED_ROLEPLAY_REPLY_EVENT, ELECKOI_FAILURE_CODES, productFailure, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE, roleplayReplyBlocks, roleplayReplySpeakers } from '@eleckoi/dsh-product-api'
 
 export { ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE }
 
@@ -11,7 +11,9 @@ export const roleplayReplyEnabled = snapshot => !snapshot?.disabledToolGroupIds?
 export function roleplayReplyResult(event) {
   if (event.type !== 'tool/result' || event.data.message.isError) return undefined
   const meta = event.data.meta
-  return meta?.source === ROLEPLAY_REPLY_SOURCE && meta.speaker ? meta : undefined
+  if (meta?.source !== ROLEPLAY_REPLY_SOURCE) return undefined
+  const speakers = roleplayReplySpeakers(meta)
+  return speakers.length ? { ...meta, speakers } : undefined
 }
 
 /** A successful selection owns native text in the next assistant step. */
@@ -32,14 +34,15 @@ export function installRoleplayReply(agent, isEnabled = () => true, readConversa
     advertisedFrames = allowFrames
   }
   let output
-  const settleDelegated = (text = '') => {
+  const settleDelegated = (blocks = []) => {
     const delegated = output?.delegated
     if (!delegated) return
     output.delegated = undefined
     const { parent, ...data } = delegated
     if (readMainSession() !== parent) return
-    parent.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...data, status: text.trim() ? 'complete' : 'cancelled',
-      ...(text.trim() ? { text } : {}) }, { ignorable: true })
+    const text = blocks.map(block => block.text).join('\n\n')
+    parent.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...data, status: text ? 'complete' : 'cancelled',
+      ...(text ? { text, blocks } : {}) }, { ignorable: true })
   }
   refreshTool()
   ctx.on('agent/prepare-step', ({ agent: owner }) => {
@@ -58,32 +61,36 @@ export function installRoleplayReply(agent, isEnabled = () => true, readConversa
     if (owner !== session || !output || event.data?.turn !== output.turn) return
     const result = roleplayReplyResult(event)
     if (result && output.latestAssistant?.data.step === event.data.step) {
-      output.selections.push(result.speaker.speakerName)
+      const callId = event.data.message.source.callId
+      output.selections.push({ callId, speakers: result.speakers })
       if (result.frames) output.framesSubmitted = true
       if (output.selections.length !== 1) settleDelegated()
       else {
         const parent = readMainSession?.()
         if (parent) {
           const anchorMessageId = parent.deriveMessages().at(-1)?.id
-          const id = `${agent.id}:${output.turn}:${event.data.step}:${event.data.message.source.callId}`
+          const id = `${agent.id}:${output.turn}:${event.data.step}:${callId}`
           const data = { id, mainSessionId: parent.id, childSessionId: agent.id,
-            childTurn: output.turn, childStep: event.data.step + 1, speakerName: result.speaker.speakerName,
-            ...(anchorMessageId ? { anchorMessageId } : {}),
-            ...(result.speaker.speakerId ? { speakerId: result.speaker.speakerId } : {}) }
+            childTurn: output.turn, childStep: event.data.step + 1,
+            ...(result.speakers.length === 1 ? result.speakers[0] : { speakers: result.speakers }),
+            ...(anchorMessageId ? { anchorMessageId } : {}) }
           const anchor = parent.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...data, status: 'waiting' }, { ignorable: true })
           output.delegated = { ...data, parent, anchorSeq: anchor.seq, startedAt: anchor.time }
         }
       }
     }
     if (event.type === 'assistant/message') {
-      const [speaker] = output.selections
-      let body = ''
+      const [selection] = output.selections
+      const blocks = []
       if (output.selections.length === 1 && event.data.step === output.latestAssistant?.data.step + 1 && !event.data.interrupted) {
         const text = event.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')
-        body = roleplayReplyText(text, speaker)
-        if (body.trim()) output.replySeq = event.seq
+        const { callId, speakers } = selection
+        for (const block of roleplayReplyBlocks(text, speakers, output.delegated?.id ?? callId)) {
+          appendRoleplayReplyBlock(blocks, block)
+        }
+        if (blocks.length) output.replySeq = event.seq
       }
-      settleDelegated(body)
+      settleDelegated(blocks)
       output.selections = []
       output.latestAssistant = event
     }
@@ -113,15 +120,13 @@ function defineRoleplayReply(agent, cast, cardName, allowFrames, readOutput) {
   const castNames = [...speakers].filter(([, id]) => id !== null).map(([name]) => name)
   const usesCover = castNames.length === 0
   const names = usesCover ? [cardName] : castNames
-  const roster = usesCover
-    ? `卡片封面发言名是 ${JSON.stringify(cardName)}。`
-    : `本卡登记了 ${castNames.length} 位登场角色 ${JSON.stringify(castNames)}。名单中的每一项各是一位角色。`
-  const continueReply = `本轮还有角色发言时，写完当前角色正文后，在同一条消息末尾调用 ${ROLEPLAY_REPLY_TOOL} 选择接下来发言的角色。`
+  const writeReply = '下一步必须用一条普通文本消息把本轮扮演正文发给玩家。每段用 <角色名>对应的角色扮演内容</角色名>，标签用实际角色名。谁发言、谁先发言由剧情和设定决定。'
   return defineTool({
     name: ROLEPLAY_REPLY_TOOL,
-    description: `${roster}\n选择发言角色。调用后，下一步必须汇报出该角色输出的扮演内容，直接发给玩家。格式为 <角色名>对应的角色扮演内容</角色名>，标签使用选中的角色名。单人回复调用一次。多人可在同一轮发言。${continueReply}`,
+    description: `一次选择本轮的一位或多位发言角色。${writeReply}`,
     parameters: {
-      name: { type: 'string', required: true, enum: names, description: usesCover ? '卡片封面名称。' : '本次正文的发言角色。' },
+      names: { type: 'array', required: true, items: { type: 'string', enum: names },
+        description: usesCover ? '卡片封面发言名。' : '从登场角色中选出本轮发言角色。' },
       ...(allowFrames ? { frames: { type: 'array', description: '自动配图分镜，整轮一次提交。无分镜时可省略或传空数组。', items: {
         type: 'object', additionalProperties: false, properties: {
           id: { type: 'integer', required: true, description: '从 1 开始连续编号。' },
@@ -134,16 +139,18 @@ function defineRoleplayReply(agent, cast, cardName, allowFrames, readOutput) {
     },
     output: {
       schema: { type: 'object', additionalProperties: true },
-      presentationMeta: (_args, { name, frames }) => ({
+      presentationMeta: (_args, { names, frames }) => ({
         source: ROLEPLAY_REPLY_SOURCE,
-        speaker: { kind: 'speech', speakerName: name, ...(usesCover ? {} : { speakerId: speakers.get(name) }) },
+        speakers: names.map(name => ({ kind: 'speech', speakerName: name, ...(usesCover ? {} : { speakerId: speakers.get(name) }) })),
         ...(frames ? { frames } : {})
       }),
-      render: (_args, { name }) => [{ type: 'text', text: `下一步必须把 ${name} 的扮演正文直接发给玩家，格式为 <${name}>对应的角色扮演内容</${name}>。${names.length > 1 ? continueReply : ''}` }]
+      render: () => [{ type: 'text', text: writeReply }]
     },
-    async execute({ name, frames }, execution) {
+    async execute({ names, frames }, execution) {
       if (execution.agent !== agent || execution.parent) throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition,
         '角色回复必须从当前对话直接调用。', { what: '直接调用角色回复工具' })
+      if (!names.length) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid,
+        '请在 names 中填入本轮发言的一位或多位角色。', { field: 'names' })
       if (frames?.length) {
         if (readOutput()?.framesSubmitted || frames.some((frame, index) => frame.id !== index + 1 || !frame.prompt.trim()
           || (frame.seed !== undefined && (frame.seed < 0 || frame.seed > 4294967295))
@@ -155,7 +162,7 @@ function defineRoleplayReply(agent, cast, cardName, allowFrames, readOutput) {
           '自动配图插件未启用。没有启用时省略 frames。', { what: '自动配图' })
         illustrator.validateReplyFrames(agent.id, frames)
       }
-      return { name, ...(frames?.length ? { frames } : {}) }
+      return { names: [...new Set(names)], ...(frames?.length ? { frames } : {}) }
     }
   })
 }

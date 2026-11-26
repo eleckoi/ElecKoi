@@ -33,7 +33,7 @@ async function runTurn(responses, enabled = true, readCast = () => cast) {
       const blocks = typeof response === 'string' ? [{ type: 'text', text: response }] : [
         ...(response.body ? [{ type: 'text', text: response.body }] : []),
         { type: 'tool-call', id: `call-${requests}`, name: response.lookup ? 'lookup_scene' : ROLEPLAY_REPLY_TOOL,
-          arguments: JSON.stringify(response.lookup ? {} : { name: response.name }) }
+          arguments: JSON.stringify(response.lookup ? {} : { names: response.names ?? [response.name] }) }
       ]
       for (const [index, block] of blocks.entries()) {
         yield { type: 'block-start', index, blockType: block.type }
@@ -78,10 +78,9 @@ it('binds the next native assistant step to the selected role', async () => {
   expect(frames.some(frame => frame.chunk?.type === 'tool-call-delta')).toBe(true)
   const results = events.filter(event => event.type === 'tool/result')
   expect(results).toHaveLength(1)
-  expect(results[0].data.meta.speaker).toEqual({ kind: 'speech', speakerId: 'speaker-a', speakerName: '合成角色甲' })
-  expect(Object.keys(replySchemas[0].parameters.properties)).toEqual(['name'])
-  expect(replySchemas[0].parameters.properties.name.enum).toEqual(['合成角色甲'])
-  expect(replySchemas[0].description).toContain('本卡登记了 1 位登场角色 ["合成角色甲"]')
+  expect(results[0].data.meta.speakers).toEqual([{ kind: 'speech', speakerId: 'speaker-a', speakerName: '合成角色甲' }])
+  expect(Object.keys(replySchemas[0].parameters.properties)).toEqual(['names'])
+  expect(replySchemas[0].parameters.properties.names).toMatchObject({ type: 'array', items: { enum: ['合成角色甲'] } })
   const receipt = modelInputs[1].at(-1)
   expect(receipt.role).toBe('tool')
   expect(frames.find(frame => frame.chunk?.type === 'text-delta').chunk.text).toBe(labeled)
@@ -104,8 +103,7 @@ it('combines consecutive same-speaker submissions with an intervening lookup', a
   ], true, () => [])
   expect(requests).toBe(4)
   expect(outcome).toEqual({ kind: 'completed' })
-  expect(replySchemas[0].parameters.properties.name.enum).toEqual(['合成卡片'])
-  expect(replySchemas[0].description).toContain('卡片封面发言名是 "合成卡片"')
+  expect(replySchemas[0].parameters.properties.names.items.enum).toEqual(['合成卡片'])
   expect(JSON.stringify(modelInputs[2])).toContain('设定查阅结果')
   const replies = roleplayReplyMessages(events)
   expect(replies).toMatchObject([{ content: '合成卡片：第一段。\n\n第二段。' }])
@@ -123,23 +121,25 @@ it('combines consecutive same-speaker submissions with an intervening lookup', a
   expect(blocksByMessage.get(retainedId)).toMatchObject([{ text: '第二段。' }])
 })
 
-it('advertises the current cast and uses it to resolve the speakers in a complete scene', async () => {
-  const text = '合成角色甲：录音机开始转动。\n\n「我来按回放。」\n\nScenePartner：「等一下，我先调低音量。」'
-  const { replySchemas, events, advertisedTools, rawReplies, requests, modelInputs } = await runTurn([
-    { name: '合成角色甲' }, { name: 'ScenePartner', body: '<合成角色甲>录音机开始转动。\n\n「我来按回放。」</合成角色甲>' },
-    '<ScenePartner>「等一下，我先调低音量。」</ScenePartner>'
-  ])
-  expect(requests).toBe(3)
+it('selects several speakers at once and preserves the native text order in chat, preview and history', async () => {
+  const text = 'ScenePartner：我来调低音量。\n\n合成角色甲：我来按回放。\n\nScenePartner：可以了。'
+  const { replySchemas, events, advertisedTools, rawReplies, requests, modelInputs, messages, catalogPreview } = await runTurn([
+    { names: ['合成角色甲', 'ScenePartner'] }, '<ScenePartner>我来调低音量。</ScenePartner>\n<合成角色甲>我来按回放。</合成角色甲>\n<ScenePartner>可以了。</ScenePartner>'
+  ], true, () => [...cast, { name: '未出场角色', id: 'absent' }])
+  expect(requests).toBe(2)
   expect(advertisedTools[0].filter(name => name === ROLEPLAY_REPLY_TOOL)).toEqual([ROLEPLAY_REPLY_TOOL])
   expect(JSON.stringify(replySchemas[0])).not.toMatch(/speakerId|speaker-a|searcher/)
-  expect(replySchemas[0].description).toContain('本卡登记了 2 位登场角色 ["合成角色甲","ScenePartner"]。名单中的每一项各是一位角色。')
-  expect(replySchemas[0].description).toMatch(/下一步必须.*<角色名>对应的角色扮演内容<\/角色名>.*单人回复调用一次.*多人可在同一轮发言/)
-  expect(replySchemas[0].description).not.toMatch(/示例|台词|动作|环境|剧情|玩家询问|先选第一位/)
-  expect(replySchemas[0].parameters.required).toEqual(['name'])
-  expect(replySchemas[0].parameters.properties.name.enum).toEqual(['合成角色甲', 'ScenePartner'])
-  expect(modelInputs[1].at(-1)?.content[0]?.text).toContain('在同一条消息末尾调用 eleckoi_roleplay_reply 选择接下来发言的角色。')
-  expect(rawReplies).toEqual([{ name: '合成角色甲' }, { name: 'ScenePartner' }])
-  expect(roleplayReplyMessages(events)).toMatchObject([{ content: text, blocks: [{ speakerId: 'speaker-a' }, { speakerId: 'searcher' }] }])
+  expect(replySchemas[0].description).toMatch(/一次选择.*一位或多位.*下一步.*<角色名>对应的角色扮演内容<\/角色名>.*由剧情和设定决定/)
+  expect(replySchemas[0].parameters.required).toEqual(['names'])
+  expect(replySchemas[0].parameters.properties.names.items.enum).toEqual(['合成角色甲', 'ScenePartner', '未出场角色'])
+  expect(modelInputs[1].at(-1)?.content[0]?.text.match(/<角色名>/g)).toHaveLength(1)
+  expect(modelInputs[1].at(-1)?.content[0]?.text).not.toMatch(/合成角色甲|ScenePartner|未出场角色|再次调用|消息末尾/)
+  expect(rawReplies).toEqual([{ names: ['合成角色甲', 'ScenePartner'] }])
+  const replies = roleplayReplyMessages(events)
+  expect(replies).toMatchObject([{ content: text, blocks: [{ speakerId: 'searcher' }, { speakerId: 'speaker-a' }, { speakerId: 'searcher' }] }])
+  expect(projectRoleplayDialogue(messages, replies).filter(message => message.role === 'assistant').flatMap(message => message.content))
+    .toEqual([{ type: 'text', text }])
+  expect(catalogPreview).toBe('我来调低音量。\n\n我来按回放。\n\n可以了。')
 })
 
 it('refreshes the published roster through DSH before resolving the next step', async () => {
@@ -150,17 +150,16 @@ it('refreshes the published roster through DSH before resolving the next step', 
       roster = [{ id: 'new', name: '新角色' }]
       return current
     })
-  expect(replySchemas[0].parameters.properties.name.enum).toEqual(['新角色'])
-  expect(replySchemas[0].description).toContain('本卡登记了 1 位登场角色 ["新角色"]')
+  expect(replySchemas[0].parameters.properties.names.items.enum).toEqual(['新角色'])
   expect(roleplayReplyMessages(events)).toMatchObject([{ content: '新角色：新角色发言。' }])
 })
 
 it('tells the selected role how to format the next reply and keeps ordinary text visible if it omits the label', async () => {
   const { rawReplies, modelInputs, events } = await runTurn([{ name: '合成角色甲' }, '下一步的正文。'], true, () => cast.slice(0, 1))
-  expect(rawReplies).toEqual([{ name: '合成角色甲' }])
+  expect(rawReplies).toEqual([{ names: ['合成角色甲'] }])
   const receipt = modelInputs[1].at(-1)
   expect(receipt).toMatchObject({ role: 'tool', content: [
-    { type: 'text', text: '下一步必须把 合成角色甲 的扮演正文直接发给玩家，格式为 <合成角色甲>对应的角色扮演内容</合成角色甲>。' }
+    { type: 'text', text: expect.stringContaining('<角色名>对应的角色扮演内容</角色名>') }
   ] })
   expect(receipt.isError).not.toBe(true)
   expect(roleplayReplyMessages(events)).toMatchObject([{ content: '合成角色甲：下一步的正文。' }])

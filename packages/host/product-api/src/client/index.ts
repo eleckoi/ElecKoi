@@ -23,7 +23,7 @@ export { productFailure, PRODUCT_FAILURE_DETAIL_KEYS, FALLBACK_FAILURE_CODE } fr
 export type { ProductFailure, ProductFailureDetails, ProductFailureIssue } from '../productFailure.js'
 export type { InternalFailure } from './invalidResponse.js'
 export type { RemoteResultEnvelope } from './unwrapFailure.js'
-export { roleplayReplyText } from '../roleplayReplyText.js'
+export { appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers } from '../roleplayReplyText.js'
 
 export const inject = ['remote']
 

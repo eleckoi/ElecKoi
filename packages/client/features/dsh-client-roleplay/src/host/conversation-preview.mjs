@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { projectionCacheDomainSpec } from '@deepseek-ai/dsh-session-projection-cache'
-import { roleplayReplyText } from '@eleckoi/dsh-product-api'
+import { roleplayReplyBlocks } from '@eleckoi/dsh-product-api'
 import { ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_TOOL, roleplayReplyResult } from './roleplay-reply-tool.mjs'
 
 const schema = z.string().max(480)
@@ -43,12 +43,13 @@ export const conversationPreviewProjection = {
       const selection = roleplayReplyResult(event)
       if (selection) {
         const step = event.data.step + 1
-        const names = state.selection?.step === step ? state.selection.names : []
-        return { ...state, selection: { step, names: [...names, selection.speaker.speakerName] } }
+        const names = state.selection?.step === step ? [] : selection.speakers.map(speaker => speaker.speakerName)
+        return { ...state, selection: { step, names } }
       }
       if (event.type === 'assistant/message' && state.selection?.step === event.data.step) {
-        const text = event.data.interrupted || state.selection.names.length !== 1 ? ''
-          : roleplayReplyText(event.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join(''), state.selection.names[0])
+        const raw = event.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')
+        const text = event.data.interrupted ? ''
+          : replyBody(roleplayReplyBlocks(raw, state.selection.names.map(speakerName => ({ speakerName })), ''))
         const reply = toPreview([state.reply, text].filter(Boolean).join('\n\n'))
         return { ...state, selection: undefined, reply, preview: reply || state.preview }
       }

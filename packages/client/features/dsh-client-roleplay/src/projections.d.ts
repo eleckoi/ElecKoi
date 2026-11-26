@@ -36,13 +36,15 @@ declare module '@deepseek-ai/dsh-session/types' {
       childSessionId: string
       childTurn: number
       childStep: number
-      speakerName: string
+      speakerName?: string
       speakerId?: string
+      speakers?: Array<{ speakerName: string; speakerId?: string }>
       status: 'waiting' | 'complete' | 'cancelled'
       anchorSeq?: number
       anchorMessageId?: string
       startedAt?: number
       text?: string
+      blocks?: Array<{ id: string; kind: 'speech'; text: string; speakerName: string; speakerId?: string }>
     }
     'eleckoi/illustration': {
       batchId: string

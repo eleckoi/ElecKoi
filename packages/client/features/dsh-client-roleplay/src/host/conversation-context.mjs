@@ -7,7 +7,7 @@ import { readSessionSnapshot } from './session-snapshot.mjs'
 import { requiredSettingCache } from './required-setting-cache.mjs'
 import { resolvePlacedSettingTemplates } from './setting-library-tools.mjs'
 import { INPUT_CONTINUATIONS_PROJECTION } from './input-continuations-projection.mjs'
-import { delegatedRoleplayReplyBlock, isDelegatedRoleplayReply, productFailure, ELECKOI_FAILURE_CODES, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
+import { delegatedRoleplayReplyBlocks, isDelegatedRoleplayReply, productFailure, ELECKOI_FAILURE_CODES, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
 import { roleplayReplyEnabled } from './roleplay-reply-tool.mjs'
 
 export const name = 'eleckoi-conversation-context'
@@ -113,12 +113,12 @@ export async function readRoleplayReplies(ctx, sessionId, signal) {
   try {
     const delegated = observation.events.filter(isDelegatedRoleplayReply)
       .sort((left, right) => (left.data.anchorSeq ?? left.seq) - (right.data.anchorSeq ?? right.seq))
-    return [...roleplayReplyMessages(observation.events), ...delegated.map(event => ({
-      event, anchorMessageId: event.data.anchorMessageId,
-      messageId: 'eleckoi-delegated-reply-' + event.data.id,
-      blocks: [delegatedRoleplayReplyBlock(event.data)],
-      content: `${event.data.speakerName}：${event.data.text}`
-    }))]
+    return [...roleplayReplyMessages(observation.events), ...delegated.map(event => {
+      const blocks = delegatedRoleplayReplyBlocks(event.data)
+      return { event, anchorMessageId: event.data.anchorMessageId,
+        messageId: 'eleckoi-delegated-reply-' + event.data.id, blocks,
+        content: blocks.map(block => `${block.speakerName}：${block.text}`).join('\n\n') }
+    })]
   } finally { observation[Symbol.dispose]() }
 }
 

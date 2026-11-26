@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const DEFAULT_ROLEPLAY_PLAN_STEPS = [
   '使用可用的设定库和变量工具，确认这轮扮演需要的设定和状态。',
-  '前置任务完成后，调用 eleckoi_roleplay_reply 选择发言角色。下一步必须用 <角色名>对应的角色扮演内容</角色名> 把正文直接发给玩家。'
+  '前置任务完成后，调用 eleckoi_roleplay_reply 一次选出本轮发言角色，下一步按工具给出的格式直接输出正文。'
 ] as const
 
 function compactSteps(steps: string[]): string[] {

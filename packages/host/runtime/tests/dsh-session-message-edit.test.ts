@@ -48,29 +48,24 @@ async function fixture(mode: 'plain' | 'multipart' | 'delegated' = 'plain') {
     session.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...selection, status: 'complete', anchorSeq: anchor.seq, text: '来了。' }, { ignorable: true })
   }
   if (mode === 'multipart') {
-    const turn = 3, name = 'eleckoi_roleplay_reply'
+    const turn = 3, step = 1, name = 'eleckoi_roleplay_reply', callId = ToolCallId('speakers')
+    const speakers = [{ speakerName: '合成发言乙', speakerId: 'speaker-b' }, { speakerName: '合成发言甲', speakerId: 'speaker-a' }]
+    const argumentsJson = JSON.stringify({ names: speakers.map(speaker => speaker.speakerName) })
     session.append('turn/start', { turn })
     session.append(ROLEPLAY_OUTPUT_EVENT, { turn, nativeText: true }, { ignorable: true })
-    for (const [step, speakerName, speakerId, text] of [[1, '合成发言甲', 'speaker-a', ''], [2, '合成发言乙', 'speaker-b', '门开了。']] as const) {
-      const callId = ToolCallId(`speaker-${step}`)
-      const argumentsJson = JSON.stringify({ name: speakerName })
-      session.append('step/start', { turn, step })
-      session.append('assistant/message', { turn, step, stream: [], message: createAssistantMessage({
-        content: [
-          ...(text ? [{ type: 'text' as const, text }] : []),
-          { type: 'tool-call', id: callId, name, arguments: argumentsJson }
-        ], source: { provider: 'test', model: 'test' }
-      }) }, { surfaceOp: 'append' })
-      session.append('tool/call', { turn, step, callId, name, arguments: argumentsJson })
-      session.append('tool/result', { turn, step, message: createToolResultMessage({ callId, isError: false, content: [{ type: 'text', text: '已选定发言者' }] }),
-        meta: { source: ROLEPLAY_REPLY_SOURCE, speaker: { kind: 'speech', speakerId, speakerName } } }, { surfaceOp: 'append' })
-      session.append('step/end', { turn, step })
-    }
-    session.append('step/start', { turn, step: 3 })
-    const reply = session.append('assistant/message', { turn, step: 3, stream: [], message: createAssistantMessage({
-      content: [{ type: 'text', text: '来了。' }], source: { provider: 'test', model: 'test' }
+    session.append('step/start', { turn, step })
+    session.append('assistant/message', { turn, step, stream: [], message: createAssistantMessage({
+      content: [{ type: 'tool-call', id: callId, name, arguments: argumentsJson }], source: { provider: 'test', model: 'test' }
     }) }, { surfaceOp: 'append' })
-    session.append('step/end', { turn, step: 3 })
+    session.append('tool/call', { turn, step, callId, name, arguments: argumentsJson })
+    session.append('tool/result', { turn, step, message: createToolResultMessage({ callId, isError: false, content: [{ type: 'text', text: '已选定发言者' }] }),
+      meta: { source: ROLEPLAY_REPLY_SOURCE, speakers } }, { surfaceOp: 'append' })
+    session.append('step/end', { turn, step })
+    session.append('step/start', { turn, step: 2 })
+    const reply = session.append('assistant/message', { turn, step: 2, stream: [], message: createAssistantMessage({
+      content: [{ type: 'text', text: '<合成发言甲>门开了。</合成发言甲>\n<合成发言乙>来了。</合成发言乙>' }], source: { provider: 'test', model: 'test' }
+    }) }, { surfaceOp: 'append' })
+    session.append('step/end', { turn, step: 2 })
     session.append(ROLEPLAY_OUTPUT_EVENT, { turn, replySeq: reply.seq, toolBacked: true, nativeText: true }, { ignorable: true })
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
   }
@@ -138,7 +133,7 @@ describe('DSH message edit', { timeout: 30_000 }, () => {
     const { root, sessionId, readSession } = await fixture('multipart')
     const { events: before } = await readSession()
     const { addressSeq, event } = roleplayReplyMessages(before)[0]!
-    const edits = [{ id: 'speaker-1:0', text: '门开了。' }, { id: 'speaker-2:0', text: '我进来了。' }]
+    const edits = [{ id: 'speakers:0', text: '门开了。' }, { id: 'speakers:1', text: '我进来了。' }]
     editDshSessionMessage(root, sessionId, addressSeq, 'assistant', edits)
     const { events: after } = await readSession()
     expect(roleplayReplyMessages(after)[0]?.content).toBe('合成发言甲：门开了。\n\n合成发言乙：我进来了。')

@@ -99,7 +99,7 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
     expect(continuations).toHaveLength(requests.length)
     expect(continuations.at(-1).slice(-4)).toMatchObject([
       { role: 'assistant', content: [{ type: 'tool-call', name: ROLEPLAY_REPLY_TOOL }] },
-      { role: 'tool', content: [{ type: 'text', text: '下一步必须把 合成角色 的扮演正文直接发给玩家，格式为 <合成角色>对应的角色扮演内容</合成角色>。' }] },
+      { role: 'tool', content: [{ type: 'text', text: expect.stringContaining('<角色名>对应的角色扮演内容</角色名>') }] },
       { role: 'user', content: [{ type: 'text', text: tail.name }] },
       hiddenPrompt
     ])

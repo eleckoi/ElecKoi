@@ -112,7 +112,7 @@ describe('NAI preset illustration', () => {
         const text = withFrames ? '合成角色回复\n\n[[IMAGE:1]]' : '合成角色回复';
         const block = { type: 'tool-call', id: ToolCallId(`synthetic-reply-${requests.length}`), name: ROLEPLAY_REPLY_TOOL,
           arguments: requests.length === 1 && order === 'invalid-json' ? '{invalid JSON' : JSON.stringify({
-            name: '未命名角色', ...(hasIllustration ? { frames: withFrames ? frames : [] } : {}),
+            names: ['未命名角色'], ...(hasIllustration ? { frames: withFrames ? frames : [] } : {}),
           }) };
         yield { type: 'block-start', index: 0, blockType: 'text' };
         yield { type: 'text-delta', index: 0, text };

@@ -10,9 +10,9 @@ import { ELECKOI_FAILURE_CODES } from './errorCodes.generated.js'
 import { registerHostApiInspect } from './hostInspect.js'
 import { readSessionInspection } from './sessionInspection.js'
 import { isDelegatedRoleplayReply, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from './roleplayReplyMessages.js'
-export { delegatedRoleplayReplyBlock, DELEGATED_ROLEPLAY_REPLY_EVENT, isDelegatedRoleplayReply, isToolBackedRoleplayReply,
+export { delegatedRoleplayReplyBlocks, DELEGATED_ROLEPLAY_REPLY_EVENT, isDelegatedRoleplayReply, isToolBackedRoleplayReply,
   roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE } from './roleplayReplyMessages.js'
-export { roleplayReplyText } from './roleplayReplyText.js'
+export { appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers } from './roleplayReplyText.js'
 import { SESSION_MODEL_PARAMETERS_EVENT, sessionModelParameterKey, sessionModelParameterPatchSchema, sessionModelParametersProjection } from './sessionModelParameters.js'
 import type { SessionModelParameterPatch, SessionModelParameterState } from './sessionModelParameters.js'
 import { importedSession, type DshSessionArchive } from './sessionArchive.js'

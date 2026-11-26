@@ -155,24 +155,24 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId));
     expect(requests).toHaveLength(1);
     const tool = requests[0].tools.find(tool => tool.name === 'eleckoi_roleplay_reply')
-    expect(tool.parameters.properties.name.enum).toEqual(members.map(member => member.name))
+    expect(tool.parameters.properties.names.items.enum).toEqual(members.map(member => member.name))
     const systemText = request => request.messages.filter(message => message.role === 'system')
       .flatMap(message => message.content.map(block => block.text)).join('\n')
     expect(systemText(requests[0])).not.toMatch(/合成角色甲|合成角色乙/)
-    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(3);
+    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(2);
     const { events } = readDshSessionLog(join(f.root, 'sessions'), f.conversationId)
     expect(roleplayReplyMessages(events)).toMatchObject([{ blocks:
       blocks.map(({ name, text }, index) => ({ kind: 'speech', text, speakerName: name, speakerId: members[index].id })) }])
     expect(events.at(-1)).toMatchObject({ type: 'turn/end', data: { reason: { kind: 'completed' } } });
     await f.ctx.eleckoiPresetRegistrar.selectForSession(f.conversationId);
-    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(3);
+    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(2);
     f.ctx.eleckoiProductData.updateCharacter({ id: character.id, cast: [...character.cast, newMember] });
     await f.ctx.eleckoiRoleplaySessions.preparePrompt(f.conversationId, 'Synthetic next input');
     await run(f);
     await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId));
     expect(requests).toHaveLength(2);
     const nextTool = requests[1].tools.find(tool => tool.name === 'eleckoi_roleplay_reply');
-    expect(nextTool.parameters.properties.name.enum).toEqual([...members, newMember].map(member => member.name));
+    expect(nextTool.parameters.properties.names.items.enum).toEqual([...members, newMember].map(member => member.name));
     expect(systemText(requests[1])).not.toMatch(/合成角色甲|合成角色乙|新角色/);
     expect(roleplayReplyMessages(readDshSessionLog(join(f.root, 'sessions'), f.conversationId).events).at(-1)?.blocks)
       .toMatchObject([{ kind: 'speech', text: nextBlocks[0].text, speakerName: newMember.name, speakerId: newMember.id }]);
