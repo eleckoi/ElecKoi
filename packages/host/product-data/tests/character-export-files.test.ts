@@ -38,7 +38,6 @@ function harness() {
   const settingLibraries = new SettingLibraryRepository(database)
   const variables = new VariableConfigRepository(database)
   const agentPresets = new AgentPresetRepository(database)
-  agentPresets.ensureInitialized()
   const regexRules = new RegexRuleRepository(database, agentPresets)
   return {
     root,

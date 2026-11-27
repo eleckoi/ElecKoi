@@ -47,9 +47,10 @@ DSH 基准：`0.2.2-rc.5`，提交 `9c2670d3bce5275e0d1610272958121af87787bb`。
  * 保存完整数据并通知相关页面刷新。
  * @param preset - 完整预设数据。
  * @param expectedRegexRules - 要求仍有效的正则配置。
+ * @param expectedPrompt - 修改共享「隐藏工具调用过程」正文时基于的原文。
  * @returns 操作结果，结构见返回类型；失败抛出错误。
  */
-@Remote save(preset: AgentPreset, expectedRegexRules: RegexRule[]): Promise<AgentPreset>
+@Remote save(preset: AgentPreset, expectedRegexRules: RegexRule[], expectedPrompt?: string): Promise<AgentPreset>
 
 /**
  * 创建预设并返回完整预设数据。

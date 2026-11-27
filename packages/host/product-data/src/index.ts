@@ -20,7 +20,7 @@ import { canDeleteCastAssets, readCharacterCastForCharacter } from '@product-dat
 import { migrateLegacyCastMedia } from '@product-data/domain/personas/legacyCharacterCast'
 import { CharacterTransferService } from '@product-data/domain/characterTransfer/CharacterTransferService'
 import { RegexRuleRepository } from '@product-data/domain/regexRules/RegexRuleRepository'
-import { AgentPresetRepository } from '@product-data/domain/agentPresets/AgentPresetRepository'
+import { AgentPresetRepository, prepareAgentPresetStorage } from '@product-data/domain/agentPresets'
 import { ScriptLibraryRepository } from '@product-data/domain/scripts'
 import { agentPresetExists } from '@product-data/domain/agentPresets'
 import { characterExists } from '@product-data/domain/personas'
@@ -224,8 +224,8 @@ class ProductDataStore {
     store: HostSqliteStore
   } {
     if (!this.settingLibraries || !this.variables || !this.personas || !this.characters || !this.transfers || !this.store) {
-      const connection = openProductDatabase(this.path)
-      const store = new HostSqliteStore(connection)
+      const store = openProductDatabase(this.path)
+      const connection = store.native
       const media = new LocalMediaStore(requireMediaRoot(this.mediaRoot))
       const conversationSync = new HostPersonaConversationSync(store)
       this.connection = connection
@@ -273,7 +273,6 @@ class ProductDataStore {
       try { this.scripts = new ScriptLibraryRepository(store, { character: characterExists, preset: agentPresetExists }) }
       catch (error) { this.close(); throw error }
       const presets = new AgentPresetRepository(store, media, this.scripts)
-      presets.ensureInitialized()
       this.presets = presets
       this.regexRules = new RegexRuleRepository(store, presets)
       const versionRepository = new EditorLibraryVersionRepository(store, join(dirname(this.scripts.files.root), 'author-script-versions'), address => {
@@ -935,7 +934,9 @@ class ProductDataStore {
     const library = settingLibraries.get(sourceId), config = variables.get(sourceId);
     const scriptLibrary = this.scripts!.portable('character', sourceId);
     try {
-      this.characterAssets().withNewOwner(characterId, this.characterAssets().portable(sourceId), copyAssets => this.frontendProjects().copyCharacterOwner(sourceId, characterId, copyFrontends => this.editorVersions!.transaction(() => {
+      const assets = this.characterAssets();
+      const libraryAssets = assets.portableCatalog(sourceId);
+      assets.withNewOwner(characterId, libraryAssets.items, copyAssets => this.frontendProjects().copyCharacterOwner(sourceId, characterId, copyFrontends => this.editorVersions!.transaction(() => {
         this.scripts!.transaction(db => {
           copyAssets();
           characters.createInTransaction({ ...source, id: characterId, name }, db, false);
@@ -948,7 +949,7 @@ class ProductDataStore {
           this.editorVersions!.copyCharacter(sourceId, characterId, regexIds);
           copyFrontends();
         });
-      })), this.characterAssets().portableFolders(sourceId));
+      })), libraryAssets.folders);
       characters.commitMediaChanges();
     } catch (error) { characters.rollbackMediaChanges(); throw error; }
     return { characterId, collection: this.readCharacters() };
@@ -1272,9 +1273,9 @@ class ProductDataStore {
     return this.requirePresets().updateEntries(presetId, updates)
   }
 
-  saveAgentPreset(preset: AgentPreset, expectedRegexRules: RegexRule[], scriptLibrary?: ScriptLibrary): AgentPreset {
+  saveAgentPreset(preset: AgentPreset, expectedRegexRules: RegexRule[], scriptLibrary?: ScriptLibrary, expectedPrompt?: string): AgentPreset {
     this.databaseRepositories()
-    if (!scriptLibrary) return this.requirePresets().save(preset, expectedRegexRules)
+    if (!scriptLibrary) return this.requirePresets().save(preset, expectedRegexRules, expectedPrompt)
     if (scriptLibrary.scope !== 'preset' || scriptLibrary.ownerId !== preset.id) throw new DesktopError(ELECKOI_FAILURE_CODES.stateMismatch, '预设脚本库归属不匹配。', { what: '脚本库与预设的归属' })
     return this.scripts!.transaction(db => {
       const saved = this.requirePresets().save(preset, expectedRegexRules)
@@ -1486,7 +1487,7 @@ function optionalBoolean(value: unknown): boolean | undefined {
   return typeof value === 'boolean' ? value : undefined
 }
 
-function openProductDatabase(path: string | undefined): Database.Database {
+function openProductDatabase(path: string | undefined): HostSqliteStore {
   if (!path || !isAbsolute(path)) {
     throw new DesktopError(ELECKOI_FAILURE_CODES.internal, 'ElecKoi DSH Host 缺少有效的产品数据库路径。', { what: '产品数据库路径' })
   }
@@ -1505,7 +1506,9 @@ function openProductDatabase(path: string | undefined): Database.Database {
     if ((connection.pragma('foreign_key_check') as unknown[]).length > 0) {
       throw new DesktopError(ELECKOI_FAILURE_CODES.dbSchemaMismatch, '产品数据库外键校验失败。', { what: '产品数据库外键' })
     }
-    return connection
+    const store = new HostSqliteStore(connection)
+    prepareAgentPresetStorage(store)
+    return store
   } catch (error) {
     connection.close()
     throw error

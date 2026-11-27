@@ -23,7 +23,7 @@ function harness() {
   database.open(); resources.push({ directory, database })
   const media = new LocalMediaStore(join(directory, 'media'))
   const characters = new CharacterRepository(database, { deleteForCharacter() {}, refreshCharacterIdentity() {} }, media)
-  const presets = new AgentPresetRepository(database); presets.ensureInitialized()
+  const presets = new AgentPresetRepository(database)
   const transfers = new CharacterTransferService(database, characters, new SettingLibraryRepository(database), new VariableConfigRepository(database), new RegexRuleRepository(database, presets), media)
   return { database, media, characters, transfers }
 }

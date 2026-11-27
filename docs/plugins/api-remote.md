@@ -47,7 +47,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     read: (presetId: string) => Promise<RemoteResult<AgentPreset>>
     renameGroup: (groupId: string, name: string) => Promise<RemoteResult<AgentPresetCatalog>>
     reorderGroups: (groupIds: string[], purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPresetCatalog>>
-    save: (preset: AgentPreset, expectedRegexRules: RegexRule[]) => Promise<RemoteResult<AgentPreset>>
+    save: (preset: AgentPreset, expectedRegexRules: RegexRule[], expectedPrompt?: string) => Promise<RemoteResult<AgentPreset>>
     setActive: (presetId: string) => Promise<RemoteResult<AgentPresetCatalog>>
     updateEntries: (presetId: string, updates: SettingLibraryEntryUpdate[], signal?: AbortSignal) => Promise<RemoteResult<SettingLibraryEntry[]>>
   }
@@ -241,7 +241,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'eleckoiAgentPresets/read': (presetId: string) => Promise<RemoteResult<AgentPreset>>
     'eleckoiAgentPresets/renameGroup': (groupId: string, name: string) => Promise<RemoteResult<AgentPresetCatalog>>
     'eleckoiAgentPresets/reorderGroups': (groupIds: string[], purpose: AgentPresetPurpose) => Promise<RemoteResult<AgentPresetCatalog>>
-    'eleckoiAgentPresets/save': (preset: AgentPreset, expectedRegexRules: RegexRule[]) => Promise<RemoteResult<AgentPreset>>
+    'eleckoiAgentPresets/save': (preset: AgentPreset, expectedRegexRules: RegexRule[], expectedPrompt?: string) => Promise<RemoteResult<AgentPreset>>
     'eleckoiAgentPresets/setActive': (presetId: string) => Promise<RemoteResult<AgentPresetCatalog>>
     'eleckoiAgentPresets/updateEntries': (presetId: string, updates: SettingLibraryEntryUpdate[], signal?: AbortSignal) => Promise<RemoteResult<SettingLibraryEntry[]>>
     'eleckoiAuthorFrontends/changes': (owner: FrontendOwner, signal?: AbortSignal) => RemoteStreamHandle<NativeFrontendChange, never>
@@ -425,7 +425,7 @@ export declare const TYPERT_REMOTE: TypertRemoteInfo<{
   readonly 'eleckoiAgentPresets/read': TypertRemoteMethod<{ readonly 'presetId': string }, AgentPreset>
   readonly 'eleckoiAgentPresets/renameGroup': TypertRemoteMethod<{ readonly 'groupId': string; readonly 'name': string }, AgentPresetCatalog>
   readonly 'eleckoiAgentPresets/reorderGroups': TypertRemoteMethod<{ readonly 'groupIds': string[]; readonly 'purpose': AgentPresetPurpose }, AgentPresetCatalog>
-  readonly 'eleckoiAgentPresets/save': TypertRemoteMethod<{ readonly 'preset': AgentPreset; readonly 'expectedRegexRules': RegexRule[] }, AgentPreset>
+  readonly 'eleckoiAgentPresets/save': TypertRemoteMethod<{ readonly 'preset': AgentPreset; readonly 'expectedRegexRules': RegexRule[]; readonly 'expectedPrompt'?: string }, AgentPreset>
   readonly 'eleckoiAgentPresets/setActive': TypertRemoteMethod<{ readonly 'presetId': string }, AgentPresetCatalog>
   readonly 'eleckoiAgentPresets/updateEntries': TypertRemoteMethod<{ readonly 'presetId': string; readonly 'updates': SettingLibraryEntryUpdate[] }, SettingLibraryEntry[]>
   readonly 'eleckoiAuthorFrontends/changes': TypertRemoteMethod<{ readonly 'owner': FrontendOwner }, NativeFrontendChange, 'stream'>

@@ -24,22 +24,23 @@ export function isToolBackedRoleplayReply(event: unknown): event is Extract<Sess
   return candidate?.type === ROLEPLAY_OUTPUT_EVENT && candidate.data?.toolBacked === true
 }
 
-export function roleplayReplyMessages(events: readonly SessionEvent[]) {
+type TurnEnd = Extract<SessionEvent, { type: 'turn/end' }>
+
+export function roleplayReplyMessages(events: readonly SessionEvent[], processOnly?: Array<{ event: TurnEnd; processMessageIds: string[] }>) {
   const turns = new Map<number, {
     blocks: RoleplayReplyBlock[]
     bodyParts: { messageId: string; blockId: string; text: string }[]
-    assistants: Array<Extract<SessionEvent, { type: 'assistant/message' }>>
-    toolMessageIds: string[]
+    processMessageIds: string[]
     selections: Map<number, Array<{ callId: string; speakers: ReturnType<typeof roleplayReplySpeakers> }>>
   }>()
   const replies = []
   for (const event of events) {
     if (event.type === ROLEPLAY_OUTPUT_EVENT && event.data.replySeq === undefined) {
-      turns.set(event.data.turn, { blocks: [], bodyParts: [], assistants: [], toolMessageIds: [], selections: new Map() })
+      turns.set(event.data.turn, { blocks: [], bodyParts: [], processMessageIds: [], selections: new Map() })
     } else if (event.type === 'assistant/message') {
       const turn = turns.get(event.data.turn)
       if (!turn) continue
-      turn.assistants.push(event)
+      turn.processMessageIds.push(event.data.message.id)
       const selections = turn.selections.get(event.data.step)
       if (selections?.length !== 1 || event.data.interrupted) continue
       const { callId, speakers } = selections[0]!
@@ -52,7 +53,7 @@ export function roleplayReplyMessages(events: readonly SessionEvent[]) {
     } else if (event.type === 'tool/result') {
       const turn = turns.get(event.data.turn)
       if (!turn) continue
-      turn.toolMessageIds.push(event.data.message.id)
+      turn.processMessageIds.push(event.data.message.id)
       const meta = event.data.meta
       if (event.data.message.isError || !meta || typeof meta !== 'object' || Array.isArray(meta)
         || meta.source !== ROLEPLAY_REPLY_SOURCE) continue
@@ -62,30 +63,27 @@ export function roleplayReplyMessages(events: readonly SessionEvent[]) {
       const selections = turn.selections.get(bodyStep) ?? []
       selections.push({ callId: event.data.message.source.callId, speakers })
       turn.selections.set(bodyStep, selections)
-    } else if (event.type === ROLEPLAY_OUTPUT_EVENT) {
+    } else if (isToolBackedRoleplayReply(event)) {
       const turn = turns.get(event.data.turn)
       if (turn) {
-        const original = turn.assistants.findLast(assistant => assistant.seq === event.data.replySeq)
-        const bodyParts = event.data.toolBacked ? turn.bodyParts : []
-        const messageId = event.data.toolBacked ? bodyParts.at(-1)?.messageId : original?.data.message.id
+        const { blocks, bodyParts, processMessageIds } = turn
+        const messageId = bodyParts.at(-1)?.messageId
         const edited = event.data.editedText
-        const { blocks } = turn
         const edits = new Map(event.data.editedBlocks?.map(block => [block.id, block.text]))
         const editedBlocks = blocks.map(block => {
           const text = edits.get(block.id) ?? (blocks.length === 1 ? edited : undefined)
           return text === undefined ? block : { ...block, text }
         })
-        const content = event.data.toolBacked
-          ? editedBlocks.map(block => `${block.speakerName}：${block.text}`).join('\n\n')
-          : edited ?? original?.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')
+        const content = editedBlocks.map(block => `${block.speakerName}：${block.text}`).join('\n\n')
         if (messageId && content?.trim()) {
           replies.push({ event, messageId, content, blocks: editedBlocks, bodyParts,
-            addressSeq: event.data.toolBacked ? Number(event.seq) : Number(event.data.replySeq),
-            processMessageIds: [...turn.assistants.map(assistant => assistant.data.message.id), ...turn.toolMessageIds] })
+            addressSeq: Number(event.seq), processMessageIds })
+          turns.delete(event.data.turn)
         }
       }
-      turns.delete(event.data.turn)
     } else if (event.type === 'turn/end') {
+      const turn = turns.get(event.data.turn)
+      if (turn && processOnly) processOnly.push({ event, processMessageIds: turn.processMessageIds })
       turns.delete(event.data.turn)
     }
   }

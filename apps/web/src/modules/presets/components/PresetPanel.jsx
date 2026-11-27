@@ -210,7 +210,10 @@ export function PresetWorkspace({
     // 关键路径日志：保存预设（预设正文的保存按钮；编辑器内的保存各自另有通道）。
     logAction(LOG_ACTIONS.presetSave, 'start');
     try {
-      const saved = await catalogModel.save(candidate, persisted?.regexRules || []);
+      const oldPrompt = persisted?.entries?.find(entry => entry.kind === 'hidden_tool_timeline')?.content;
+      const newPrompt = candidate.entries.find(entry => entry.kind === 'hidden_tool_timeline')?.content;
+      const args = newPrompt !== undefined && newPrompt !== oldPrompt ? [oldPrompt] : [];
+      const saved = await catalogModel.save(candidate, persisted?.regexRules || [], ...args);
       pendingLatestRef.current = null;
       externalChangeRef.current = false;
       setPreset(saved);

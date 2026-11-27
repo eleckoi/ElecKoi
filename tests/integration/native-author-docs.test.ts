@@ -68,7 +68,6 @@ describe('native author developer documentation and examples', () => {
     const characters = new CharacterRepository(database, { deleteForCharacter() {}, refreshCharacterIdentity() {} }, new LocalMediaStore(join(directory, 'media')))
     const settings = new SettingLibraryRepository(database), configs = new VariableConfigRepository(database)
     const presets = new AgentPresetRepository(database, undefined, scripts)
-    presets.ensureInitialized()
     const transfer = new CharacterTransferService(database, characters, settings, configs, new RegexRuleRepository(database, presets), undefined, scripts)
     const document = (name: string) => ({ displayName: name, mimeType: 'application/json', base64: Buffer.from(read(name)).toString('base64') })
     const preview = transfer.prepare([document('example.character.json')], 'eleckoi')

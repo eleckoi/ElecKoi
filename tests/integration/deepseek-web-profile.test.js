@@ -15,7 +15,8 @@ import { ELECKOI_DESKTOP_BUNDLES, ELECKOI_INSTALL_ANCHOR } from '../../apps/desk
 import { preparePluginHost } from '../../apps/android-host/src/pluginHostConfiguration'
 import { ELECKOI_INSTALL_ANCHOR as ANDROID_INSTALL_ANCHOR } from '../../apps/android-host/src/androidPluginBundles'
 import Database from 'better-sqlite3'
-import { DEFAULT_CREATOR_INSTRUCTIONS, DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT } from '../../packages/shared/src/contracts/presets/builtIns'
+import { DEFAULT_CREATOR_INSTRUCTIONS } from '../../packages/shared/src/contracts/presets/builtIns'
+import { bundledHiddenToolTimeline } from '../../packages/host/product-data/src/HiddenToolTimelineFile'
 import { emptyEntry } from '../../packages/host/product-data/src/domain/settingLibraries/settingLibraryNormalization'
 import { ownerPeer } from '../support/owner-peer.js'
 import { Session, SessionId, SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
@@ -57,6 +58,9 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   await f.ctx.agentDefaultModel.saveSelection({ provider, model: provider })
   const data = f.ctx.eleckoiProductData
   const preset = data.readAgentPreset(data.readAgentPresetCatalog().activePresetIds.roleplay)
+  const defaultPrompt = readFileSync(bundledHiddenToolTimeline, 'utf8').replaceAll('\r\n', '\n').trimEnd()
+  expect(preset.entries.find(entry => entry.kind === 'hidden_tool_timeline')?.content).toBe(defaultPrompt)
+  let activePrompt = defaultPrompt
   const timestamp = new Date().toISOString()
   const before = { id: 'synthetic-before', name: '合成自定义输入前', anchor: 'insert_point_3', side: 'before_setting_position', order: 1,
     createdAt: timestamp, updatedAt: timestamp }
@@ -88,13 +92,13 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
     expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
   }
   const verifyRequest = input => {
-    const markers = new Set([before.name, input, after.name, tail.name, DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT])
+    const markers = new Set([before.name, input, after.name, tail.name, activePrompt])
     const entries = requests.at(-1).flatMap(message => message.content.filter(block => block.type === 'text')
       .map(block => [message.role, block.text]))
     expect(entries.filter(([, text]) => markers.has(text))).toEqual([
-      ['assistant', before.name], ['user', input], ['user', after.name], ['user', tail.name], ['user', DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT]
+      ['assistant', before.name], ['user', input], ['user', after.name], ['user', tail.name], ['user', activePrompt]
     ])
-    const hiddenPrompt = { role: 'user', content: [{ type: 'text', text: DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT }] }
+    const hiddenPrompt = { role: 'user', content: [{ type: 'text', text: activePrompt }] }
     expect(requests.at(-1).at(-1)).toMatchObject(hiddenPrompt)
     expect(continuations).toHaveLength(requests.length)
     expect(continuations.at(-1).slice(-4)).toMatchObject([
@@ -106,6 +110,11 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   }
   await send(first)
   verifyRequest(first)
+  activePrompt = '合成共享提示词'
+  const editedPreset = data.readAgentPreset(preset.id)
+  await f.ctx.typertGateway.invoke({ peer: ownerPeer(f.ctx), namespace: 'eleckoiAgentPresets', method: 'save',
+    args: { preset: { ...editedPreset, entries: editedPreset.entries.map(entry => entry.kind === 'hidden_tool_timeline'
+      ? { ...entry, content: activePrompt } : entry) }, expectedRegexRules: editedPreset.regexRules, expectedPrompt: defaultPrompt } })
   await send(second)
   verifyRequest(second)
   expect(requests.at(-1).filter(message => message.source.kind === 'plugin:eleckoi-product-history')).toEqual([
@@ -160,13 +169,9 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   expect(assistantText(deleted)).toEqual(['合成角色：合成回复 1'])
   expect(deleted.filter(event => event.type === 'tool/result' && event.data.meta?.source === 'eleckoi-roleplay-reply')).toHaveLength(1)
   await send(plainInput)
-  const fallback = (await inspect()).findLast(event => event.type === 'eleckoi/roleplay-output' && event.data.fallback)
-  expect(assistantText(await inspect())).toEqual(['合成角色：合成回复 1', plainReply])
-  await invoke('editMessage', { eventSeq: fallback.data.replySeq, role: 'assistant', content: '编辑后的普通正文' })
-  expect(assistantText(await inspect())).toEqual(['合成角色：合成回复 1', '编辑后的普通正文'])
-  expect(rawModelText(await inspect())).toEqual(['<合成角色>合成回复 1</合成角色>', plainReply])
-  await invoke('deleteMessagesFrom', { eventSeq: fallback.data.replySeq, role: 'assistant' })
-  expect(assistantText(await inspect())).toEqual(['合成角色：合成回复 1'])
+  const afterPlainReply = await inspect()
+  expect(assistantText(afterPlainReply)).toEqual(['合成角色：合成回复 1'])
+  expect(rawModelText(afterPlainReply)).toEqual(['<合成角色>合成回复 1</合成角色>', plainReply])
 }, 120_000)
 
 it.each(['desktop', 'android'])('%s keeps associated variable configuration live and continues chatting after it is removed', async platform => {

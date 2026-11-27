@@ -91,6 +91,11 @@ describe('DSH subagent runtime context inheritance', () => {
           counts.set(options.sessionId, step)
           if (options.sessionId === rootId) {
             if (step === 1) yield* call('subagent', { description: 'Synthetic task', prompt: 'Synthetic child input' })
+            else if (options.messages.some(message => message.source.kind === 'subagent-settled')) {
+              yield { type: 'block-start', index: 0, blockType: 'text' }
+              yield { type: 'block-end', index: 0, block: { type: 'text', text: 'Synthetic parent closing summary' } }
+              yield { type: 'finish', reason: { kind: 'stop' } }
+            }
             else {
               if (step === 2) stopped.resolve()
               const text = step === 2 ? 'Synthetic pending child' : 'Synthetic final child result'
@@ -161,8 +166,9 @@ describe('DSH subagent runtime context inheritance', () => {
       const events = root.agent.session.snapshotEvents()
       expect(events.filter(event => event.type === 'turn/start').length).toBeGreaterThan(1)
       expect(events.findLast(event => event.type === 'turn/end').data.reason.kind).toBe('completed')
-      expect(roleplayReplyMessages(events).flatMap(result => result.blocks.map(block => block.text)))
-        .toContain('Synthetic final child result')
+      const closing = events.findLast(event => event.type === 'assistant/message')
+      expect(closing.data.message.content).toContainEqual({ type: 'text', text: 'Synthetic parent closing summary' })
+      expect(roleplayReplyMessages(events).some(result => result.event.data.turn === closing.data.turn)).toBe(false)
       {
         const sources = events.filter(event => event.type === 'user/message').map(event => event.data.source.kind)
         const childId = events.find(event => event.type === 'subagent/catalog').data.childId
@@ -185,6 +191,7 @@ describe('DSH subagent runtime context inheritance', () => {
             { speakerId: 'speaker-a', text: 'Synthetic second speaker' }] })
         const replyHistory = await readRoleplayReplies(ctx, rootId)
         const dialogue = visibleDialogueHistory(projectRoleplayDialogue(root.agent.session.deriveMessages(), replyHistory))
+        expect(dialogue.some(message => message.content.includes('Synthetic parent closing summary'))).toBe(false)
         expect(dialogue.filter(message => message.content.includes('Synthetic child closing result')))
           .toEqual([{ role: 'assistant', content: '合成角色乙：Synthetic child closing result\n\n合成角色甲：Synthetic second speaker' }])
         const final = requests.filter(request => request.sessionId === rootId).at(-1)

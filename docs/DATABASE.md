@@ -93,7 +93,9 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 17. v17：变量值与来源身份一同保存、快照和回退；升级按会话关联版本建立一次来源基线，其他旧字段作为运行时项保留。
 18. v18：为角色目录增加录入时间与最近编辑时间。
 19. v19：转换旧 EJS 引用设定和其状态快照，保留有效正文。
-20. v20：独立保存登场角色，为旧卡补一个角色。已有本地头像复制到卡片资产库，保留旧聊天使用的媒体引用。同一事务将已发布的角色预设及保存版本切到回复工具，保留自定义准备步骤和工具开关。
+20. v20：独立保存登场角色，为旧卡补一个角色。已有本地头像复制到卡片资产库，保留旧聊天使用的媒体引用。同一事务更新旧角色预设默认计划、提示词元数据和工具配置。
+
+「隐藏工具调用过程」正文由 Host 从数据库同目录的 `hidden-tool-timeline.txt` 读取，同一本地资料中的角色预设共用。`hidden-tool-timeline-settings.json` 按预设及其版本保存开关和位置，预设导入导出继续携带各自的设置。数据库打开阶段的一次性搬迁先落盘设置，再从当前预设和保存版本的数据库记录中删除正文、开关、位置及位置引用字段。随包模板变动时，Host 直接替换本机文本。普通版本更新沿用已有文件。后续修改模板或位置都无需提升数据库版本。
 
 `character_cast_members` 保存角色顺序、名字、图片资产编号和圆形取景。头像原图在角色卡资产库 `character-assets/characters/<卡片编号的 SHA-256>/blobs/<图片的 SHA-256>`。同卡相同图片共用文件。圆形头像从同一张图取景，旧卡原来就有独立圆形或方形图时保留该图。角色卡封面仍由资料页的媒体槽管理。PNG 和 ZIP 的原生角色卡内容升级到 v4，携带名册、取景和所需图片。
 
@@ -169,7 +171,7 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 | 入口 | 何时可以清理 | 必须一起处理的范围 |
 | --- | --- | --- |
 | [创作预设旧「默认位置」转换](../packages/shared/src/contracts/presets/builtIns.ts) | 停止支持携带 `agent_tool`＋`required` 创作提示词的数据库、备份与预设文件。旧文件可以是 v3，须按条目字段核对 | 预设初始化、读写和导入共用此规则，将旧条目移到「系统指令」，保留正文和开关。删除自动换位、位置顺序计算与旧条目专项回归。启动扫描另见「旧预设缺少必需提示词的启动补齐」 |
-| [正式角色预设升级](../packages/host/product-data/src/storage/sqlite/migrations/0020CharacterCast.ts)与[预设导入转换](../packages/host/product-data/src/domain/agentPresets/upgradeFinalRoleplayPreset.ts) | 停止支持 v19 及更早库直升后，可删除数据库调用。受支持的预设导入也不再接受已发布的旧正文协议后，可删除共用转换器 | v19→v20 事务和旧预设导入更新内置正文协议、默认标题和默认计划。数据库升级补齐缺失的回复工具组，保留已关闭的选择。同步移除对应专项回归。开发中间版内容由开发库直接更新。旧聊天正文和轨迹无须重写。 |
+| [正式角色预设升级](../packages/host/product-data/src/storage/sqlite/migrations/0020CharacterCast.ts)与[预设导入转换](../packages/host/product-data/src/domain/agentPresets/upgradeFinalRoleplayPreset.ts) | 正式停止支持 v19 及更早库直升后，移除数据库转换函数、调用和专项回归。受支持的预设导入也不再接受旧默认计划和位置后，移除共用转换器、导入调用和专项回归 | v19→v20 事务和旧预设导入更新默认标题、位置名称和默认计划。数据库升级补齐缺失的回复工具组，保留已关闭的选择。提示词正文从文件读取。 |
 | [旧自动配图来源](../packages/client/features/dsh-client-roleplay/src/host/generated-image-result.mjs) | 支持的 Session 与导入中没有从 `ACTION_CALL` 文本指令生成的图片 | 旧图重新生成时从原助手事件读取分镜。退役时删除旧文本解析、无 `replyCallId` 的重生图分支和历史回归。保留通过原回复工具调用查找分镜。 |
 | [单发言者回执](../packages/host/product-api/src/roleplayReplyText.ts)与[旧子代理发言](../packages/host/product-api/src/roleplayReplyMessages.ts) | 核对仍支持的 Session 历史与导入来源，确认回执统一使用 `speakers` 且已完成的子代理回复统一保存 `blocks` | 打开聊天、读取历史或编辑原有回复时，读取旧 `speaker` 及子代理单发言者正文，保留角色身份和原正文。届时同步移除 Host、[Client 投影](../packages/client/features/dsh-client-conversations/src/client.js)的旧字段读取及其专项覆盖，保留实时子代理正文与新分段编辑。 |
 | [开发 v2、v6 同版本整理](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持对应开发基线直接升级 | 对应整理函数、专用入口和 fixture；v2 共享整理函数仍被 `0002` 使用时继续保留 |
@@ -182,8 +184,10 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 | [旧 HTML 资源组合替换](../packages/client/features/dsh-client-html-resources/src/profile.ts) | 桌面及 Android 的受支持旧 profile、备份恢复均不再选择两个已移除的资源 bundle | 删除 `replaceHtmlResourceBundles`、`obsoleteBundles`、两端一次性登记中的调用和专用用例；保留当前资源 bundle、正常初始化及用户主动停用选择 |
 | [旧请求投影缓存清理](../packages/client/features/dsh-client-roleplay/src/host/request-cache-retirement.mjs) | 停止支持携带 `eleckoiRequestContexts`／`eleckoiRequestInput` 缓存行的旧版本直升，且受支持恢复样本不再含这些行 | 删除 `retireRequestContextCache`、roleplay 启动调用与专用回归；保留官方投影缓存及其他检查点。此入口只删除旧派生行，不改 Session 日志和产品业务表 |
 | [会话摘要缓存 → v5](../packages/client/features/dsh-client-roleplay/src/host/conversation-preview.mjs) | 受支持的直升和备份恢复样本均无 v5 之前的摘要行 | Host 启动时从原日志重算派生摘要，摘要取与选角调用同次提交的普通正文。删除 `rebuildConversationPreviewCache`、启动调用和专用缓存重算回归，保留正文摘要投影 |
-| [自动插画配置 v4/v5 → v6](../packages/host/product-data/src/domain/agentPresets/autoIllustrationUpgrade.ts)、[存储入口](../packages/host/product-data/src/domain/agentPresets/AgentPresetRepository.ts)、[导入入口](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts) | 受支持的存量预设、保存版本和导入文件均不再携带旧工具组自有的插画配置；存储升级与导入兼容分别确认 | 删除 `upgradeIllustrationConfiguration` 及启动调用、`illustrationFromPortable` 的旧分支、共用升级函数和各自专用回归；保留当前插件插画配置及其他预设读写 |
-| [旧预设缺少必需提示词的启动补齐](../packages/host/product-data/src/domain/agentPresets/AgentPresetRepository.ts) | 所有受支持的数据库及备份都已有当前必需条目和位置，且旧「默认位置」无需再在启动时写回 | Host 初始化时检查当前预设及保存版本，只写有差异的数据。删除 `ensureRequiredEntries`、启动调用及专项测试，保留当前正常校验与独立的旧文件导入规则 |
+| [自动插画配置 v4/v5 → v6](../packages/host/product-data/src/domain/agentPresets/autoIllustrationUpgrade.ts)、[数据库打开入口](../packages/host/product-data/src/domain/agentPresets/prepareAgentPresetStorage.ts)、[导入入口](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts) | 受支持的存量预设、保存版本和导入文件均不再携带旧工具组自有的插画配置；存储升级与导入兼容分别确认 | 删除 `upgradeIllustrationConfiguration` 及启动调用、`illustrationFromPortable` 的旧分支、共用升级函数和各自专用回归；保留当前插件插画配置及其他预设读写 |
+| [内置扮演预设旧名](../packages/host/product-data/src/domain/agentPresets/prepareAgentPresetStorage.ts) | 支持的安装和恢复来源都已改用当前默认名，或用户自行改过名 | 数据库打开时仅将固定 ID 下的旧默认名更新为「默认扮演预设」。删除旧名更新语句和专项测试，保留当前默认名称和用户自定义名称 |
+| [旧预设必需提示词补齐](../packages/host/product-data/src/domain/agentPresets/prepareAgentPresetStorage.ts) | 所有受支持的数据库及备份都已有当前必需条目和位置，且无需再写回旧「默认位置」 | 数据库打开阶段使用同一份设置快照检查当前预设及保存版本。删除 `ensureRequiredEntries`、启动时传给扫描的读取函数及补齐专项测试，保留默认种子、当前校验与旧文件导入规则 |
+| [隐藏工具调用过程搬迁](../packages/host/product-data/src/storage/sqlite/migrations/hiddenToolTimelineFiles.ts) | 正式停止支持仍在 SQLite 保存这条正文、开关或位置的安装及旧库恢复来源 | 设置文件尚未完成搬迁时，将每个角色预设及保存版本的开关和位置转入文件，并清除库中旧副本。删除 `prepareHiddenToolTimelineFiles`、数据库打开阶段调用、向设置文件事务传入搬迁结果的参数及专项测试。改由设置文件事务读取启动快照，保留两个文件的正常读写 |
 | [旧开发 v9/v10、v12/v13/v14 整理与正则列补齐](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持带生成结果废表的开发 v9/v10、缺正则整体开关的开发 v12、带旧状态表的开发 v12/v13/v14，以及缺 `optionsJson` 列的结构；各来源独立判断 | 删除对应分支、专用旧 SQL／校验参数和用例。正则列补齐随其启动调用及缺列校验宽容分支一起删除；保留当前 SQL、当前完整性校验和仍受支持的正式升级链 |
 | [默认创作预设一次性替换](../packages/host/product-data/src/domain/agentPresets/defaultCreatorPresetUpgrade.ts)、[v13→v14 入口](../packages/host/product-data/src/storage/sqlite/migrations/0014CreatorWorkspace.ts) | 后续版本正式停止支持未完成本次替换的安装与备份恢复；v13 入口另须等到停止支持 v13 及更早直接升级 | 删除替换函数、启动调用、完成标记及专用回归；按支持边界删除 0014 与登记，保留正常新建使用的默认内容工厂、自建预设和全局选择 |
 | [旧 DeepSeek 扩展选择整理](../packages/client/features/dsh-client-web-search/src/profile.js) | 受支持 profile 和恢复入口均不再引用 `eleckoi-deepseek-api` | 删除 `retireDeepSeekExtensionSelection`、桌面／Android 启动调用和旧选择回归；保留用户凭据及未使用的配置。当前官方 Search／Fetch 选择与 Messages 模式不随之删除 |
@@ -283,7 +287,7 @@ Host 启动不再逐个修复旧请求上下文标记、补写旧角色聊天输
 
 ## v13 到 v14：默认创作能力
 
-`0014CreatorWorkspace` 与 Repository 初始化共用 `upgradeDefaultCreatorPreset`，通过固定 ID `agent-preset-creator` 识别内置默认预设，不匹配名称、旧指引或旧工具组合。按本次用户要求，即使该默认预设已被自行编辑，也在同一事务中完整替换资料、提示词、目录、插入位置、工具及配置、正则和脚本配置；所有已保存的预设版本同步替换，保留预设与版本编号。默认工具包含创作能力、本地工作区、任务与工作流、多代理协作、联网搜索和插件发现。独立创建或导入的创作预设、角色扮演预设、全局选择与已有会话保持。
+`0014CreatorWorkspace` 与数据库打开入口共用 `upgradeDefaultCreatorPreset`，通过固定 ID `agent-preset-creator` 识别内置默认预设，不匹配名称、旧指引或旧工具组合。按本次用户要求，即使该默认预设已被自行编辑，也在同一事务中完整替换资料、提示词、目录、插入位置、工具及配置、正则和脚本配置；所有已保存的预设版本同步替换，保留预设与版本编号。默认工具包含创作能力、本地工作区、任务与工作流、多代理协作、联网搜索和插件发现。独立创建或导入的创作预设、角色扮演预设、全局选择与已有会话保持。
 
 已运行旧 v14 升级的数据库也在首次初始化时补做同一替换，无需再次提升数据库版本或清库。完成标记 `builtin_creator_workspace_upgrade=1` 只存在固定内置预设的当前 contents 中，不随预设导出；写入与完整替换同一事务提交，失败回滚并可重试，后续启动不重复覆盖用户的新编辑。脚本与正则的独立命名配置一并清除，避免切换后恢复旧配置；不执行脚本，也不直接删除原磁盘源码或头像文件。物理结构仍为 v17、49 表、2 视图。
 

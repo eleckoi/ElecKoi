@@ -1083,7 +1083,7 @@ export interface ElecKoiProductDataStore {
   readAgentPresetCatalog(): AgentPresetCatalog
   readAgentPreset(presetId: string): AgentPreset
   updateAgentPresetEntries(presetId: string, updates: SettingLibraryEntryUpdate[]): SettingLibraryEntry[]
-  saveAgentPreset(preset: AgentPreset, expectedRegexRules: RegexRule[], scriptLibrary?: ScriptLibrary): AgentPreset
+  saveAgentPreset(preset: AgentPreset, expectedRegexRules: RegexRule[], scriptLibrary?: ScriptLibrary, expectedPrompt?: string): AgentPreset
   createAgentPreset(name: string, libraryGroupId: string, purpose: AgentPresetPurpose): AgentPreset
   duplicateAgentPreset(presetId: string): AgentPreset
   importAgentPreset(source: AgentPresetImportSource, document: AgentPresetImportDocument, purpose: AgentPresetPurpose): AgentPresetImportResult

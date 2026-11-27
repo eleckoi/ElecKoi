@@ -26,7 +26,6 @@ function setup() {
   const scripts = createScriptLibraryRepository(database)
   const characters = new CharacterRepository(database, { deleteForCharacter() {}, refreshCharacterIdentity() {} }, new LocalMediaStore(join(directory, 'media')))
   const presets = new AgentPresetRepository(database, undefined, scripts)
-  presets.ensureInitialized()
   const transfer = new CharacterTransferService(database, characters, new SettingLibraryRepository(database),
     new VariableConfigRepository(database), new RegexRuleRepository(database, presets), undefined, scripts)
   return { scripts, characters, presets, transfer, database }

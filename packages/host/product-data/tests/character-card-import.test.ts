@@ -195,7 +195,6 @@ describe('character card import', () => {
     const settings = new SettingLibraryRepository(database)
     const variables = new VariableConfigRepository(database)
     const presets = new AgentPresetRepository(database)
-    presets.ensureInitialized()
     const transfers = new CharacterTransferService(database, characters, settings, variables, new RegexRuleRepository(database, presets))
     const openings = new CharacterOpeningRepository(database)
     const flat = { name: '合成空白 V1', description: '', first_mes: '' }
@@ -282,7 +281,6 @@ describe('character card import', () => {
     const settingLibraries = new SettingLibraryRepository(database)
     const variables = new VariableConfigRepository(database)
     const agentPresets = new AgentPresetRepository(database)
-    agentPresets.ensureInitialized()
     const regexRules = new RegexRuleRepository(database, agentPresets)
     const picture = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII='
     characters.create({
@@ -382,7 +380,6 @@ describe('character card import', () => {
     const settingLibraries = new SettingLibraryRepository(database)
     const variables = new VariableConfigRepository(database)
     const agentPresets = new AgentPresetRepository(database)
-    agentPresets.ensureInitialized()
     const regexRules = new RegexRuleRepository(database, agentPresets)
     const transfers = new CharacterTransferService(database, characters, settingLibraries, variables, regexRules)
     const card = tavernCard()
@@ -452,7 +449,6 @@ describe('character card import', () => {
     const settingLibraries = new SettingLibraryRepository(database)
     const variables = new VariableConfigRepository(database)
     const agentPresets = new AgentPresetRepository(database)
-    agentPresets.ensureInitialized()
     const regexRules = new RegexRuleRepository(database, agentPresets)
     characters.create({
       id: 'manual-character',

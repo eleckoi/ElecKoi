@@ -113,7 +113,8 @@ export async function readRoleplayReplies(ctx, sessionId, signal) {
   try {
     const delegated = observation.events.filter(isDelegatedRoleplayReply)
       .sort((left, right) => (left.data.anchorSeq ?? left.seq) - (right.data.anchorSeq ?? right.seq))
-    return [...roleplayReplyMessages(observation.events), ...delegated.map(event => {
+    const processOnly = []
+    return [...roleplayReplyMessages(observation.events, processOnly), ...processOnly, ...delegated.map(event => {
       const blocks = delegatedRoleplayReplyBlocks(event.data)
       return { event, anchorMessageId: event.data.anchorMessageId,
         messageId: 'eleckoi-delegated-reply-' + event.data.id, blocks,
@@ -147,6 +148,7 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
     }
     if (reply.event.data.turn >= beforeTurn) continue
     for (const id of reply.processMessageIds) processIds.add(id)
+    if (reply.event.type === 'turn/end') continue
     const { bodyParts } = reply
     if (!bodyParts.length || bodyParts.every(part => presentIds.has(part.messageId))) {
       if (!presentIds.has(reply.messageId)) continue

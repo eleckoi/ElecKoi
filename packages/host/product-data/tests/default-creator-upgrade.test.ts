@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { SqliteDatabase } from '../../../../tests/helpers/SqliteDatabase'
-import { AgentPresetRepository } from '../src/domain/agentPresets'
+import { AgentPresetRepository, prepareAgentPresetStorage } from '../src/domain/agentPresets'
 import { DEFAULT_CREATOR_INSTRUCTIONS, DEFAULT_CREATOR_HISTORY_COMPACTION_CONTENT } from '../../../shared/src/contracts/presets/builtIns'
 
 const roots: string[] = [], stores: SqliteDatabase[] = []
@@ -76,6 +76,7 @@ describe('one-time default Creator replacement', () => {
     const { store, repository } = fixture(), original = repository.active('creator')
     repository.save({ ...original, entries: [], toolGroups: original.toolGroups.map(group => ({ ...group, included: included.includes(group.id), enabled: false })) })
     store.native.prepare("DELETE FROM agent_preset_contents WHERE presetId=? AND kind='builtin_creator_workspace_upgrade'").run(original.id)
+    prepareAgentPresetStorage(store)
     expectCurrentDefault(new AgentPresetRepository(store).get(original.id))
   })
 
@@ -88,9 +89,10 @@ describe('one-time default Creator replacement', () => {
     const before = snapshot()
     store.native.exec(`CREATE TRIGGER synthetic_creator_write_failure BEFORE INSERT ON agent_preset_version_entries
       WHEN NEW.presetId='${original.id}' BEGIN SELECT RAISE(ABORT, 'synthetic replacement write failed'); END`)
-    expect(() => new AgentPresetRepository(store).get(original.id)).toThrow('synthetic replacement write failed')
+    expect(() => prepareAgentPresetStorage(store)).toThrow('synthetic replacement write failed')
     expect(snapshot()).toEqual(before)
     store.native.exec('DROP TRIGGER synthetic_creator_write_failure')
+    prepareAgentPresetStorage(store)
     expectCurrentDefault(new AgentPresetRepository(store).get(original.id))
   }, 30_000)
 })

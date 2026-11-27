@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { delegatedRoleplayReplyBlocks, ELECKOI_FAILURE_CODES, productFailure, isDelegatedRoleplayReply, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from '@eleckoi/dsh-product-api'
+import { delegatedRoleplayReplyBlocks, ELECKOI_FAILURE_CODES, productFailure, isDelegatedRoleplayReply, isToolBackedRoleplayReply, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
 import type { ConversationMessageEdit } from '@eleckoi/dsh-product-api/types'
 import { readDshSessionLog } from './trajectory'
 import { retainSessionModelPreferences } from './sessionModelPreferences'
@@ -33,13 +33,12 @@ export function deleteDshSessionMessagesFrom(
     && ((event.type === type && event.surfaceOp === 'append')
       || (role === 'assistant' && (isToolBackedRoleplayReply(event) || isDelegatedRoleplayReply(event)))))
   if (index < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '找不到要删除的消息；原聊天记录未修改。', { what: '要删除的消息' })
-  const output = role === 'assistant' ? replyOutputMarker(log.events, eventSeq) : undefined
-  const toolBacked = output && !output.fallback
+  const selected = log.events[index]
+  const toolBacked = isToolBackedRoleplayReply(selected)
   const firstBatch = toolBacked ? log.events.findIndex(event => event.type === 'assistant/message'
-    && event.data.turn === output.turn && event.data.message.content.some(block => block.type === 'tool-call' && block.name === ROLEPLAY_REPLY_TOOL)) : -1
+    && event.data.turn === selected.data.turn && event.data.message.content.some(block => block.type === 'tool-call' && block.name === ROLEPLAY_REPLY_TOOL)) : -1
   if (toolBacked && (firstBatch < 0 || firstBatch >= index)) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch,
     '角色正文缺少对应的回复工具记录，未修改对话。', { what: '角色正文的回复工具记录' })
-  const selected = log.events[index]
   const cut = isDelegatedRoleplayReply(selected) ? selected.data.anchorSeq ?? index : toolBacked ? firstBatch : index
   const events = log.events.slice(0, cut)
   // This is an explicit user edit, not recovery from a crashed Host.
@@ -71,10 +70,9 @@ export function editDshSessionMessage(
       log.events.map(event => event === delegated ? { ...delegated, data } : event))
     return
   }
-  const reply = role === 'assistant' ? log.events.find(event => event.type === ROLEPLAY_OUTPUT_EVENT
-    && (event.data.toolBacked ? event.seq : event.data.replySeq) === eventSeq) : undefined
-  if (reply?.type === ROLEPLAY_OUTPUT_EVENT) {
-    const blocks = reply.data.toolBacked ? roleplayReplyMessages(log.events).find(item => item.event === reply)?.blocks : undefined
+  const reply = role === 'assistant' ? log.events.find(event => event.seq === eventSeq && isToolBackedRoleplayReply(event)) : undefined
+  if (isToolBackedRoleplayReply(reply)) {
+    const blocks = roleplayReplyMessages(log.events).find(item => item.event === reply)?.blocks
     const data = { ...reply.data }
     if (Array.isArray(content)) {
       const updated = editReplyBlocks(blocks, content)
@@ -104,7 +102,7 @@ export function editDshSessionMessage(
   if (message.role !== role || !Array.isArray(message.content)) {
     throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '消息角色或内容与编辑目标不一致；原聊天记录未修改。', { what: '消息角色或内容' })
   }
-  if (role === 'assistant' && !replyOutputMarker(log.events, eventSeq)) {
+  if (role === 'assistant') {
     const raw = message.content.filter(isRecord).filter(block => block.type === 'text').map(block => String(block.text || '')).join('')
     const bodyStart = raw.indexOf('<FINAL>')
     const bodyEnd = raw.lastIndexOf('</FINAL>')
@@ -126,13 +124,6 @@ export function editDshSessionMessage(
   const events = log.events.map((event) => event === selected
     ? { ...event, data: editedData } as typeof event : event)
   rewriteDshSessionEvents(sessionRoot, log, events)
-}
-
-function replyOutputMarker(events: SessionEvent[], replySeq: number): { turn: number; fallback?: true } | undefined {
-  for (const event of events) {
-    if (event.type !== ROLEPLAY_OUTPUT_EVENT) continue
-    if ((event.data.toolBacked ? event.seq : event.data.replySeq) === replySeq) return event.data
-  }
 }
 
 export function readEditableDshSessionLog(sessionRoot: string, sessionId: string): NonNullable<ReturnType<typeof readDshSessionLog>> {

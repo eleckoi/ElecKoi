@@ -99,9 +99,10 @@ window.__ModuleLoader__.load({
         }
       }
 
-      async save(preset, expectedRegexRules) {
+      async save(preset, expectedRegexRules, expectedPrompt) {
         if (this.disposed) throw productFailure(ELECKOI_FAILURE_CODES.lifecycleDisposed, 'ElecKoi 预设目录已关闭。', { what: 'ElecKoi 预设目录' })
-        const saved = this.assertPreset(await this.call('save', preset, expectedRegexRules), preset.id)
+        const args = expectedPrompt === undefined ? [preset, expectedRegexRules] : [preset, expectedRegexRules, expectedPrompt]
+        const saved = this.assertPreset(await this.call('save', ...args), preset.id)
         this.adoptDetail(saved)
         return saved
       }

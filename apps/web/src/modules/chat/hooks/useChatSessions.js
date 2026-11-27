@@ -642,12 +642,16 @@ export function useChatSessions({ conversations, persona, characters, modelConfi
 
     const branchUserIndex = findRegenerateBranchUserIndex(messages, requestedTargetMessageId, hasReplacementMessage);
     if (branchUserIndex < 0) {
-      setStatus(hasReplacementMessage ? "没有找到要修改的用户输入" : "没有找到这条回复对应的用户输入");
+      const message = tUi(hasReplacementMessage ? "没有找到要修改的用户输入" : "没有找到这条回复对应的用户输入");
+      setStatus(message);
+      notifyRef.current?.("error", message);
       return;
     }
     const branchUser = messages[branchUserIndex];
     if (!Number.isSafeInteger(branchUser?.sessionEventSeq)) {
-      setStatus("找不到这条输入对应的 DSH 消息");
+      const message = tUi("找不到这条输入对应的 DSH 消息");
+      setStatus(message);
+      notifyRef.current?.("error", message);
       return;
     }
     const targetMessageId = String(branchUser?.turnId || branchUser?.id || requestedTargetMessageId).trim();

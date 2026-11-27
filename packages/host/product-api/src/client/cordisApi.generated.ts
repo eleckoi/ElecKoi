@@ -893,9 +893,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
       {
-        signature: 'save(preset: AgentPreset, expectedRegexRules: RegexRule[]): Promise<AgentPreset>',
+        signature: 'save(preset: AgentPreset, expectedRegexRules: RegexRule[], expectedPrompt?: string): Promise<AgentPreset>',
         description: '保存完整预设；同时校验预期的正则规则列表。',
-        parameters: [{ name: 'preset', description: '完整预设数据。' }, { name: 'expectedRegexRules', description: '保存前要求仍有效的正则配置。' }],
+        parameters: [{ name: 'preset', description: '完整预设数据。' }, { name: 'expectedRegexRules', description: '保存前要求仍有效的正则配置。' }, { name: 'expectedPrompt', description: '编辑共享提示词前读到的正文，用于检测并发修改。只保存其他配置时可省略。' }],
         returns: '操作结果，字段见返回类型；异步失败会拒绝 Promise。',
       },
       {

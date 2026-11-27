@@ -10,7 +10,7 @@ import { defineTool, ToolRuntime } from '@deepseek-ai/dsh-tools'
 import { roleplayReplyMessages } from '@eleckoi/dsh-product-api'
 import { officialChatFixture } from '../../../../../../tests/helpers/officialTrajectory.js'
 import { afterEach, expect, it } from 'vitest'
-import { installRoleplayReply, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_TOOL } from '../../src/host/roleplay-reply-tool.mjs'
+import { installRoleplayReply, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_GROUP_ID, ROLEPLAY_REPLY_TOOL } from '../../src/host/roleplay-reply-tool.mjs'
 import { conversationPreviewProjection } from '../../src/host/conversation-preview.mjs'
 import { projectRoleplayDialogue } from '../../src/host/conversation-context.mjs'
 
@@ -19,7 +19,7 @@ afterEach(async () => { await ctx?.fiber.dispose() })
 
 const cast = [{ id: 'speaker-a', name: '合成角色甲' }, { id: 'searcher', name: 'ScenePartner' }]
 
-async function runTurn(responses, enabled = true, readCast = () => cast) {
+async function runTurn(responses, enabled = true, readCast = () => cast, collaboration = false) {
   let requests = 0
   const frames = [], modelInputs = [], advertisedTools = [], replySchemas = [], rawReplies = []
   class Adapter extends LlmAdapter {
@@ -51,7 +51,12 @@ async function runTurn(responses, enabled = true, readCast = () => cast) {
   ctx.llm.registerAdapter(['synthetic'], new Adapter())
   const { agent } = await ctx.agentLoop.createAgent(ctx, { sessionId: SessionId('synthetic-roleplay-reply'), agentOptions: { provider: 'synthetic', model: 'synthetic' } })
   ctx.on('agent/assistant-stream', ({ frame }) => frames.push(frame))
-  installRoleplayReply(agent, () => enabled, () => ({ cast: readCast(), characterName: '合成卡片' }))
+  const disabledToolGroupIds = [
+    ...(enabled ? [] : [ROLEPLAY_REPLY_GROUP_ID]),
+    ...(collaboration ? [] : ['builtin:collaboration']),
+  ]
+  const replyEnabled = () => !disabledToolGroupIds.includes(ROLEPLAY_REPLY_GROUP_ID)
+  installRoleplayReply(agent, replyEnabled, () => ({ cast: readCast(), characterName: '合成卡片' }))
   agent.ctx.on('tools/result', (execution, result) => {
     if (execution.name === ROLEPLAY_REPLY_TOOL && !result.isError) rawReplies.push(result.value)
   })
@@ -165,16 +170,22 @@ it('tells the selected role how to format the next reply and keeps ordinary text
   expect(roleplayReplyMessages(events)).toMatchObject([{ content: '合成角色甲：下一步的正文。' }])
 })
 
-it('keeps the ordinary assistant reply and successful tool results when the reply tool was skipped', async () => {
-  const text = '普通正文仍然可见。'
-  const { requests, reply, outcome, events } = await runTurn([{ lookup: true }, text])
+it.each([false, true])('keeps unbound text in the trace and out of dialogue (collaboration=%s)', async collaboration => {
+  const text = '合成调度总结。'
+  const { requests, reply, outcome, events, messages, catalogPreview } = await runTurn([{ lookup: true }, text], true, () => cast, collaboration)
   expect(requests).toBe(2)
   expect(outcome).toEqual({ kind: 'completed' })
-  expect(reply.data.message.content).toEqual([{ type: 'text', text }])
-  expect(events.findLast(event => event.type === ROLEPLAY_OUTPUT_EVENT).data).toMatchObject({ replySeq: reply.seq, fallback: true })
+  const assistant = events.findLast(event => event.type === 'assistant/message')
+  expect(assistant.data.message.content).toEqual([{ type: 'text', text }])
+  expect(reply).toBeUndefined()
+  const processOnly = []
+  expect(roleplayReplyMessages(events, processOnly)).toEqual([])
+  expect(projectRoleplayDialogue(messages, processOnly).some(message => message.role === 'assistant')).toBe(false)
+  expect(projectRoleplayDialogue(messages, processOnly, assistant.data.turn)).toBe(messages)
+  expect(catalogPreview).toBe('你好')
   expect(events.filter(event => event.type === 'tool/result')).toHaveLength(1)
   const official = officialChatFixture().replace(events)
-  expect([...official.nodes.values()].find(node => node.kind === 'turn-tail').data.closing.finalNode.seq).toBe(reply.seq)
+  expect([...official.nodes.values()].find(node => node.kind === 'turn-tail').data.closing.finalNode.seq).toBe(assistant.seq)
 })
 
 it('accepts a natural stop without a visible reply', async () => {

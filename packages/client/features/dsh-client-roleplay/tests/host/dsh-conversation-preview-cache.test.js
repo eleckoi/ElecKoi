@@ -36,17 +36,20 @@ describe('bounded conversation catalog and retired request caches', () => {
       events.reduce(conversationPreviewProjection.apply, conversationPreviewProjection.init()))
     expect(preview(roleplayEvents)).toBe('听见了。\n\n我再放一遍。')
     const edited = [...roleplayEvents.slice(0, -1), {
-      type: ROLEPLAY_OUTPUT_EVENT, data: { turn: 1, editedText: '修改后的正文', toolBacked: true },
+      type: ROLEPLAY_OUTPUT_EVENT, data: { turn: 1, replySeq: 10, editedText: '修改后的正文', toolBacked: true },
     }, end(1)]
     expect(preview(edited)).toBe('修改后的正文')
     const multipartEdit = [...roleplayEvents.slice(0, -1), {
-      type: ROLEPLAY_OUTPUT_EVENT, data: { turn: 1, editedText: '合成角色甲：等一下。\n\nScenePartner：录音机：已暂停。',
+      type: ROLEPLAY_OUTPUT_EVENT, data: { turn: 1, replySeq: 10, editedText: '合成角色甲：等一下。\n\nScenePartner：录音机：已暂停。',
         editedBlocks: [{ id: 'one', text: '等一下。' }, { id: 'two', text: '录音机：已暂停。' }], toolBacked: true },
     }, end(1)]
     expect(preview(multipartEdit)).toBe('等一下。\n\n录音机：已暂停。')
     expect(preview([...roleplayEvents, input('下一句')])).toBe('下一句')
     const laterTurn = [start(2), selectSpeaker(2, 'ScenePartner', true), assistant(2, '直接写出的助手正文'), end(2)]
     expect(preview([...roleplayEvents, ...laterTurn])).toBe('直接写出的助手正文')
+    expect(preview([start(2), { type: ROLEPLAY_OUTPUT_EVENT, data: { turn: 2, nativeText: true } }, input('开始'),
+      { type: 'eleckoi/delegated-roleplay-reply', data: { status: 'complete', text: '合成角色正文' } },
+      assistant(2, '合成调度总结。'), end(2)])).toBe('合成角色正文')
     expect(preview([start(2), assistant(2, '', 'ScenePartner'), selectSpeaker(2, 'ScenePartner'),
       assistant(2, `<ScenePartner>${'🌊'.repeat(300)}</ScenePartner>`, undefined, 2), end(2)])).toBe('🌊'.repeat(240))
   })

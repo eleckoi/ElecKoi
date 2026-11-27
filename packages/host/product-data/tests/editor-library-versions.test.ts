@@ -23,7 +23,6 @@ function fixture() {
   const directory = mkdtempSync(join(tmpdir(), 'eleckoi-editor-versions-')), database = new SqliteDatabase(join(directory, 'product.sqlite'))
   database.open(); fixtures.push({ directory, database })
   const scripts = createScriptLibraryRepository(database), presets = new AgentPresetRepository(database, undefined, scripts)
-  presets.ensureInitialized()
   const regex = new RegexRuleRepository(database, presets), archiveRoot = join(directory, 'versions')
   const make = () => new EditorLibraryVersionsService(new EditorLibraryVersionRepository(database, archiveRoot, address => {
     if (address.scope !== 'global' && !agentPresetExists(database.db, address.ownerId)) throw new Error('Synthetic owner missing')

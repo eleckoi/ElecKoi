@@ -96,9 +96,9 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: '按指定顺序返回保存后的条目；一项失败则整组不保存。',
       },
       {
-        signature: '@Remote save(preset: AgentPreset, expectedRegexRules: RegexRule[]): Promise<AgentPreset>',
+        signature: '@Remote save(preset: AgentPreset, expectedRegexRules: RegexRule[], expectedPrompt?: string): Promise<AgentPreset>',
         description: '保存完整数据并通知相关页面刷新。',
-        parameters: [{ name: 'preset', description: '完整预设数据。' }, { name: 'expectedRegexRules', description: '要求仍有效的正则配置。' }],
+        parameters: [{ name: 'preset', description: '完整预设数据。' }, { name: 'expectedRegexRules', description: '要求仍有效的正则配置。' }, { name: 'expectedPrompt', description: '修改共享「隐藏工具调用过程」正文时基于的原文。' }],
         returns: '操作结果，结构见返回类型；失败抛出错误。',
       },
       {

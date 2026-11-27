@@ -24,7 +24,7 @@ import { turnOutcomesProjection } from '../../../dsh-client-roleplay/src/host/tu
 // @ts-expect-error The Renderer seat adapter does not publish declarations.
 import { selectRoleplayChatSeat } from '../../../../../../apps/web/src/modules/chat/model/chatViewSeats.js'
 // @ts-expect-error The Renderer adapter is JavaScript.
-import { findRegenerateBranchUserIndex } from '../../../../../../apps/web/src/modules/chat/model/chatRegeneration.js'
+import { findLatestRegenerateTargetMessageId, findRegenerateBranchUserIndex } from '../../../../../../apps/web/src/modules/chat/model/chatRegeneration.js'
 // @ts-expect-error The Renderer adapter is JavaScript.
 import { adaptTrajectorySnapshot } from '../../../../../../apps/web/src/modules/chat/model/trajectorySnapshotAdapter.js'
 
@@ -303,10 +303,67 @@ function mountCatalog(
 }
 
 describe('DSH ElecKoi conversation client model', () => {
+  it.each(['new input', 'continued input'])('regenerates a turn containing only delegated replies from its %s', async mode => {
+    const fixture = officialChatFixture()
+    const subscribe = () => () => {}
+    const event = (type: string, seq: number, data: unknown, surfaceOp?: 'append') => ({
+      type, seq, time: seq * 100, data, ...(surfaceOp ? { surfaceOp } : {}),
+    })
+    const input = (id: string) => ({ id, role: 'user', source: { kind: 'user' },
+      content: [{ type: 'text', text: '合成输入' }] })
+    const assistant = (seq: number, id: string, step: number, content: unknown[]) => event('assistant/message', seq, {
+      turn: 2, step, stream: [], message: { id, role: 'assistant', source: { kind: 'model', provider: 'synthetic', model: 'synthetic' }, content },
+    }, 'append')
+    const delegated = (seq: number, id: string, anchorMessageId: string) => event('eleckoi/delegated-roleplay-reply', seq, {
+      id, mainSessionId: 'root', childSessionId: id, childTurn: 1, childStep: 2, speakerName: id,
+      anchorMessageId, status: 'complete', blocks: [{ id, kind: 'speech', speakerName: id, text: id }],
+    })
+    const originalInput = event('user/message', 3, input('original-input'), 'append')
+    const continuation = event('eleckoi/input-continuation', 7, { turn: 2, inputMessageId: 'original-input', inputEventSeq: 3 })
+    const events = [
+      ...(mode === 'continued input' ? [
+        event('turn/start', 1, { turn: 1 }), event('step/start', 2, { turn: 1, step: 1 }), originalInput,
+        event('step/end', 4, { turn: 1, step: 1 }), event('turn/end', 5, { turn: 1, reason: { kind: 'aborted', reason: { kind: 'user' } } }),
+      ] : [originalInput]),
+      event('turn/start', 6, { turn: 2 }),
+      ...(mode === 'continued input' ? [continuation] : []),
+      event('eleckoi/roleplay-output', 8, { turn: 2, nativeText: true }),
+      event('step/start', 9, { turn: 2, step: 1 }),
+      assistant(10, 'parent-dispatch', 1, [{ type: 'tool-call', id: 'call', name: 'wait_agent', arguments: {} }]),
+      delegated(11, 'first-speaker', 'parent-dispatch'),
+      event('step/end', 12, { turn: 2, step: 1 }), event('step/start', 13, { turn: 2, step: 2 }),
+      assistant(14, 'parent-summary', 2, [{ type: 'text', text: '合成总结' }]),
+      delegated(15, 'second-speaker', 'parent-summary'),
+      event('step/end', 16, { turn: 2, step: 2 }), event('turn/end', 17, { turn: 2, reason: { kind: 'completed' } }),
+    ]
+    const mounted = mountCatalog(async () => ({ ok: true, data: [] }), { uiConversation: { events: fixture.events } })
+    const catalog = mounted.catalog as any
+    try {
+      await settle()
+      catalog.sessionReference = { sessionId: 'root', release: vi.fn(), binding: {
+        eventSource: { getSnapshot: () => ({ entries: events.map(event => ({ type: 'event', event })) }), subscribe },
+        session: { projections: { faceOf: (key: string) => key === 'eleckoiInputContinuations'
+          ? { getSnapshot: () => inputContinuationsProjection.wire.view(events.reduce(inputContinuationsProjection.apply, inputContinuationsProjection.init())) }
+          : undefined } },
+      } }
+      const messages = catalog.projectOfficialMessages(fixture.replace(events), { messages: [] }, 'root', [], false)
+      expect(messages.map((message: any) => message.content)).toEqual(['合成输入', 'first-speaker', 'second-speaker'])
+      const replies = messages.slice(1)
+      expect(replies.map((message: any) => message.inputEventSeq)).toEqual([3, 3])
+      expect(new Set(replies.map((message: any) => message.id)).size).toBe(2)
+      expect(findLatestRegenerateTargetMessageId(messages)).toBe(replies[1].id)
+      for (const message of replies) {
+        const inputIndex = findRegenerateBranchUserIndex(messages, message.id)
+        expect(messages[inputIndex]).toMatchObject({ id: 'original-input', sessionEventSeq: 3 })
+      }
+    } finally { mounted.dispose() }
+  })
+
   it('shows a delegated speaker before streaming its child DSH step into the main chat', async () => {
     const publishable = () => {
       const fixture = officialChatFixture()
       let snapshot = fixture.replace([])
+      const entries: any[] = []
       const listeners = new Set<() => void>()
       const subscribe = (listener: () => void) => {
         listeners.add(listener)
@@ -314,8 +371,11 @@ describe('DSH ElecKoi conversation client model', () => {
       }
       return {
         fixture, target: { getSnapshot: () => snapshot, subscribe },
+        eventSource: { getSnapshot: () => ({ entries, hasMore: false }), subscribe },
         append(type: string, seq: number, data: unknown, surfaceOp?: 'append') {
-          snapshot = fixture.append({ type, seq, time: 1000 + seq, data, ...(surfaceOp ? { surfaceOp } : {}) })
+          const event = { type, seq, time: 1000 + seq, data, ...(surfaceOp ? { surfaceOp } : {}) }
+          entries.push({ type: 'event', event })
+          snapshot = fixture.append(event)
           for (const listener of [...listeners]) listener()
         }
       }
@@ -323,8 +383,7 @@ describe('DSH ElecKoi conversation client model', () => {
     const main = publishable(), child = publishable()
     const mainSession = { getSnapshot: () => ({ running: false }), subscribe: () => () => {} }
     const childSession = { getSnapshot: () => ({ running: true }), subscribe: () => () => {} }
-    const eventSource = { getSnapshot: () => ({ entries: [], hasMore: false }), subscribe: () => () => {} }
-    const mainBinding = { session: mainSession, eventSource }
+    const mainBinding = { session: mainSession, eventSource: main.eventSource }
     const childBinding = { session: childSession }
     const release = vi.fn()
     const mounted = mountCatalog(async () => ({ ok: true, data: [] }), {
@@ -369,6 +428,19 @@ describe('DSH ElecKoi conversation client model', () => {
       main.append('eleckoi/delegated-roleplay-reply', 6, { ...source, id: 'other', mainSessionId: 'original', status: 'waiting' })
       expect(read()).toHaveLength(1)
       expect(catalog.sessions.retain).toHaveBeenCalledTimes(2)
+      for (const [turn, seq, hadFallback] of [[1, 10, false], [2, 30, true]] as const) {
+        main.append('turn/start', seq, { turn })
+        main.append('eleckoi/roleplay-output', seq + 1, { turn, nativeText: true })
+        main.append('step/start', seq + 2, { turn, step: 1 })
+        main.append('assistant/message', seq + 3, { turn, step: 1, stream: [], message: {
+          id: `summary-${turn}`, role: 'assistant', source: { kind: 'model', provider: 'synthetic', model: 'synthetic' },
+          content: [{ type: 'reasoning', text: '子任务已完成。' }, { type: 'text', text: '合成调度总结。' }],
+        } }, 'append')
+        main.append('step/end', seq + 4, { turn, step: 1 })
+        if (hadFallback) main.append('eleckoi/roleplay-output', seq + 5, { turn, replySeq: seq + 3, fallback: true })
+        main.append('turn/end', seq + 6, { turn, reason: { kind: 'completed' } })
+        expect(read().map((message: { content: string }) => message.content)).toEqual(['先显示这一段。'])
+      }
     } finally { mounted.dispose() }
   })
 

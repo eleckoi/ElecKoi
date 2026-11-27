@@ -6,20 +6,6 @@ export const HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID = 'hidden-tool-timeline'
 export const HISTORY_COMPACTION_ENTRY_ID = 'built-in-roleplay-history-compaction'
 export const HISTORY_COMPACTION_ENTRY_TITLE = '自动压缩摘要模板'
 
-export const HIDDEN_TOOL_TIMELINE_REPLY_PHASE = `reply_phase:
-  output: "设定和变量准备后，若 eleckoi_roleplay_reply 可用，一次选出本轮发言角色。下一步按工具给出的格式直接输出正文。"`
-
-export const DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT = `<roleplay_output_protocol>
-tool_phase:
-  setting_library:
-    search: "先核对本轮所需设定。需要定位时，用 eleckoi_glob_setting_files 或 eleckoi_grep_setting_files 查找路径。"
-    read: "查找只提供目录。收到 required_entries 后，用一次 eleckoi_read_setting_files 读取本轮未读或已变化的全部完整路径，包含 cached_reference。缓存正文已注入，读取返回确认。"
-    reuse: "本轮已读且未变化的条目无需再查再读。必读清单为空时继续。"
-  plot_variables:
-    lookup: "核对本轮相关变量。已有结果直接使用，需要时查询；没有相关变量时此项完成。"
-${HIDDEN_TOOL_TIMELINE_REPLY_PHASE}
-</roleplay_output_protocol>`
-
 // Historical SQLite migration input. Keep this text exact for the old comparisons.
 export const LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT = `<roleplay_output_protocol>
 tool_phase:
@@ -165,7 +151,7 @@ function hiddenToolTimelineEntry(existing?: SettingLibraryEntry): SettingLibrary
     ...entryDefaults(HIDDEN_TOOL_TIMELINE_ENTRY_ID, HIDDEN_TOOL_TIMELINE_ENTRY_TITLE),
     iconId: 'timeline',
     kind: 'hidden_tool_timeline' as const,
-    content: DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT,
+    content: '',
     triggerMode: 'always' as const,
     position: 'insert_point_5' as const,
     promptPositionId: HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID,

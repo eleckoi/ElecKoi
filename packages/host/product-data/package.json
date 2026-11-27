@@ -43,7 +43,8 @@
     "lib/*.js",
     "lib/*.js.map",
     "lib/regex-ejs.d.ts",
-    "lib/*.d.ts"
+    "lib/*.d.ts",
+    "prompts/*.txt"
   ],
   "scripts": {
     "build": "tsdown"

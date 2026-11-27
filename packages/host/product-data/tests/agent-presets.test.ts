@@ -1,8 +1,10 @@
 import { and, eq } from 'drizzle-orm'
+import Database from 'better-sqlite3'
 import { agentPresetContents, agentPresetEntries, agentPresetVersionContents, agentPresetVersionEntries, agentPresets } from '../src/storage/sqlite/schema/common'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AgentPresetRepository } from '../src/domain/agentPresets'
 import { LocalMediaStore } from '@eleckoi/dsh-product-data/media'
@@ -12,6 +14,9 @@ import { agentPresetSchema } from '../../../shared/src/contracts/presets/schemas
 import { LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT } from '../../../shared/src/contracts/presets/builtIns'
 import { ROLEPLAY_REPLY_GROUP_ID } from '../../../shared/src/contracts/agent/tools'
 import { emptyEntry } from '../src/domain/settingLibraries/index'
+import { HiddenToolTimelineFile, hiddenToolTimelineFileName } from '../src/HiddenToolTimelineFile'
+import * as promptFiles from '../src/HiddenToolTimelineFile'
+import { hiddenTimelineSettingsPath } from '../src/domain/agentPresets/HiddenToolTimelineSettings'
 
 const databases: SqliteDatabase[] = []
 const directories: string[] = []
@@ -68,11 +73,68 @@ describe('agent preset repository', () => {
         timeline:[{id:`timeline-${index}`,title:'Update',note:'Notes',dateLabel:'2026-11-16'}]}
     })
   })
+
+  it('reads timeline settings once per startup and exports all saved versions with one query per table', () => {
+    const repository = harness()
+    const database = databases[0]!
+    const preset = repository.active()
+    for (let number = 2; number <= 10; number++) {
+      repository.create(`合成预设 ${number}`)
+      repository.save({
+        ...preset,
+        activeVersionId: `${preset.id}:v${number}`,
+        activeVersionNumber: number,
+        profile: { ...preset.profile, usageInstructions: `说明 ${number}` },
+        entries: [
+          ...preset.entries.map(entry => entry.kind === 'hidden_tool_timeline'
+            ? { ...entry, enabled: number % 2 === 0 } : entry),
+          { ...emptyEntry('version-entry'), title: `条目 ${number}`, groupId: 'version-group', content: `正文 ${number}` }
+        ],
+        groups: [{ id: 'version-group', name: `分组 ${number}`, parentId: '', order: 1, treeViewOrder: 0, createdAt: '', updatedAt: '' }]
+      })
+    }
+    const settingsPath = hiddenTimelineSettingsPath(directories[0]!)
+    const readFile = vi.spyOn(promptFiles, 'readOptionalPromptFile')
+    const settingsReads = () => readFile.mock.calls.filter(([path]) => path === settingsPath).length
+    try {
+      database.close()
+      database.open()
+      expect(settingsReads()).toBe(1)
+      const prepare = vi.spyOn(database.native, 'prepare')
+      try {
+        const { base64 } = repository.export(preset.id, 'json')
+        expect(settingsReads()).toBe(2)
+        const sql = prepare.mock.calls.map(([query]) => query)
+        for (const table of ['agent_preset_version_contents', 'agent_preset_version_entries', 'agent_preset_version_groups']) {
+          expect(sql.filter(query => query.includes(`from "${table}"`))).toHaveLength(1)
+        }
+        const { preset: { versions } } = JSON.parse(Buffer.from(base64, 'base64').toString('utf8'))
+        expect(versions.map((version: { number: number }) => version.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        for (const version of versions.slice(1)) {
+          expect(version.usage_instructions).toBe(`说明 ${version.number}`)
+          expect(version.groups).toMatchObject([{ id: 'version-group', name: `分组 ${version.number}` }])
+          expect(version.entries).toEqual(expect.arrayContaining([
+            expect.objectContaining({ id: 'version-entry', content: `正文 ${version.number}` }),
+            expect.objectContaining({ id: 'built-in-hidden-tool-timeline', enabled: version.number % 2 === 0 })
+          ]))
+        }
+      } finally { prepare.mockRestore() }
+      const settings = JSON.parse(readFileSync(settingsPath, 'utf8'))
+      settings.records[preset.id][`${preset.id}:v10`].entry.enabled = false
+      writeFileSync(settingsPath, JSON.stringify(settings))
+      const exported = JSON.parse(Buffer.from(repository.export(preset.id, 'json').base64, 'base64').toString('utf8'))
+      expect(exported.preset.versions.at(-1).entries).toContainEqual(
+        expect.objectContaining({ id: 'built-in-hidden-tool-timeline', enabled: false })
+      )
+    } finally { readFile.mockRestore() }
+  })
+
   it('updates only the built-in former default name and keeps user-renamed defaults', () => {
     const repository = harness()
     const id = repository.catalog().activePresetIds.roleplay
     expect(repository.get(id).name).toBe('默认扮演预设')
     databases[0]!.db.update(agentPresets).set({ name:'默认 Agent 预设' }).where(eq(agentPresets.id,id)).run()
+    databases[0]!.close(); databases[0]!.open()
     expect(new AgentPresetRepository(databases[0]!).get(id).name).toBe('默认扮演预设')
     databases[0]!.db.update(agentPresets).set({ name:'合成自定义名称' }).where(eq(agentPresets.id,id)).run()
     expect(new AgentPresetRepository(databases[0]!).get(id).name).toBe('合成自定义名称')
@@ -187,6 +249,7 @@ describe('agent preset repository', () => {
       }
     })
     database.native.exec('DROP TABLE character_cast_members; PRAGMA user_version = 19')
+    rmSync(hiddenTimelineSettingsPath(directories[0]!))
     database.close(); database.open()
     const reopened = new AgentPresetRepository(database)
     const migrated = reopened.get(preset.id)
@@ -195,14 +258,13 @@ describe('agent preset repository', () => {
     expect(migrated.toolGroups.find(group => group.id === 'builtin:variables')?.enabled).toBe(false)
     const prompt = migrated.entries.find(item => item.kind === 'hidden_tool_timeline')!.content
     expect(migrated.entries.find(item => item.kind === 'hidden_tool_timeline')?.title).toBe('隐藏工具调用过程')
-    expect(prompt).toContain('先检查航海日志')
     expect(prompt).toMatch(/^<roleplay_output_protocol>\n/)
     expect(prompt).toContain('\ntool_phase:')
-    expect(prompt).toMatch(/reply_phase:\n  output: .*eleckoi_roleplay_reply.*一次选出本轮发言角色。下一步按工具给出的格式直接输出正文。/)
+    expect(prompt).toMatch(/reply_phase:\n  output: "设定和变量准备后，每轮必须至少调用一次 eleckoi_roleplay_reply，选出本轮发言角色。下一步按工具给出的格式直接输出正文。"/)
     expect(prompt).not.toMatch(/<FINAL>|final_phase|visible_output/)
     const storedVersionEntry = database.native.prepare('SELECT payloadJson FROM agent_preset_version_entries WHERE presetId = ? AND entryId = ?')
       .get(preset.id, 'built-in-hidden-tool-timeline') as { payloadJson: string }
-    expect(JSON.parse(storedVersionEntry.payloadJson).content).toBe(prompt)
+    expect(JSON.parse(storedVersionEntry.payloadJson)).not.toHaveProperty('content')
     expect(migrated.roleplayPlan.steps).toMatchObject(['合成自定义步骤', expect.stringContaining('eleckoi_roleplay_reply')])
     expect(reply(reopened.get(reopened.catalog().activePresetIds.creator))).toBeUndefined()
     const version = database.native.prepare("SELECT content FROM agent_preset_version_contents WHERE presetId = ? AND kind = 'tool_configuration'").get(preset.id) as { content: string }
@@ -212,9 +274,57 @@ describe('agent preset repository', () => {
     expect(reply(new AgentPresetRepository(database).get(preset.id))).toMatchObject({ included: true, enabled: false })
   })
 
+  it('resumes an interrupted v20 prompt move and preserves current and historical settings', () => {
+    const repository = harness()
+    const preset = repository.create('合成迁移预设')
+    const database = databases[0]!
+    const entry = preset.entries.find(item => item.kind === 'hidden_tool_timeline')!
+    const position = preset.promptPositions.find(item => item.id === entry.promptPositionId)!
+    database.withWriteTx(db => {
+      db.update(agentPresetEntries).set({ payloadJson: JSON.stringify({ ...entry, content: '合成旧正文', enabled: false }) })
+        .where(and(eq(agentPresetEntries.presetId, preset.id), eq(agentPresetEntries.entryId, entry.id))).run()
+      db.update(agentPresetVersionEntries).set({ payloadJson: JSON.stringify({ ...entry, content: '合成旧版本正文', enabled: true }) })
+        .where(and(eq(agentPresetVersionEntries.presetId, preset.id), eq(agentPresetVersionEntries.entryId, entry.id))).run()
+      db.update(agentPresetContents).set({ content: JSON.stringify([{ ...position, anchor: 'insert_point_2' }]) })
+        .where(and(eq(agentPresetContents.presetId, preset.id), eq(agentPresetContents.kind, 'prompt_positions'))).run()
+      db.update(agentPresetVersionContents).set({ content: JSON.stringify([{ ...position, anchor: 'insert_point_4' }]) })
+        .where(and(eq(agentPresetVersionContents.presetId, preset.id), eq(agentPresetVersionContents.kind, 'prompt_positions'))).run()
+    })
+    rmSync(hiddenTimelineSettingsPath(directories[0]!))
+    database.native.exec(`CREATE TRIGGER synthetic_timeline_write_failure BEFORE UPDATE ON agent_preset_entries
+      BEGIN SELECT RAISE(ABORT, 'synthetic timeline write failed'); END`)
+    database.close()
+    expect(() => database.open()).toThrow('synthetic timeline write failed')
+    const settingsPath = hiddenTimelineSettingsPath(directories[0]!)
+    expect(JSON.parse(readFileSync(settingsPath, 'utf8')).migrationPending).toBe(true)
+    const source = new Database(join(directories[0]!, 'data.sqlite3'))
+    try {
+      const row = source.prepare('SELECT payloadJson FROM agent_preset_entries WHERE presetId=? AND entryId=?')
+        .get(preset.id, entry.id) as { payloadJson: string }
+      expect(JSON.parse(row.payloadJson).content).toBe('合成旧正文')
+      source.exec('DROP TRIGGER synthetic_timeline_write_failure')
+    } finally { source.close() }
+    database.open()
+    expect(JSON.parse(readFileSync(settingsPath, 'utf8'))).not.toHaveProperty('migrationPending')
+    const reopened = new AgentPresetRepository(database)
+    expect(database.native.pragma('user_version', { simple: true })).toBe(20)
+    expect(reopened.get(preset.id).entries.find(item => item.id === entry.id))
+      .toMatchObject({ enabled: false, position: 'insert_point_2', content: expect.stringContaining('每轮必须至少调用一次') })
+    const transferred = JSON.parse(Buffer.from(reopened.export(preset.id, 'json').base64, 'base64').toString('utf8'))
+    expect(transferred.preset.versions[0].entries.find((item: { id: string }) => item.id === entry.id))
+      .toMatchObject({ enabled: true, position: 'insert_point_4' })
+    for (const table of ['agent_preset_entries', 'agent_preset_version_entries']) {
+      const row = database.native.prepare(`SELECT payloadJson FROM ${table} WHERE presetId=? AND entryId=?`).get(preset.id, entry.id) as { payloadJson: string }
+      for (const key of ['content', 'enabled', 'position', 'promptPositionId']) expect(JSON.parse(row.payloadJson)).not.toHaveProperty(key)
+    }
+    for (const table of ['agent_preset_contents', 'agent_preset_version_contents']) {
+      expect(database.native.prepare(`SELECT content FROM ${table} WHERE presetId=? AND kind='prompt_positions'`).get(preset.id))
+        .toEqual({ content: '[]' })
+    }
+  })
+
   it.each([101, 1001, 10001])('preserves %i prompts, long tasks and update records through save and database reopen', count => {
     const repository = harness()
-    repository.ensureInitialized()
     const initial = repository.active()
     const body = 'Synthetic author content '.repeat(501) + 'tail-marker'
     const important = [0, Math.floor(count / 2), count - 1]
@@ -245,7 +355,6 @@ describe('agent preset repository', () => {
 
   it('accepts extra editor fields without saving them into preset data', () => {
     const repository = harness()
-    repository.ensureInitialized()
     const initial = repository.active()
     const request = {
       preset: agentPresetSchema.parse({
@@ -266,7 +375,6 @@ describe('agent preset repository', () => {
 
   it('removes unfinished empty roleplay tasks before the save command reaches the repository', () => {
     const repository = harness()
-    repository.ensureInitialized()
     const initial = repository.active()
     const request = {
       preset: agentPresetSchema.parse({
@@ -285,7 +393,6 @@ describe('agent preset repository', () => {
 
   it('persists the four editor areas and projects the active preset into runtime context', () => {
     const repository = harness()
-    repository.ensureInitialized()
     const initial = repository.active()
     expect(repository.catalog().groups).toEqual([])
     expect(initial.libraryGroupId).toBe('')
@@ -304,6 +411,7 @@ describe('agent preset repository', () => {
       side: 'after_setting_position'
     }))
     expect(initial.entries.find((entry) => entry.kind === 'hidden_tool_timeline')).toMatchObject({
+      content: expect.stringContaining('设定和变量准备后，每轮必须至少调用一次 eleckoi_roleplay_reply'),
       position: 'insert_point_5',
       promptPositionId: 'hidden-tool-timeline'
     })
@@ -360,6 +468,8 @@ describe('agent preset repository', () => {
     const created = repository.create('长篇故事', group?.id)
     expect(created.libraryGroupId).toBe(group?.id)
     expect(created.entries.map((entry) => entry.kind)).toEqual(['hidden_tool_timeline', 'history_compaction'])
+    expect(created.entries.find((entry) => entry.kind === 'hidden_tool_timeline')?.content)
+      .toContain('设定和变量准备后，每轮必须至少调用一次 eleckoi_roleplay_reply')
     expect(repository.setActive(created.id).activePresetIds.roleplay).toBe(created.id)
   })
 
@@ -390,7 +500,6 @@ describe('agent preset repository', () => {
 
   it('preserves the hidden timeline setting trigger and insertion fields when saving', () => {
     const repository = harness()
-    repository.ensureInitialized()
     const initial = repository.active()
     const saved = repository.save({
       ...initial,
@@ -399,6 +508,7 @@ describe('agent preset repository', () => {
         title: '工具流协议',
         iconId: 'note',
         triggerMode: 'always',
+        enabled: false,
         position: 'insert_point_3',
         promptPositionId: '',
         insertRole: 'assistant',
@@ -410,26 +520,69 @@ describe('agent preset repository', () => {
       title: '工具流协议',
       iconId: 'note',
       triggerMode: 'always',
+      enabled: false,
       position: 'insert_point_3',
       promptPositionId: '',
       insertRole: 'assistant',
       order: 7
     })
+    const database = databases[0]!
+    const savedEntry = database.native.prepare("SELECT payloadJson FROM agent_preset_entries WHERE presetId=? AND entryId='built-in-hidden-tool-timeline'")
+      .get(saved.id) as { payloadJson: string }
+    for (const key of ['content', 'enabled', 'position', 'promptPositionId']) expect(JSON.parse(savedEntry.payloadJson)).not.toHaveProperty(key)
+    const second = repository.create('合成独立预设')
+    expect(second.entries.find(entry => entry.kind === 'hidden_tool_timeline')).toMatchObject({ enabled: true, position: 'insert_point_5' })
+    const exported = repository.export(saved.id, 'json')
+    const imported = repository.import({ displayName: exported.fileName, mimeType: exported.mimeType, base64: exported.base64 }, 'eleckoi').preset
+    expect(imported.entries.find(entry => entry.kind === 'hidden_tool_timeline')).toMatchObject({ enabled: false, position: 'insert_point_3' })
+    database.close(); database.open()
+    expect(new AgentPresetRepository(database).get(saved.id).entries.find(entry => entry.kind === 'hidden_tool_timeline'))
+      .toMatchObject({ enabled: false, position: 'insert_point_3' })
   })
 
-  it('preserves a user-edited hidden timeline prompt', () => {
+  it('saves the shared prompt in a file and leaves it out of portable presets', () => {
     const repository = harness()
-    repository.ensureInitialized()
     const initial = repository.active()
-    const saved = repository.save({
+    const previous = initial.entries.find(entry => entry.kind === 'hidden_tool_timeline')!.content
+    const draft = {
       ...initial,
       entries: initial.entries.map((entry) => entry.kind === 'hidden_tool_timeline'
-        ? { ...entry, content: '用户自定义工具时间线协议。' }
+        ? { ...entry, content: '合成共享提示词' }
         : entry)
-    })
+    }
+    const database = databases[0]!
+    const changesBefore = database.native.prepare('SELECT total_changes() AS value').get()
+    const saved = repository.save(draft, initial.regexRules, previous)
+    expect(database.native.prepare('SELECT total_changes() AS value').get()).toEqual(changesBefore)
+    const file = join(directories[0]!, hiddenToolTimelineFileName)
+    expect(readFileSync(file, 'utf8')).toContain('合成共享提示词')
+    expect(saved.entries.find((entry) => entry.kind === 'hidden_tool_timeline')?.content).toBe('合成共享提示词')
+    expect(repository.save(initial, initial.regexRules).entries.find(entry => entry.kind === 'hidden_tool_timeline')?.content)
+      .toBe('合成共享提示词')
+    expect(() => repository.save({ ...draft, entries: initial.entries }, initial.regexRules, '其他窗口的原文'))
+      .toThrow('隐藏工具调用过程已更新')
 
-    expect(saved.entries.find((entry) => entry.kind === 'hidden_tool_timeline')?.content)
-      .toBe('用户自定义工具时间线协议。')
+    const exported = repository.export(saved.id, 'json')
+    expect(Buffer.from(exported.base64, 'base64').toString('utf8')).not.toContain('合成共享提示词')
+    const imported = repository.import({ displayName: exported.fileName, mimeType: exported.mimeType, base64: exported.base64 }, 'eleckoi').preset
+    expect(imported.entries.find(entry => entry.kind === 'hidden_tool_timeline')?.content).toBe('合成共享提示词')
+    database.close(); database.open()
+    expect(new AgentPresetRepository(database).runtimeContext()?.entries.find(entry => entry.kind === 'hidden_tool_timeline')?.content)
+      .toBe('合成共享提示词')
+  })
+
+  it('replaces the local file when the bundled prompt changes', () => {
+    harness()
+    const directory = directories[0]!
+    const bundled = pathToFileURL(join(directory, 'bundled-prompt.txt'))
+    writeFileSync(bundled, '初始内置提示词')
+    const prompt = new HiddenToolTimelineFile(directory, bundled)
+    expect(prompt.read()).toBe('初始内置提示词')
+    prompt.write('本机编辑内容')
+    expect(prompt.read()).toBe('本机编辑内容')
+    writeFileSync(bundled, '更新内置提示词')
+    expect(prompt.read()).toBe('更新内置提示词')
+    expect(readdirSync(directory).filter(name => name.startsWith('hidden-tool-timeline') && name.endsWith('.txt'))).toEqual([hiddenToolTimelineFileName])
   })
 
   it('moves presets out of a deleted user group without creating a fallback group', () => {
@@ -446,7 +599,6 @@ describe('agent preset repository', () => {
 
   it('converts a SillyTavern preset with required prompts and only the default tool groups enabled', () => {
     const repository = harness()
-    repository.ensureInitialized()
     const activeBeforeImport = repository.catalog().activePresetIds.roleplay
     const result = repository.import(importDocument({
       name: '合成长篇预设',
@@ -494,7 +646,6 @@ describe('agent preset repository', () => {
 
   it('exports one complete ElecKoi payload as JSON or PNG and restores portable state', () => {
     const repository = harness(true)
-    repository.ensureInitialized()
     const active = repository.active()
     repository.save({
       ...active,
@@ -589,7 +740,6 @@ describe('agent preset repository', () => {
 
   it('rejects retired setting kinds in current ElecKoi preset files', () => {
     const repository = harness()
-    repository.ensureInitialized()
     const root = JSON.parse(Buffer.from(repository.export(repository.active().id, 'json').base64, 'base64').toString('utf8'))
     root.preset.entries[0].kind = 'roleplay_plan'
 

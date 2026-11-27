@@ -39,7 +39,8 @@ it('rolls back recursive deletion and refuses to publish an upload into a folder
 })
 it('validates imported hierarchy before writing files and restores the catalog if the frontend import fails', () => {
   const { root, repo } = fixture(), folder = repo.createFolder('owner', '开场', null).folders[0]!
-  add(repo, 'image.png', folder.id); const assets = repo.portable('owner'), folders = repo.portableFolders('owner')
+  add(repo, 'image.png', folder.id)
+  const { items: assets, folders } = repo.portableCatalog('owner')
   expect(() => repo.withNewOwner('new', assets, commit => commit(), [{ ...folder, parentId: folder.id }])).toThrow('循环')
   const before = repo.list('other')
   expect(() => repo.withMergedAssets('other', assets, () => { throw Error('Synthetic frontend failure') }, folders)).toThrow('Synthetic frontend failure')

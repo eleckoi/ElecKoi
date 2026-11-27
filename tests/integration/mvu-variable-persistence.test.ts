@@ -52,7 +52,6 @@ function setup() {
   const media = new LocalMediaStore(join(directory, 'media'))
   const characters = new CharacterRepository(database, conversations, media)
   const presets = new AgentPresetRepository(database)
-  presets.ensureInitialized()
   const transfers = new CharacterTransferService(database, characters, libraries, variables, new RegexRuleRepository(database, presets), media)
   const states = new VariableStateRepository(database, variables)
   const card = {

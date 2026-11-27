@@ -81,6 +81,7 @@ export class CharacterTransferService {
       this.portableAsset('avatar.portrait', string(persona.assistant_cover)),
       this.portableAsset('author.avatar', string(character.authorAvatar))
     ].filter((asset): asset is PortableAsset => !!asset)
+    const library = this.libraryAssets?.portableCatalog(characterId)
     const packageData = {
       character: {
         name: string(character.name, string(persona.assistant_name, '未命名角色')),
@@ -97,8 +98,8 @@ export class CharacterTransferService {
       },
       assets,
       cast: character.cast ?? [],
-      libraryAssets: this.libraryAssets?.portable(characterId) ?? [],
-      libraryFolders: this.libraryAssets?.portableFolders(characterId) ?? [],
+      libraryAssets: library?.items ?? [],
+      libraryFolders: library?.folders ?? [],
       frontends: this.frontends?.portable(characterId),
       scriptLibrary: this.scripts.portable('character', characterId),
       regexEnabled: this.regexRules.scopeEnabled('character', characterId),

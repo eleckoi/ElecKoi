@@ -207,13 +207,39 @@ window.__ModuleLoader__.load({
       return [{
         role: 'assistant', seq, time: data.startedAt ?? time, nodeKey: node.key, content: text, displayContent: text,
         pending: data.status === 'waiting' && !stream?.closed, sessionEventSeq: data.status === 'complete' ? seq : undefined,
-        roleplayBlocks: blocks
+        roleplayBlocks: blocks, anchorMessageId: data.anchorMessageId
       }]
+    }
+
+    function delegatedReplyInputs(nodes, events, userTurns, inputLinksByTurn) {
+      const anchors = new Set(nodes.filter(node => node.kind === delegatedReplyNode)
+        .map(node => node.data.data.anchorMessageId).filter(Boolean))
+      const inputs = new Map()
+      if (!anchors.size) return inputs
+      const userTurnBySeq = new Map([...userTurns].map(([node, turn]) => [node.data.seq, turn]))
+      const latestInputSeqByTurn = new Map()
+      // The anchor can be a tool-only message hidden by the official chat view.
+      // Resolve it in the durable Session events, before display filtering.
+      for (const entry of events) {
+        if (entry.type !== 'event') continue
+        const { type, seq, data } = entry.event
+        if (type === 'user/message' && data.source.kind === 'user') {
+          const turn = userTurnBySeq.get(seq)
+          if (turn !== undefined) latestInputSeqByTurn.set(turn, seq)
+          if (anchors.delete(data.id)) inputs.set(data.id, seq)
+        } else if ((type === 'assistant/message' || type === 'tool/result') && anchors.delete(data.message.id)) {
+          inputs.set(data.message.id, inputLinksByTurn.get(data.turn)?.inputEventSeq
+            ?? latestInputSeqByTurn.get(data.turn))
+        }
+        if (!anchors.size) break
+      }
+      return inputs
     }
 
     function roleplayOutputByTurn(nodes, markers) {
       const outputs = new Map()
       for (const { seq, time, data: { turn, replySeq, toolBacked, nativeText, editedText, editedBlocks } } of markers) {
+        if (replySeq !== undefined && !toolBacked && outputs.has(turn)) continue
         outputs.set(turn, { markerSeq: seq, time, replySeq, toolBacked, nativeText, editedText, editedBlocks, steps: new Map() })
       }
       for (const node of nodes) {
@@ -275,12 +301,11 @@ window.__ModuleLoader__.load({
         return { seq: output.markerSeq, time: output.time, anchorSeq: output.bodySeq ?? output.replySeq,
           content: output.text, displayContent: output.text, usage: closing?.usage }
       }
-      if (!closing || (output && closing.finalNode?.seq !== output.replySeq)) return undefined
+      if (!closing || output) return undefined
       const { seq, time, messageId, interrupted } = closing.finalNode
       const body = assistantContent(closing.blocks)
-      const content = output?.editedText ?? body.text
-      return { seq, time, messageId, interrupted, anchorSeq: seq, content,
-        displayContent: output ? content : body.final, usage: closing.usage }
+      return { seq, time, messageId, interrupted, anchorSeq: seq, content: body.text,
+        displayContent: body.final, usage: closing.usage }
     }
 
     function turnProcessTiming(node) {
@@ -542,7 +567,7 @@ window.__ModuleLoader__.load({
       })
     }
 
-    function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = [], regeneratingInputTurn, illustrations = [], loadedEntries, roleplayOutput = new Map(), delegatedStreams = new Map()) {
+    function officialMessages(snapshot, details, runtimeSessionId, processByTurn = new Map(), pendingSubmissions = [], sessionRunning, inputLinks = [], abortedTurns = [], regeneratingInputTurn, illustrations = [], loadedEntries, roleplayOutput = new Map(), delegatedStreams = new Map(), sessionEvents = EMPTY_ITEMS) {
       if (!snapshot) return (details?.messages || []).filter(message => message.id === 'opening')
       const submissionsByRequest = new Map(pendingSubmissions.map(submission => [submission.requestId, submission]))
       const entries = loadedEntries || orderedChatEntries(snapshot)
@@ -574,11 +599,15 @@ window.__ModuleLoader__.load({
       const endedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail')
         .map(nodeTurn).filter(Number.isSafeInteger))
       const aborted = new Set(abortedTurns)
-      const closedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail' && settledChatReply(node, roleplayOutput.get(nodeTurn(node))))
+      const closedTurns = new Set(nodes.filter(node => node.kind === 'turn-tail' && (settledChatReply(node, roleplayOutput.get(nodeTurn(node)))
+        || roleplayOutput.has(nodeTurn(node)) && node.location?.turn?.end?.data.reason.kind === 'completed'))
         .map(nodeTurn).filter(Number.isSafeInteger))
       const supersededInputTurns = new Set(inputLinks.filter(link => Number.isSafeInteger(link.inputTurn)
         && link.inputTurn > 0 && link.inputTurn !== link.turn).map(link => link.inputTurn))
       if (Number.isSafeInteger(regeneratingInputTurn) && regeneratingInputTurn > 0) supersededInputTurns.add(regeneratingInputTurn)
+      const inputLinksByTurn = new Map()
+      for (const link of inputLinks) if (!inputLinksByTurn.has(link.turn)) inputLinksByTurn.set(link.turn, link)
+      const inputSeqByMessageId = delegatedReplyInputs(nodes, sessionEvents, userTurns, inputLinksByTurn)
       const latestOpenAssistantByTurn = new Map()
       entries.forEach((entry, index) => {
         const turn = nodeTurn(entry.node)
@@ -722,8 +751,6 @@ window.__ModuleLoader__.load({
           matched.set(index, source)
         }
       }
-      const inputLinksByTurn = new Map()
-      for (const link of inputLinks) if (!inputLinksByTurn.has(link.turn)) inputLinksByTurn.set(link.turn, link)
       const sourceBySequence = new Map()
       projected.forEach((item, index) => {
         if (!sourceBySequence.has(item.seq)) sourceBySequence.set(item.seq, matched.get(index))
@@ -740,6 +767,9 @@ window.__ModuleLoader__.load({
           : source?.nativeVariableStateJson ?? source?.variableStateJson
         const historicalVariableState = runtimeVariableState ?? sourceVariableState
         const failure = item.role === 'assistant' ? failuresByTurn.get(item.dshTurn) : undefined
+        const inputEventSeq = item.anchorMessageId
+          ? inputSeqByMessageId.get(item.anchorMessageId)
+          : inputLinksByTurn.get(item.dshTurn)?.inputEventSeq
         const message = {
           ...(source || {}), id, conversationId: details?.conversation?.id || source?.conversationId || '',
           ...(Number.isInteger(source?.productSequence ?? source?.sequence) ? { productSequence: source.productSequence ?? source.sequence } : {}),
@@ -747,9 +777,9 @@ window.__ModuleLoader__.load({
           sessionEventSeq: item.sessionEventSeq,
           ...(item.requestId ? { requestId: item.requestId } : {}),
           ...(Object.prototype.hasOwnProperty.call(item, 'dshTurn') ? { dshTurn: item.dshTurn } : {}),
+          ...(item.role === 'assistant' ? { inputEventSeq } : {}),
           ...(item.role === 'assistant' && Number.isSafeInteger(item.dshTurn) ? {
             dshTurn: item.dshTurn,
-            inputEventSeq: inputLinksByTurn.get(item.dshTurn)?.inputEventSeq,
             renderKey: `dsh-reply-${runtimeSessionId}-${item.dshTurn}`
           } : {}),
           ...(item.nodeKey ? { dshNodeKey: item.nodeKey } : {}),
@@ -1739,7 +1769,8 @@ window.__ModuleLoader__.load({
         delegatedStreams = this.officialProjectionSignature?.delegatedStreams) {
         return officialMessages(chat, details, runtimeSessionId, process, pendingSubmissions, sessionRunning,
           this.inputContinuations(runtimeSessionId), this.abortedTurns(runtimeSessionId), this.regeneratingInputTurn(runtimeSessionId),
-          this.illustrations(runtimeSessionId), entries, output, delegatedStreams)
+          this.illustrations(runtimeSessionId), entries, output, delegatedStreams,
+          this.sessionReference?.binding.eventSource?.getSnapshot().entries)
       }
 
       officialProcess(chat, nodes, roleplayOutput) {

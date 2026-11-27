@@ -25,7 +25,7 @@ import { readEntry, writeEntry } from '../src/domain/settingLibraries/settingLib
 import { AgentPresetRepository } from '../src/domain/agentPresets/AgentPresetRepository'
 import { DEFAULT_AGENT_TOOL_GROUP_IDS } from '../src/domain/agentTools'
 import { defaultRoleplayPlanSettings } from '../../../shared/src/contracts/presets/roleplayPlan'
-import { DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT, LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT } from '../../../shared/src/contracts/presets/builtIns'
+import { LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT } from '../../../shared/src/contracts/presets/builtIns'
 import { settingLibraryEntrySchema, settingLibraryPromptPositionSchema, settingLibraryStoredEntrySchema } from '../../../shared/src/contracts/settingLibrary/schemas'
 import { VariableConfigRepository } from '../src/domain/variables/VariableConfigRepository'
 import { VariableStateRepository } from '../src/domain/variables/VariableStateRepository'
@@ -45,7 +45,7 @@ function harness() {
   const directory = mkdtempSync(join(tmpdir(), 'eleckoi-common-test-'))
   directories.push(directory)
   const path = join(directory, 'eleckoi.sqlite3')
-  const database = new SqliteDatabase(path)
+  const database = new SqliteDatabase(path, false)
   database.open()
   connections.push(database)
   const conversations = new ConversationRepository(database)
@@ -111,7 +111,7 @@ describe('unreleased database baseline consolidation', () => {
     legacy.pragma(`user_version = ${version}`)
     const before = productRecords(legacy)
     legacy.close()
-    const reopened = new SqliteDatabase(path)
+    const reopened = new SqliteDatabase(path, false)
     reopened.open()
     try {
       expect(reopened.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
@@ -368,7 +368,7 @@ describe('shared SQLite baseline', () => {
     } finally { source.close() }
 
     for (let reopen = 0; reopen < 2; reopen++) {
-      const database = new SqliteDatabase(path)
+      const database = new SqliteDatabase(path, false)
       try {
         database.open()
         expect(database.native.pragma('user_version', { simple: true })).toBe(CURRENT_SCHEMA_VERSION)
@@ -694,7 +694,7 @@ describe('shared SQLite baseline', () => {
       })
       const hidden = database.prepare("SELECT payloadJson FROM agent_preset_entries WHERE entryId='built-in-hidden-tool-timeline'").get() as { payloadJson: string }
       expect(JSON.parse(hidden.payloadJson)).toMatchObject({
-        content: DEFAULT_HIDDEN_TOOL_TIMELINE_CONTENT, position: 'insert_point_5'
+        content: LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT, position: 'insert_point_5'
       })
       const positions = database.prepare("SELECT content FROM agent_preset_contents WHERE kind='prompt_positions'").get() as { content: string }
       expect(JSON.parse(positions.content)).toContainEqual(expect.objectContaining({

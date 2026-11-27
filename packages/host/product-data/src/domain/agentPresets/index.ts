@@ -1,4 +1,5 @@
 export { AgentPresetRepository } from './AgentPresetRepository'
+export { prepareAgentPresetStorage } from './prepareAgentPresetStorage'
 export { agentPresetExists } from './agentPresetLookup'
 export { upgradeDefaultCreatorPreset } from './defaultCreatorPresetUpgrade'
 export { mergeAgentPresetAndCharacterLibraries } from './AgentPresetRuntime'

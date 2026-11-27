@@ -100,17 +100,8 @@ export function installRoleplayReply(agent, isEnabled = () => true, readConversa
     }
   })
   ctx.on('agent/turn-stopping', ({ agent: owner, turn }) => {
-    if (owner !== agent || output?.turn !== turn || !output.enabled) return
-    if (output.replySeq !== undefined) {
-      session.append(ROLEPLAY_OUTPUT_EVENT, { turn, replySeq: output.replySeq, toolBacked: true, nativeText: true }, { ignorable: true })
-      return
-    }
-    const event = output.latestAssistant
-    if (!event || event.data.interrupted
-      || event.data.message.content.some(block => block.type === 'tool-call')) return
-    if (event.data.message.content.some(block => block.type === 'text' && block.text.trim())) {
-      session.append(ROLEPLAY_OUTPUT_EVENT, { turn, replySeq: event.seq, fallback: true }, { ignorable: true })
-    }
+    if (owner !== agent || output?.turn !== turn || !output.enabled || output.replySeq === undefined) return
+    session.append(ROLEPLAY_OUTPUT_EVENT, { turn, replySeq: output.replySeq, toolBacked: true, nativeText: true }, { ignorable: true })
   })
 }
 

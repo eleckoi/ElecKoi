@@ -8,13 +8,14 @@ import { installSchema } from '../../packages/host/product-data/src/storage/sqli
 import { recoverInterruptedState } from '../../packages/host/product-data/src/storage/sqlite/recoverInterruptedState'
 import { schema } from '../../packages/host/product-data/src/storage/sqlite/schema'
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '../../packages/host/product-data/src/storage/sqlite/SqliteDatabase'
+import { prepareAgentPresetStorage } from '../../packages/host/product-data/src/domain/agentPresets'
 
 /** Isolated SQLite lifecycle for repository and migration fixtures. */
 export class SqliteDatabase implements ElecKoiSqliteStore {
   private sqlite: Database.Database | undefined
   private drizzleDatabase: ElecKoiDatabase | undefined
 
-  constructor(private readonly path: string) {}
+  constructor(private readonly path: string, private readonly preparePresets = true) {}
 
   get db(): ElecKoiDatabase {
     if (this.drizzleDatabase === undefined) throw new DesktopError(ELECKOI_FAILURE_CODES.lifecycleNotReady, '数据库尚未初始化。', { what: '数据库' })
@@ -38,7 +39,10 @@ export class SqliteDatabase implements ElecKoiSqliteStore {
       recoverInterruptedState(connection)
       this.drizzleDatabase = drizzle(connection, { schema })
       this.sqlite = connection
+      if (this.preparePresets && !connection.memory) prepareAgentPresetStorage(this)
     } catch (error) {
+      this.sqlite = undefined
+      this.drizzleDatabase = undefined
       connection.close()
       throw error
     }

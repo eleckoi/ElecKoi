@@ -30,7 +30,6 @@ function setup() {
   fixtures.push({ root, database })
   const characters = new CharacterRepository(database, { deleteForCharacter() {}, refreshCharacterIdentity() {} }, new LocalMediaStore(join(root, 'media')))
   const scripts = createScriptLibraryRepository(database), presets = new AgentPresetRepository(database, undefined, scripts)
-  presets.ensureInitialized()
   const regex = new RegexRuleRepository(database, presets), settings = new SettingLibraryRepository(database), variables = new VariableConfigRepository(database)
   const frontends = () => new FrontendProjectRepository(new FrontendIndex(join(root, 'frontends')), id => characters.get().items.some(item => item.id === id))
   const transfer = new CharacterTransferService(database, characters, settings, variables, regex, undefined, scripts, undefined, undefined, frontends())

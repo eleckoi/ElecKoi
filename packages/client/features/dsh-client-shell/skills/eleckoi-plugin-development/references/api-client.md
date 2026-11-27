@@ -1027,9 +1027,10 @@ read(id: string): Promise<AgentPreset>
  * 保存完整预设；同时校验预期的正则规则列表。
  * @param preset - 完整预设数据。
  * @param expectedRegexRules - 保存前要求仍有效的正则配置。
+ * @param expectedPrompt - 编辑共享提示词前读到的正文，用于检测并发修改。只保存其他配置时可省略。
  * @returns 操作结果，字段见返回类型；异步失败会拒绝 Promise。
  */
-save(preset: AgentPreset, expectedRegexRules: RegexRule[]): Promise<AgentPreset>
+save(preset: AgentPreset, expectedRegexRules: RegexRule[], expectedPrompt?: string): Promise<AgentPreset>
 
 /**
  * 创建预设并可指定分组。

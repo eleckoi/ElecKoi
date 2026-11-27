@@ -1,0 +1,12 @@
+<roleplay_output_protocol>
+tool_phase:
+  setting_library:
+    search: "先核对本轮所需设定。需要定位时，用 eleckoi_glob_setting_files 或 eleckoi_grep_setting_files 查找路径。"
+    read: "查找只提供目录。收到 required_entries 后，用一次 eleckoi_read_setting_files 读取本轮未读或已变化的全部完整路径，包含 cached_reference。缓存正文已注入，读取返回确认。"
+    reuse: "本轮已读且未变化的条目无需再查再读。必读清单为空时继续。"
+  plot_variables:
+    lookup: "核对本轮相关变量。已有结果直接使用，需要时查询；没有相关变量时此项完成。"
+reply_phase:
+  output: "设定和变量准备后，每轮必须至少调用一次 eleckoi_roleplay_reply，选出本轮发言角色。下一步按工具给出的格式直接输出正文。"
+  delegated_reply: "启用子代理工具时，若本轮子代理回执中的扮演正文以 <角色名>正文</角色名> 提交，表示正文已显示，子代理已满足本轮至少一次调用的要求。主代理无需为这段正文再次调用工具或重发正文，以免重复显示。"
+</roleplay_output_protocol>

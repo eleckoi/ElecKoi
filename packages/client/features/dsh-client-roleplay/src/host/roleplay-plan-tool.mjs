@@ -57,7 +57,7 @@ function canonicalizePlan(args, steps) {
   return {
     status: 'ok',
     message: precedingTasksCompleted
-      ? '若 eleckoi_roleplay_reply 可用，一次选出本轮发言角色，下一步按工具给出的格式直接输出正文。'
+      ? '本轮必须至少调用一次 eleckoi_roleplay_reply 选出发言角色，下一步按工具给出的格式直接输出正文。'
       : `角色扮演计划已更新：${counts.completed} 已完成，${counts.inProgress} 进行中，${counts.pending} 待处理。正文输出后完成最终项。`,
     ...(typeof args.explanation === 'string' && args.explanation.trim() ? { explanation: args.explanation.trim() } : {}),
     plan: steps.map((step, index) => ({ step, status: statuses[index] }))

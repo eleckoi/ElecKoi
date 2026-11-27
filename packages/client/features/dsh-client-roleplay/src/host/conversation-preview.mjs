@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { projectionCacheDomainSpec } from '@deepseek-ai/dsh-session-projection-cache'
-import { roleplayReplyBlocks } from '@eleckoi/dsh-product-api'
+import { isDelegatedRoleplayReply, roleplayReplyBlocks } from '@eleckoi/dsh-product-api'
 import { ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_TOOL, roleplayReplyResult } from './roleplay-reply-tool.mjs'
 
 const schema = z.string().max(480)
@@ -8,6 +8,7 @@ const previewStateSchema = z.object({
   preview: schema,
   turn: z.number().int().nonnegative(),
   reply: schema,
+  roleplay: z.boolean().optional(),
   selection: z.object({ step: z.number(), names: z.array(z.string()) }).optional(),
 })
 const activitySchema = z.number().int().nonnegative()
@@ -39,6 +40,7 @@ export const conversationPreviewProjection = {
   apply(state, event) {
     if (event.type === 'turn/start') return { preview: state.preview, turn: event.data.turn, reply: '' }
     if (event.type === 'turn/end' && event.data.turn === state.turn) return { preview: state.preview, turn: 0, reply: '' }
+    if (isDelegatedRoleplayReply(event)) return { ...state, preview: toPreview(event.data.text) }
     if (state.turn && event.data?.turn === state.turn) {
       const selection = roleplayReplyResult(event)
       if (selection) {
@@ -56,15 +58,18 @@ export const conversationPreviewProjection = {
       if (event.type === 'assistant/message' && event.data.message.content.some(block => block.type === 'tool-call' && block.name === ROLEPLAY_REPLY_TOOL)) {
         return state
       }
-      if (event.type === ROLEPLAY_OUTPUT_EVENT && typeof event.data.editedText === 'string') {
-        const reply = toPreview(Array.isArray(event.data.editedBlocks) ? replyBody(event.data.editedBlocks) : event.data.editedText)
-        return { ...state, reply, preview: reply }
+      if (event.type === ROLEPLAY_OUTPUT_EVENT) {
+        if (event.data.replySeq === undefined) return { ...state, roleplay: true }
+        if (event.data.toolBacked && typeof event.data.editedText === 'string') {
+          const reply = toPreview(Array.isArray(event.data.editedBlocks) ? replyBody(event.data.editedBlocks) : event.data.editedText)
+          return { ...state, reply, preview: reply }
+        }
       }
     }
     let message
     if (event.type === 'user/message' && event.data.source?.kind === 'user') message = event.data
     if (event.type === 'assistant/message' && event.surfaceOp === 'append'
-      && !(state.reply && event.data.turn === state.turn)) message = event.data.message
+      && !((state.roleplay || state.reply) && event.data.turn === state.turn)) message = event.data.message
     if (!message) return state
     const text = toPreview(message.content.filter(block => block.type === 'text').map(block => block.text).join(''))
     return text ? { ...state, preview: text } : state

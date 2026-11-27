@@ -1393,7 +1393,7 @@ function directUserMessageBeforeTurn(
 
 function roleplayReplyAddresses(events: readonly SessionEvent[]): Map<number, number | undefined> {
   return new Map(events.flatMap(event => event.type === ROLEPLAY_OUTPUT_EVENT
-    ? [[event.data.turn, event.data.toolBacked ? Number(event.seq) : event.data.replySeq] as const] : []))
+    ? [[event.data.turn, event.data.toolBacked ? Number(event.seq) : undefined] as const] : []))
 }
 
 function visibleSessionMessages(events: readonly SessionEvent[]): Array<{ seq: number; role: 'user' | 'assistant' }> {
@@ -2433,11 +2433,12 @@ export class ElecKoiAgentPresetsApi extends TypertRemoteService {
    * 保存完整数据并通知相关页面刷新。
    * @param preset - 完整预设数据。
    * @param expectedRegexRules - 要求仍有效的正则配置。
+   * @param expectedPrompt - 修改共享「隐藏工具调用过程」正文时基于的原文。
    * @returns 操作结果，结构见返回类型；失败抛出错误。
    */
   @Remote
-  save(preset: AgentPreset, expectedRegexRules: RegexRule[]): Promise<AgentPreset> {
-    const saved = this.productData.saveAgentPreset(preset, expectedRegexRules)
+  save(preset: AgentPreset, expectedRegexRules: RegexRule[], expectedPrompt?: string): Promise<AgentPreset> {
+    const saved = this.productData.saveAgentPreset(preset, expectedRegexRules, undefined, expectedPrompt)
     this.publishChange()
     return this.resolveToolReferences(saved)
   }

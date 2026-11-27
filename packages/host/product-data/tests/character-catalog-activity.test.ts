@@ -88,7 +88,7 @@ describe('local character catalog activity and grouping', () => {
     const scripts = createScriptLibraryRepository(f.store)
     clock.mockReturnValue(6000); scripts.save({ ...scripts.get('character', 'a'), enabled: true })
     expect(f.characters.get().items[0]?.editedAtEpochMs).toBe(6000)
-    const presets = new AgentPresetRepository(f.store); presets.ensureInitialized(); const regex = new RegexRuleRepository(f.store, presets)
+    const presets = new AgentPresetRepository(f.store); const regex = new RegexRuleRepository(f.store, presets)
     clock.mockReturnValue(7000); const library = regex.readLibrary('character', 'a'); regex.saveLibrary({ ...library, enabled: !library.enabled }, [])
     expect(f.characters.get().items[0]?.editedAtEpochMs).toBe(7000)
     clock.mockReturnValue(8000); scripts.get('character', 'a'); regex.readLibrary('character', 'a')

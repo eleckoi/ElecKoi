@@ -43,13 +43,15 @@ export class CharacterAssetRepository {
     return value
   }
   list(id: string): CharacterAssetCatalog { this.requireOwner(id); return this.read(id) }
-  private write(value: CharacterAssetCatalog, notify = true) {
+  private write(value: CharacterAssetCatalog, notify = true): CharacterAssetCatalog {
     validateAssetFolders(value.items, value.folders)
     const directory = this.directory(value.characterId); this.ordinary(directory); mkdirSync(directory, { recursive: true })
     const temp = join(directory, `${randomUUID()}.tmp`)
-    try { writeFileSync(temp, JSON.stringify(catalogSchema.parse(value)), { flag: 'wx' }); renameSync(temp, join(directory, 'catalog.json')) }
+    const saved = catalogSchema.parse(value)
+    try { writeFileSync(temp, JSON.stringify(saved), { flag: 'wx' }); renameSync(temp, join(directory, 'catalog.json')) }
     finally { if (existsSync(temp)) this.remove(temp) }
     if (notify) this.onChanged(value.characterId)
+    return saved
   }
   private name(name: string): string { if (typeof name !== 'string' || !name.trim() || /[\0\r\n\\/]/.test(name)) fail('资产名称不能为空，也不能包含目录。'); return name.trim() }
   private blob(characterId: string, digest: string): string {
@@ -58,11 +60,20 @@ export class CharacterAssetRepository {
   }
   readAsset(characterId: string, id: string): { path: string; asset: CharacterAsset } {
     characterAssetId.parse(id)
-    const asset = this.list(characterId).items.find(item => item.id === id)
+    return this.assetFile(characterId, this.list(characterId).items.find(item => item.id === id))
+  }
+  private assetFile(characterId: string, asset: CharacterAsset | undefined): { path: string; asset: CharacterAsset } {
     if (!asset) throw new DesktopError(codes.lookupNotFound, '找不到这项资产。', { what: '资产' })
     const path = this.blob(characterId, asset.hash)
     if (statSync(path).size !== asset.size) throw new DesktopError(codes.dataShapeInvalid, '资产文件大小与目录不一致。', { what: '资产文件' })
     return { path, asset }
+  }
+  private selectedAssets(catalog: CharacterAssetCatalog, ids: Iterable<string>): CharacterAsset[] {
+    const byId = new Map(catalog.items.map(asset => [asset.id, asset]))
+    return Array.from(ids, id => {
+      characterAssetId.parse(id)
+      return this.assetFile(catalog.characterId, byId.get(id)).asset
+    })
   }
   begin(characterId: string, input: CharacterAssetUpload): CharacterAssetUploadTicket {
     this.requireOwner(characterId); const name = this.name(input.name)
@@ -119,13 +130,12 @@ export class CharacterAssetRepository {
     return this.list(characterId)
   }
   duplicate(characterId: string, ids: string[]): CharacterAssetCatalog {
-    const catalog = this.list(characterId), items = [...new Set(ids)].map(id => this.readAsset(characterId, id).asset)
-    this.write({ ...catalog, revision: catalog.revision + 1, items: [...catalog.items, ...items.map(item => ({ ...item, id: randomUUID(), name: item.name.replace(/(\.[^.]*)?$/, ' 副本$1'), createdAt: new Date().toISOString() }))] })
-    return this.list(characterId)
+    const catalog = this.list(characterId), items = this.selectedAssets(catalog, new Set(ids))
+    return this.write({ ...catalog, revision: catalog.revision + 1, items: [...catalog.items, ...items.map(item => ({ ...item, id: randomUUID(), name: item.name.replace(/(\.[^.]*)?$/, ' 副本$1'), createdAt: new Date().toISOString() }))] })
   }
   delete(characterId: string, ids: string[], folderIds: string[] = []): CharacterAssetCatalog {
     const catalog = this.list(characterId), removing = new Set(ids)
-    for (const id of removing) this.readAsset(characterId, id)
+    this.selectedAssets(catalog, removing)
     for (const id of folderIds) this.requireFolder(catalog, id)
     const folders = folderDescendants(catalog.folders, folderIds)
     for (const item of catalog.items) if (item.folderId && folders.has(item.folderId)) removing.add(item.id)
@@ -134,16 +144,17 @@ export class CharacterAssetRepository {
     const referenced = new Set(items.map(item => item.hash)), removingHashes = [...new Set(catalog.items.filter(item => !referenced.has(item.hash)).map(item => item.hash))]
     const removed = join(this.directory(characterId), 'removed'); this.ordinary(removed)
     if (removingHashes.length) mkdirSync(removed, { recursive: true })
+    let saved: CharacterAssetCatalog | undefined
     try {
       for (const digest of removingHashes) renameSync(this.blob(characterId, digest), join(removed, digest))
-      this.write({ ...catalog, revision: catalog.revision + 1, items, folders: catalog.folders.filter(folder => !folders.has(folder.id)) })
-    } finally { this.recoverRemoved(characterId) }
-    return this.list(characterId)
+      saved = this.write({ ...catalog, revision: catalog.revision + 1, items, folders: catalog.folders.filter(folder => !folders.has(folder.id)) })
+    } finally { this.recoverRemoved(characterId, saved) }
+    return saved
   }
-  private recoverRemoved(characterId: string): void {
+  private recoverRemoved(characterId: string, saved?: CharacterAssetCatalog): void {
     const removed = join(this.directory(characterId), 'removed'); this.ordinary(removed)
     if (!existsSync(removed)) return
-    const referenced = new Set(this.read(characterId).items.map(item => item.hash))
+    const referenced = new Set((saved ?? this.read(characterId)).items.map(item => item.hash))
     for (const digest of readdirSync(removed)) {
       const target = this.blob(characterId, digest), source = join(removed, digest); this.ordinary(source)
       if (referenced.has(digest)) renameSync(source, target)
@@ -151,10 +162,15 @@ export class CharacterAssetRepository {
     }
     this.remove(removed)
   }
-  portable(characterId: string): PortableCharacterAsset[] {
-    return this.list(characterId).items.map(item => { const bytes = readFileSync(this.readAsset(characterId, item.id).path); if (hash(bytes) !== item.hash) throw new DesktopError(codes.dataShapeInvalid, '资产文件摘要不一致。', { what: '资产文件' }); return { ...item, data: bytes.toString('base64') } })
+  portableCatalog(characterId: string): { items: PortableCharacterAsset[]; folders: CharacterAssetFolder[] } {
+    const catalog = this.list(characterId)
+    const items = catalog.items.map(item => {
+      const bytes = readFileSync(this.assetFile(characterId, item).path)
+      if (hash(bytes) !== item.hash) throw new DesktopError(codes.dataShapeInvalid, '资产文件摘要不一致。', { what: '资产文件' })
+      return { ...item, data: bytes.toString('base64') }
+    })
+    return { items, folders: catalog.folders }
   }
-  portableFolders(characterId: string): CharacterAssetFolder[] { return this.list(characterId).folders }
   private requireFolder(catalog: CharacterAssetCatalog, id: string | null) {
     if (id !== null && (!characterAssetId.safeParse(id).success || !catalog.folders.some(folder => folder.id === id))) fail('找不到当前角色的资产文件夹。')
   }
@@ -169,12 +185,11 @@ export class CharacterAssetRepository {
   }
   move(characterId: string, assetIds: string[], folderIds: string[], destination: string | null): CharacterAssetCatalog {
     const catalog = this.list(characterId); this.requireFolder(catalog, destination)
-    for (const id of assetIds) this.readAsset(characterId, id)
+    this.selectedAssets(catalog, assetIds)
     for (const id of folderIds) this.requireFolder(catalog, id)
     if (destination && folderDescendants(catalog.folders, folderIds).has(destination)) fail('文件夹不能移入自身或子文件夹。')
     const assets = new Set(assetIds), folders = new Set(folderIds)
-    this.write({ ...catalog, revision: catalog.revision + 1, items: catalog.items.map(item => assets.has(item.id) ? { ...item, folderId: destination } : item), folders: catalog.folders.map(folder => folders.has(folder.id) ? { ...folder, parentId: destination } : folder) })
-    return this.list(characterId)
+    return this.write({ ...catalog, revision: catalog.revision + 1, items: catalog.items.map(item => assets.has(item.id) ? { ...item, folderId: destination } : item), folders: catalog.folders.map(folder => folders.has(folder.id) ? { ...folder, parentId: destination } : folder) })
   }
   withMergedAssets<T>(characterId: string, assets: PortableCharacterAsset[], operation: () => T, folders: CharacterAssetFolder[] = [], notify = true): T {
     const before = this.list(characterId), additions: CharacterAsset[] = [], created: string[] = []

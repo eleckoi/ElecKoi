@@ -28,6 +28,8 @@ export const migration0020 = {
   }
 } as const
 
+// RETIRE WHEN: 正式停止支持 v19 及更早数据库直升后，删除此函数、apply 调用和预设升级专项测试。
+// 仅在 v19→v20 事务内转换角色预设和保存版本，补齐缺失的回复工具组并保留已关闭的选择。
 function upgradePublishedRoleplayPresets(database: Database.Database): void {
   const roleplayPresets = "presetId IN (SELECT id FROM agent_presets WHERE purpose = 'roleplay')"
   for (const table of ['agent_preset_entries', 'agent_preset_version_entries']) {
@@ -38,7 +40,7 @@ function upgradePublishedRoleplayPresets(database: Database.Database): void {
     for (const row of rows) {
       const entry = JSON.parse(row.payloadJson)
       const next = upgradeFinalReplyEntry(entry)
-      if (next.content !== entry.content || next.title !== entry.title) update.run(JSON.stringify(next), row.rowid)
+      if (next !== entry) update.run(JSON.stringify(next), row.rowid)
     }
   }
   for (const table of ['agent_preset_contents', 'agent_preset_version_contents']) {

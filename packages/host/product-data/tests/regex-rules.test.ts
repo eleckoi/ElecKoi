@@ -65,7 +65,6 @@ function harness() {
     }]
   })
   const agentPresets = new AgentPresetRepository(database)
-  agentPresets.ensureInitialized()
   const repository = new RegexRuleRepository(database, agentPresets)
   return { agentPresets, database, repository }
 }

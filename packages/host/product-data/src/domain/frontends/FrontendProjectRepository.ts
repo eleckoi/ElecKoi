@@ -59,7 +59,7 @@ export class FrontendProjectRepository {
   readonly root: string
   private readonly characterDeletion: FrontendCharacterDeletion
   constructor(readonly index: FrontendIndex, private readonly characterExists: (id: string) => boolean,
-    private readonly assets?: () => Pick<CharacterAssetRepository, 'portable' | 'portableFolders' | 'withMergedAssets'>,
+    private readonly assets?: () => Pick<CharacterAssetRepository, 'portableCatalog' | 'withMergedAssets'>,
     private readonly onCharacterChanged: (id: string) => void = () => {}) {
     this.root = join(index.root, 'projects')
     this.characterDeletion = new FrontendCharacterDeletion(index, characterExists)
@@ -429,8 +429,7 @@ export class FrontendProjectRepository {
         this.materialize(project, files)
         if (owner.scope === 'character' && this.assets) {
           if (own(files, ASSET_MANIFEST) || Object.keys(files).some(name => name.startsWith(ASSET_DIRECTORY))) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupDuplicate, '前端文件占用了素材清单的保留目录。', { what: '前端素材目录' })
-          const items = this.assets().portable(owner.characterId!)
-          const folders = this.assets().portableFolders(owner.characterId!)
+          const { items, folders } = this.assets().portableCatalog(owner.characterId!)
           if (items.length || folders.length) {
             files[ASSET_MANIFEST] = Buffer.from(JSON.stringify({ format: 'eleckoi.frontend-assets', version: 1, folders, items: items.map(({ data, ...metadata }) => metadata) }), 'utf8')
             for (const item of items) files[ASSET_DIRECTORY + item.id] = Buffer.from(item.data, 'base64')

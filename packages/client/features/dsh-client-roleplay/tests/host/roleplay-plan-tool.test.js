@@ -9,6 +9,8 @@ describe('DSH roleplay plan tool', () => {
     expect(definition.description).toContain(steps.at(-1))
     const result = await definition.execute({ plan: steps.map(step => ({ step, status: 'pending' })) })
     expect(result.plan.map(item => item.step)).toEqual(steps)
+    const ready = await definition.execute({ plan: steps.map(step => ({ step, status: 'completed' })) })
+    expect(ready.message).toContain('本轮必须至少调用一次 eleckoi_roleplay_reply')
   })
 
   it('stays registered when the active preset has no plan steps', async () => {

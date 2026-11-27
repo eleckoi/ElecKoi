@@ -97,6 +97,44 @@ describe('character asset library', () => {
     reopened.close(); expect(readdirSync(join(root, 'uploads'))).toEqual([])
   })
 
+  it('reads the catalog once per card export and bulk asset operation', async () => {
+    const { data } = await host()
+    const owner = 'bulk-assets'
+    data.createCharacter({ id: owner, name: '批量资产' })
+    const repo = data.characterAssets()
+    const assets = Array.from({ length: 12 }, (_, index) => upload(repo, owner, `test-${index}.png`, Buffer.from([index])))
+    const folder = repo.createFolder(owner, '素材', null).folders[0]!
+    const read = vi.spyOn(repo as unknown as { read: CharacterAssetRepository['list'] }, 'read')
+    try {
+      const exported = data.exportCharacter(owner, 'zip')
+      expect(read).toHaveBeenCalledTimes(1)
+      const files = readZipEntries(Buffer.from(exported.base64, 'base64'))
+      const document = JSON.parse(Buffer.from(files.get('character.json')!).toString('utf8'))
+      expect(document.library_assets).toHaveLength(assets.length)
+      for (const [index, asset] of assets.entries()) {
+        expect(document.library_assets[index].id).toBe(asset.id)
+        expect(Buffer.from(files.get(document.library_assets[index].data.file)!)).toEqual(Buffer.from([index]))
+      }
+
+      read.mockClear()
+      const ids = assets.map(asset => asset.id)
+      const duplicated = repo.duplicate(owner, ids)
+      expect(read).toHaveBeenCalledTimes(1)
+      expect(duplicated.items.slice(ids.length).map(asset => asset.hash)).toEqual(assets.map(asset => asset.hash))
+
+      read.mockClear()
+      const moved = repo.move(owner, ids, [], folder.id)
+      expect(read).toHaveBeenCalledTimes(1)
+      expect(moved.items.slice(0, ids.length).every(asset => asset.folderId === folder.id)).toBe(true)
+
+      read.mockClear()
+      const others = duplicated.items.slice(ids.length)
+      expect(repo.delete(owner, [...ids, ...others.slice(1).map(item => item.id)]).items).toEqual(others.slice(0, 1))
+      expect(read).toHaveBeenCalledTimes(1)
+      expect(readFileSync(repo.readAsset(owner, others[0]!.id).path)).toEqual(Buffer.from([0]))
+    } finally { read.mockRestore() }
+  })
+
   it.each(['png', 'zip'] as const)('round trips assets, regex HTML, many openings and selected nested frontends through %s to another directory', async format => {
     const source = await host(), characterId = 'synthetic-source'
     const authorBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
