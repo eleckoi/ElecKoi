@@ -20,6 +20,37 @@ app.whenReady().then(async () => {
     }
     throw new Error(`Timed out: ${source}`);
   };
+  async function checkCastInspector() {
+    await evaluate('document.querySelector(\'button[aria-label="登场角色"]\').click()');
+    const input = '.character-cast-role-name-input input';
+    const heading = '.character-cast-inspector-title-wrap h3';
+    await wait(`!!document.querySelector(${JSON.stringify(input)})`);
+    const measure = `(() => {
+      const inspector = document.querySelector('.character-cast-inspector');
+      const title = inspector.querySelector(${JSON.stringify(heading)});
+      const bounds = inspector.getBoundingClientRect();
+      const selectors = ['.character-cast-inspector-topbar', '.character-cast-inspector-head-actions',
+        '.character-cast-inspector-portrait-btn', '.character-cast-role-name-input', '.character-cast-crop-action-btn'];
+      return {
+        width: bounds.width,
+        portraitWidth: inspector.querySelector('.character-cast-inspector-portrait-btn').getBoundingClientRect().width,
+        outside: selectors.filter(selector => inspector.querySelector(selector).getBoundingClientRect().right > Math.min(bounds.right, innerWidth) + 1),
+        truncated: title.scrollWidth > title.clientWidth && getComputedStyle(title).textOverflow === 'ellipsis',
+      };
+    })()`;
+    const before = await evaluate(measure);
+    const name = '合成角色 · ' + 'LongNameWithoutSpaces'.repeat(10);
+    await evaluate(`(() => { const field = document.querySelector(${JSON.stringify(input)}); field.focus(); field.select(); })()`);
+    await win.webContents.insertText(name);
+    await wait(`document.querySelector(${JSON.stringify(heading)}).textContent === ${JSON.stringify(name)}`);
+    const after = await evaluate(measure);
+    if (after.outside.length || !after.truncated || before.width !== after.width || before.portraitWidth !== after.portraitWidth) {
+      throw new Error('Long cast name widened the inspector content: ' + JSON.stringify({ before, after }));
+    }
+    await evaluate('document.querySelector(".character-cast-inspector-head-actions button").click()');
+    await wait(`window.castSaved()[0].name === ${JSON.stringify(name)}`);
+    return true;
+  }
   try {
     const reports = [];
     for (const theme of ['light', 'dark']) for (const [width, height] of [[1440, 900], [900, 500]]) {
@@ -111,6 +142,7 @@ app.whenReady().then(async () => {
           await evaluate('document.querySelector("[aria-label=调整目录宽度]").focus()');win.webContents.sendInputEvent({type:'keyDown',keyCode:'RIGHT'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'RIGHT'});await new Promise(r=>setTimeout(r,100));check(await evaluate('document.querySelector(".setting-directory").getBoundingClientRect().width===496'),'Resize failed');actions.resize=true;
         }
         await click('button[aria-label="设定库"]');await wait('!!document.querySelector(".is-setting-library .setting-workspace")');check(await evaluate('!document.querySelector(".opening-list-item") && !document.querySelector("[role=tree]").textContent.includes("开场白")'),'Openings leaked into settings tree');await click('button[aria-label="开场白"]');await wait('document.querySelectorAll(".opening-list-item").length===2');actions.reopen=true;
+        actions.castLongName = await checkCastInspector();
         reports.push({desktop:true,width,height,theme,layout,actions});continue;
       }
 

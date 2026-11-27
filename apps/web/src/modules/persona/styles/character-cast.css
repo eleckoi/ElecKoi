@@ -310,6 +310,7 @@
 .character-cast-inspector {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: 60px minmax(0, 1fr);
   min-width: 0;
   min-height: 0;

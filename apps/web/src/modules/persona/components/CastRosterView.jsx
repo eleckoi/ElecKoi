@@ -264,7 +264,7 @@ export function CastRosterView({
                 className="character-cast-circle character-cast-inspector-head-av"
                 iconSize={11}
               />
-              <h3>{selected.name || '未命名角色'}</h3>
+              <h3 title={selected.name || undefined}>{selected.name || '未命名角色'}</h3>
             </div>
           ) : (
             <div className="character-cast-inspector-title-wrap">
