@@ -78,8 +78,8 @@ export function SettingLibraryDocument({ selected, library, nameInputRef, Select
             onSelect={id => { setFolderMenuOpen(false); if (id === 'delete') onDeleteGroup(); }} />}
         </div>
       </div>
-      {!group && <div className="setting-editor-tools" role="toolbar" aria-label={tUi('设定编辑操作')}>
-        {!readOnly && !fixed ? <SegmentedTabs size="sm" className="setting-view-switch" label={tUi('设定编辑视图')} value={view} onChange={next => { setView(next); setIconsOpen(false); setRepairingOrder(false); }}
+      {!group && !fixed && <div className="setting-editor-tools" role="toolbar" aria-label={tUi('设定编辑操作')}>
+        {!readOnly ? <SegmentedTabs size="sm" className="setting-view-switch" label={tUi('设定编辑视图')} value={view} onChange={next => { setView(next); setIconsOpen(false); setRepairingOrder(false); }}
           items={[{ value: 'content', label: tUi('正文') }, { value: 'settings', label: tUi('设置') }]} /> : null}
         <div className="setting-content-tools" ref={setToolbarHost} />
       </div>}

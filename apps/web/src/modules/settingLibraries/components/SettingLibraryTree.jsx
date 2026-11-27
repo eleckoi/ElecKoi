@@ -20,14 +20,15 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
   const tUi = useProductTranslation();
   const actions = useContext(SettingTreeActionsContext);
   const Icon = data.rule ? null : entryIcon(data);
+  const alwaysEnabled = data.fixed && data.entryKind === 'hidden_tool_timeline';
   const ruleType = data.rule?.enabled ? SETTING_RULE_TYPES.find(option => option.value === data.rule.type) : null;
   const ruleLabel = ruleType ? tUi(ruleType.label) : tUi('无规则');
-  const dimmed = data.rule ? !data.rule.enabled && !data.usesEjs : data.enabled === false;
+  const dimmed = data.rule ? !data.rule.enabled && !data.usesEjs : !alwaysEnabled && data.enabled === false;
 
   return (
     <div
       {...itemProps}
-      className={`setting-library-tree-row${data.nodeKind === "entry" ? " has-toggle" : ""}${dimmed ? data.rule ? " is-rule-inactive" : " is-disabled" : ""}${level > 0 ? " is-nested" : ""}${actions?.selection?.active ? actions.selection.selected.has(data.id) ? ' is-selected' : '' : isSelected ? " is-selected" : ""}${isDropTarget ? " is-drop-target" : ""}${isDragging ? " is-dragging" : ""}`}
+      className={`setting-library-tree-row${data.nodeKind === "entry" && !alwaysEnabled ? " has-toggle" : ""}${dimmed ? data.rule ? " is-rule-inactive" : " is-disabled" : ""}${level > 0 ? " is-nested" : ""}${actions?.selection?.active ? actions.selection.selected.has(data.id) ? ' is-selected' : '' : isSelected ? " is-selected" : ""}${isDropTarget ? " is-drop-target" : ""}${isDragging ? " is-dragging" : ""}`}
       style={style}
       onDoubleClick={(event) => {
         event.stopPropagation();
@@ -73,7 +74,9 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
               label={tUi('{value0}的触发规则', { value0: data.label })} title={tUi('触发规则')}
               onChange={enabled => actions.updateEntryById(data.recordId, { enabled })} />
           </span>
-        </> : (
+        </> : alwaysEnabled ? <span className="setting-rule-badge" data-rule-type="always">
+          <span className="setting-rule-dot" aria-hidden="true" />{tUi('常驻')}
+        </span> : (
           <EditorToggle
             className="setting-library-tree-switch"
             checked={data.enabled}

@@ -120,7 +120,7 @@ export function normalizeAgentPresetPrompts(
         promptPositionId: '', insertRole: 'system' as const, order: ++lastInstructionOrder }
     }
     if (isHiddenToolTimelineEntry(entry)) {
-      return customPosition === undefined ? entry : { ...entry, position: customPosition.anchor }
+      return { ...entry, position: customPosition?.anchor ?? entry.position ?? positionsById.get(HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID)?.anchor ?? 'insert_point_5' }
     }
     if (isHistoryCompactionEntry(entry) || entry.triggerMode !== 'always') return entry
     if (customPosition !== undefined) return { ...entry, position: customPosition.anchor }
@@ -161,6 +161,8 @@ function hiddenToolTimelineEntry(existing?: SettingLibraryEntry): SettingLibrary
     ...source,
     id: HIDDEN_TOOL_TIMELINE_ENTRY_ID,
     kind: 'hidden_tool_timeline',
+    enabled: true,
+    triggerMode: 'always',
     groupId: '',
     treeViewOrder: Number.MIN_SAFE_INTEGER
   }

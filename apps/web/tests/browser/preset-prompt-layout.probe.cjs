@@ -85,7 +85,24 @@ app.whenReady().then(async () => {
       const immersive = await insets('.immersive-markdown-body');
       writing.push({ purpose, inline, immersive });
     }
-    writeFileSync(reportPath, JSON.stringify({ reports, writing }, null, 2));
+    const builtInGaps = [];
+    for (const width of [1440, 900]) {
+      win.setContentSize(width, 800);
+      await win.loadURL(pathToFileURL(htmlPath).href + '?built-ins');
+      for (const title of ['隐藏工具调用过程', '自动压缩摘要模板']) {
+        await wait(`[...document.querySelectorAll('.setting-library-tree-label')].some(label => label.textContent === ${JSON.stringify(title)})`);
+        await evaluate(`[...document.querySelectorAll('.setting-library-tree-label')].find(label => label.textContent === ${JSON.stringify(title)}).click()`);
+        await wait(`document.querySelector('.setting-document-title input')?.value === ${JSON.stringify(title)}`);
+        await settleLayout();
+        const gap = await evaluate(`(() => {
+          const heading = document.querySelector('.setting-document-heading').getBoundingClientRect();
+          const frame = document.querySelector('.setting-writing-board').getBoundingClientRect();
+          return frame.top - heading.bottom;
+        })()`);
+        builtInGaps.push({ width, title, gap });
+      }
+    }
+    writeFileSync(reportPath, JSON.stringify({ reports, writing, builtInGaps }, null, 2));
     win.destroy(); app.exit(0);
   } catch (error) { console.error(error); win.destroy(); app.exit(1); }
 });

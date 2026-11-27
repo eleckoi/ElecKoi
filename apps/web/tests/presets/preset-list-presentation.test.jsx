@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { PresetPromptEditor, shouldConfirmHiddenTimelineDisable } from '../../src/modules/presets/components/PresetPromptEditor.jsx';
+import { PresetPromptEditor } from '../../src/modules/presets/components/PresetPromptEditor.jsx';
 import { RegexRuleList } from '../../src/modules/regex/components/RegexRuleList.jsx';
 import { REGEX_SCOPES } from '../../src/modules/regex/model/regexRulesEditing.js';
 const sourceFile = relative => resolve('apps/web/tests/presets', relative);
@@ -181,7 +181,7 @@ describe('preset list consistency', () => {
     expect(nodes.map((node) => node.label)).toEqual(['隐藏工具调用过程', '自动压缩摘要模板', '普通提示词']);
   });
 
-  it('shows only the editable body for the fixed runtime-context prompt and confirms before disabling it', () => {
+  it('places both fixed prompt editors right below their titles and only lets the compaction template be disabled', () => {
     const hidden = {
       ...createEntryDraft('', 1, []),
       id: 'built-in-hidden-tool-timeline',
@@ -190,11 +190,13 @@ describe('preset list consistency', () => {
       iconId: 'timeline',
       kind: 'hidden_tool_timeline',
       position: 'insert_point_4',
+      enabled: false,
     };
-    const html = renderToStaticMarkup(<SettingLibraryDocument
+    const compaction = { ...hidden, id: 'built-in-roleplay-history-compaction', title: '自动压缩摘要模板', kind: 'history_compaction', enabled: true };
+    const renderDocument = entry => renderToStaticMarkup(<SettingLibraryDocument
       presetPrompt
-      selected={{ kind: 'entry', value: hidden }}
-      library={{ ...preset, entries: [hidden], promptPositions: [] }}
+      selected={{ kind: 'entry', value: entry }}
+      library={{ ...preset, entries: [entry], promptPositions: [] }}
       nameInputRef={{ current: null }}
       SelectedIcon={() => React.createElement('svg')}
       onClose={() => {}}
@@ -204,16 +206,19 @@ describe('preset list consistency', () => {
       onPromptPositionsChange={() => {}}
     />);
 
-    expect(html).toContain('隐藏工具调用过程');
-    expect(html).toContain('设定正文');
-    expect(html).toContain(`${hidden.content.length} 字符`);
-    expect(html).not.toContain('aria-label="设定编辑视图"');
-    expect(html).not.toContain('>设置<');
-    expect(html).not.toContain('aria-current="step"');
-    expect(html).not.toContain('时间线协议');
-    expect(shouldConfirmHiddenTimelineDisable(hidden, false)).toBe(true);
-    expect(shouldConfirmHiddenTimelineDisable(hidden, true)).toBe(false);
-    expect(shouldConfirmHiddenTimelineDisable({ ...hidden, id: 'ordinary', kind: 'normal' }, false)).toBe(false);
+    for (const [entry, label] of [[hidden, '设定正文'], [compaction, '摘要模板']]) {
+      const html = renderDocument(entry);
+      expect(html).toContain(entry.title);
+      expect(html).toContain(label);
+      expect(html).toContain(`${entry.content.length} 字符`);
+      expect(html).toMatch(/<\/header><div class="setting-writing-board">/);
+      expect(html).not.toContain('setting-editor-tools');
+    }
+    const [hiddenNode, compactionNode] = treeNodes({ ...preset, entries: [hidden, compaction] });
+    const row = data => renderToStaticMarkup(<SettingTreeNode data={data} itemProps={{}} level={0} />);
+    expect(row(hiddenNode)).toContain('常驻');
+    expect(row(hiddenNode)).not.toMatch(/setting-library-tree-switch|is-disabled/);
+    expect(row(compactionNode)).toContain('setting-library-tree-switch');
   });
 
   it('keeps regex rows to an accessible open action and a switch without overflow actions', () => {

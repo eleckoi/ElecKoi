@@ -1,9 +1,7 @@
-import { localizeUiCopy } from "../../../app/i18n/productCopy.js";
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
 import { Code, Copy, DotsThree, FileText, ListChecks, PencilSimple, Plus, SlidersHorizontal, X } from '../../../ui/icons/interfaceIcons.jsx';
-import { isHiddenToolTimelineEntry } from '@shared/contracts/presets/builtIns';
 import { TrashIcon } from '../../../ui/icons/index.jsx';
 import { DshFolderClosedIcon } from '../../../ui/icons/dshTreeIcons.jsx';
 import { SETTING_LIBRARY_CREATE_ICONS } from '../../../ui/icons/settingLibraryCreateIcons.jsx';
@@ -33,17 +31,8 @@ import {
 } from '../../settingLibraries/index.js';
 import { PresetContextMenu, usePresetContextMenu } from './PresetContextMenu.jsx';
 
-const HIDDEN_TIMELINE_DISABLE_CONFIRMATION = {
-  title: '关闭隐藏工具调用过程？',
-  message: '关闭后，本预设将省略这条提示词。角色回复仍通过回复工具流式显示。',
-};
-
 const CreateFolderIcon = SETTING_LIBRARY_CREATE_ICONS.group;
 const CreateEntryIcon = SETTING_LIBRARY_CREATE_ICONS.entry;
-
-export function shouldConfirmHiddenTimelineDisable(entry, nextEnabled) {
-  return nextEnabled === false && isHiddenToolTimelineEntry(entry);
-}
 
 export function PresetPromptEditor({ preset, onChange, saveAction, workspace = false, dirty, saving }) {
   const tUi = useProductTranslation();
@@ -56,7 +45,6 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
   const [selected, setSelected] = useState(() => workspace && preset.entries[0] ? { kind: 'entry', id: preset.entries[0].id } : null);
   const [editing, setEditing] = useState(false);
   const [moving, setMoving] = useState(null);
-  const [pendingHiddenTimelineDisableId, setPendingHiddenTimelineDisableId] = useState('');
   const [deleteBatch, setDeleteBatch] = useState(null);
   const nameInputRef = useRef(null);
   const context = usePresetContextMenu();
@@ -132,19 +120,9 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
     onChange({ ...preset, entries: preset.entries.map((item) => item.id === entry.id ? entry : item) });
   }
 
-  function confirmHiddenTimelineDisable() {
-    const entry = preset.entries.find((item) => item.id === pendingHiddenTimelineDisableId);
-    if (entry && isHiddenToolTimelineEntry(entry)) updateEntry({ ...entry, enabled: false });
-    setPendingHiddenTimelineDisableId('');
-  }
-
   function updateTreeEntry(entryId, patch) {
     const entry = preset.entries.find((item) => item.id === entryId);
     if (!entry) return;
-    if (shouldConfirmHiddenTimelineDisable(entry, patch.enabled)) {
-      setPendingHiddenTimelineDisableId(entry.id);
-      return;
-    }
     updateEntry({ ...entry, ...patch });
   }
 
@@ -393,12 +371,6 @@ export function PresetPromptEditor({ preset, onChange, saveAction, workspace = f
 
       {context.menu ? <PresetContextMenu menu={context.menu} actions={menuActions} onClose={context.close} /> : null}
       <ConfirmationDialog target={deleteBatch} confirmLabel={tUi("删除")} tone="destructive" onCancel={() => setDeleteBatch(null)} onConfirm={confirmDeleteBatch} />
-      <ConfirmationDialog
-        target={pendingHiddenTimelineDisableId ? localizeUiCopy(HIDDEN_TIMELINE_DISABLE_CONFIRMATION, tUi) : null}
-        confirmLabel={tUi("仍要关闭")}
-        onCancel={() => setPendingHiddenTimelineDisableId('')}
-        onConfirm={confirmHiddenTimelineDisable}
-      />
     </Layout>
   );
 }

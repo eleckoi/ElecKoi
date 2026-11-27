@@ -6,7 +6,7 @@ import type { SettingLibraryEntry, SettingLibraryPromptPosition } from '@shared/
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import { readOptionalPromptFile, replacePromptFile } from '../../HiddenToolTimelineFile'
 
-const entrySettings = settingLibraryEntrySchema.pick({ enabled: true, position: true, promptPositionId: true })
+const entrySettings = settingLibraryEntrySchema.pick({ position: true, promptPositionId: true })
 const settingsSchema = z.object({
   entry: entrySettings,
   slot: settingLibraryPromptPositionSchema

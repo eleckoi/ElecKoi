@@ -19,7 +19,7 @@ it('keeps prompt rows reachable beside the current workspace through selection, 
     await writeFile(htmlPath, '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/preset-prompt-layout.probe.cjs'), htmlPath, reportPath], { env, timeout: 45000, windowsHide: true });
-    const { reports, writing } = JSON.parse(await readFile(reportPath, 'utf8'));
+    const { reports, writing, builtInGaps } = JSON.parse(await readFile(reportPath, 'utf8'));
     expect(reports).toHaveLength(3);
     for (const report of reports) {
       for (const phase of ['open', 'resized']) {
@@ -45,6 +45,11 @@ it('keeps prompt rows reachable beside the current workspace through selection, 
       expect(immersive[0]).toBeLessThanOrEqual(32);
       expect(immersive[1]).toBeLessThanOrEqual(32);
       expect(immersive[2]).toBeGreaterThan(1700);
+    }
+    expect(builtInGaps).toHaveLength(4);
+    for (const report of builtInGaps) {
+      expect(report.gap, JSON.stringify(report)).toBeGreaterThanOrEqual(0);
+      expect(report.gap, JSON.stringify(report)).toBeLessThanOrEqual(16);
     }
   } finally { await rm(directory, { recursive: true, force: true, maxRetries: 3 }); }
 }, 60000);

@@ -95,7 +95,7 @@ ElecKoi 当前 49 张产品表需要关系、外键、排序、搜索、跨表�
 19. v19：转换旧 EJS 引用设定和其状态快照，保留有效正文。
 20. v20：独立保存登场角色，为旧卡补一个角色。已有本地头像复制到卡片资产库，保留旧聊天使用的媒体引用。同一事务更新旧角色预设默认计划、提示词元数据和工具配置。
 
-「隐藏工具调用过程」正文由 Host 从数据库同目录的 `hidden-tool-timeline.txt` 读取，同一本地资料中的角色预设共用。`hidden-tool-timeline-settings.json` 按预设及其版本保存开关和位置，预设导入导出继续携带各自的设置。数据库打开阶段的一次性搬迁先落盘设置，再从当前预设和保存版本的数据库记录中删除正文、开关、位置及位置引用字段。随包模板变动时，Host 直接替换本机文本。普通版本更新沿用已有文件。后续修改模板或位置都无需提升数据库版本。
+「隐藏工具调用过程」正文由 Host 从数据库同目录的 `hidden-tool-timeline.txt` 读取，同一本地资料中的角色预设共用。该条目固定启用。`hidden-tool-timeline-settings.json` 按预设及其版本保存位置，预设导入导出继续携带各自的位置。读取时忽略历史关闭值。数据库打开阶段的一次性搬迁先落盘位置，再从当前预设和保存版本的数据库记录中删除正文、开关、位置及位置引用字段。随包模板变动时，Host 直接替换本机文本。普通版本更新沿用已有文件。后续修改模板或位置都无需提升数据库版本。
 
 `character_cast_members` 保存角色顺序、名字、图片资产编号和圆形取景。头像原图在角色卡资产库 `character-assets/characters/<卡片编号的 SHA-256>/blobs/<图片的 SHA-256>`。同卡相同图片共用文件。圆形头像从同一张图取景，旧卡原来就有独立圆形或方形图时保留该图。角色卡封面仍由资料页的媒体槽管理。PNG 和 ZIP 的原生角色卡内容升级到 v4，携带名册、取景和所需图片。
 
@@ -187,7 +187,7 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 | [自动插画配置 v4/v5 → v6](../packages/host/product-data/src/domain/agentPresets/autoIllustrationUpgrade.ts)、[数据库打开入口](../packages/host/product-data/src/domain/agentPresets/prepareAgentPresetStorage.ts)、[导入入口](../packages/host/product-data/src/domain/agentPresets/AgentPresetImportCodec.ts) | 受支持的存量预设、保存版本和导入文件均不再携带旧工具组自有的插画配置；存储升级与导入兼容分别确认 | 删除 `upgradeIllustrationConfiguration` 及启动调用、`illustrationFromPortable` 的旧分支、共用升级函数和各自专用回归；保留当前插件插画配置及其他预设读写 |
 | [内置扮演预设旧名](../packages/host/product-data/src/domain/agentPresets/prepareAgentPresetStorage.ts) | 支持的安装和恢复来源都已改用当前默认名，或用户自行改过名 | 数据库打开时仅将固定 ID 下的旧默认名更新为「默认扮演预设」。删除旧名更新语句和专项测试，保留当前默认名称和用户自定义名称 |
 | [旧预设必需提示词补齐](../packages/host/product-data/src/domain/agentPresets/prepareAgentPresetStorage.ts) | 所有受支持的数据库及备份都已有当前必需条目和位置，且无需再写回旧「默认位置」 | 数据库打开阶段使用同一份设置快照检查当前预设及保存版本。删除 `ensureRequiredEntries`、启动时传给扫描的读取函数及补齐专项测试，保留默认种子、当前校验与旧文件导入规则 |
-| [隐藏工具调用过程搬迁](../packages/host/product-data/src/storage/sqlite/migrations/hiddenToolTimelineFiles.ts) | 正式停止支持仍在 SQLite 保存这条正文、开关或位置的安装及旧库恢复来源 | 设置文件尚未完成搬迁时，将每个角色预设及保存版本的开关和位置转入文件，并清除库中旧副本。删除 `prepareHiddenToolTimelineFiles`、数据库打开阶段调用、向设置文件事务传入搬迁结果的参数及专项测试。改由设置文件事务读取启动快照，保留两个文件的正常读写 |
+| [隐藏工具调用过程搬迁](../packages/host/product-data/src/storage/sqlite/migrations/hiddenToolTimelineFiles.ts) | 正式停止支持仍在 SQLite 保存这条正文、开关或位置的安装及旧库恢复来源 | 设置文件尚未完成搬迁时，将每个角色预设及保存版本的位置转入文件，并清除库中旧字段。删除 `prepareHiddenToolTimelineFiles`、数据库打开阶段调用、向设置文件事务传入搬迁结果的参数及专项测试。改由设置文件事务读取启动快照，保留两个文件的正常读写 |
 | [旧开发 v9/v10、v12/v13/v14 整理与正则列补齐](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持带生成结果废表的开发 v9/v10、缺正则整体开关的开发 v12、带旧状态表的开发 v12/v13/v14，以及缺 `optionsJson` 列的结构；各来源独立判断 | 删除对应分支、专用旧 SQL／校验参数和用例。正则列补齐随其启动调用及缺列校验宽容分支一起删除；保留当前 SQL、当前完整性校验和仍受支持的正式升级链 |
 | [默认创作预设一次性替换](../packages/host/product-data/src/domain/agentPresets/defaultCreatorPresetUpgrade.ts)、[v13→v14 入口](../packages/host/product-data/src/storage/sqlite/migrations/0014CreatorWorkspace.ts) | 后续版本正式停止支持未完成本次替换的安装与备份恢复；v13 入口另须等到停止支持 v13 及更早直接升级 | 删除替换函数、启动调用、完成标记及专用回归；按支持边界删除 0014 与登记，保留正常新建使用的默认内容工厂、自建预设和全局选择 |
 | [旧 DeepSeek 扩展选择整理](../packages/client/features/dsh-client-web-search/src/profile.js) | 受支持 profile 和恢复入口均不再引用 `eleckoi-deepseek-api` | 删除 `retireDeepSeekExtensionSelection`、桌面／Android 启动调用和旧选择回归；保留用户凭据及未使用的配置。当前官方 Search／Fetch 选择与 Messages 模式不随之删除 |

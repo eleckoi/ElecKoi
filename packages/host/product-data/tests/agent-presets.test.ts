@@ -115,16 +115,16 @@ describe('agent preset repository', () => {
           expect(version.groups).toMatchObject([{ id: 'version-group', name: `分组 ${version.number}` }])
           expect(version.entries).toEqual(expect.arrayContaining([
             expect.objectContaining({ id: 'version-entry', content: `正文 ${version.number}` }),
-            expect.objectContaining({ id: 'built-in-hidden-tool-timeline', enabled: version.number % 2 === 0 })
+            expect.objectContaining({ id: 'built-in-hidden-tool-timeline', enabled: true })
           ]))
         }
       } finally { prepare.mockRestore() }
       const settings = JSON.parse(readFileSync(settingsPath, 'utf8'))
-      settings.records[preset.id][`${preset.id}:v10`].entry.enabled = false
+      Object.assign(settings.records[preset.id][`${preset.id}:v10`].entry, { enabled: false, position: 'insert_point_2', promptPositionId: '' })
       writeFileSync(settingsPath, JSON.stringify(settings))
       const exported = JSON.parse(Buffer.from(repository.export(preset.id, 'json').base64, 'base64').toString('utf8'))
       expect(exported.preset.versions.at(-1).entries).toContainEqual(
-        expect.objectContaining({ id: 'built-in-hidden-tool-timeline', enabled: false })
+        expect.objectContaining({ id: 'built-in-hidden-tool-timeline', enabled: true, position: 'insert_point_2' })
       )
     } finally { readFile.mockRestore() }
   })
@@ -309,7 +309,7 @@ describe('agent preset repository', () => {
     const reopened = new AgentPresetRepository(database)
     expect(database.native.pragma('user_version', { simple: true })).toBe(20)
     expect(reopened.get(preset.id).entries.find(item => item.id === entry.id))
-      .toMatchObject({ enabled: false, position: 'insert_point_2', content: expect.stringContaining('每轮必须至少调用一次') })
+      .toMatchObject({ enabled: true, position: 'insert_point_2', content: expect.stringContaining('每轮必须至少调用一次') })
     const transferred = JSON.parse(Buffer.from(reopened.export(preset.id, 'json').base64, 'base64').toString('utf8'))
     expect(transferred.preset.versions[0].entries.find((item: { id: string }) => item.id === entry.id))
       .toMatchObject({ enabled: true, position: 'insert_point_4' })
@@ -498,7 +498,7 @@ describe('agent preset repository', () => {
     expect(repository.get(second.id).libraryGroupId).toBe('')
   })
 
-  it('preserves the hidden timeline setting trigger and insertion fields when saving', () => {
+  it('keeps the hidden timeline prompt active when saving and importing while preserving its insertion fields', () => {
     const repository = harness()
     const initial = repository.active()
     const saved = repository.save({
@@ -507,7 +507,7 @@ describe('agent preset repository', () => {
         ...entry,
         title: '工具流协议',
         iconId: 'note',
-        triggerMode: 'always',
+        triggerMode: 'agent_tool',
         enabled: false,
         position: 'insert_point_3',
         promptPositionId: '',
@@ -520,7 +520,7 @@ describe('agent preset repository', () => {
       title: '工具流协议',
       iconId: 'note',
       triggerMode: 'always',
-      enabled: false,
+      enabled: true,
       position: 'insert_point_3',
       promptPositionId: '',
       insertRole: 'assistant',
@@ -533,11 +533,17 @@ describe('agent preset repository', () => {
     const second = repository.create('合成独立预设')
     expect(second.entries.find(entry => entry.kind === 'hidden_tool_timeline')).toMatchObject({ enabled: true, position: 'insert_point_5' })
     const exported = repository.export(saved.id, 'json')
-    const imported = repository.import({ displayName: exported.fileName, mimeType: exported.mimeType, base64: exported.base64 }, 'eleckoi').preset
-    expect(imported.entries.find(entry => entry.kind === 'hidden_tool_timeline')).toMatchObject({ enabled: false, position: 'insert_point_3' })
+    const portable = JSON.parse(Buffer.from(exported.base64, 'base64').toString('utf8'))
+    const portableEntry = portable.preset.entries.find((entry: { kind: string }) => entry.kind === 'hidden_tool_timeline')
+    Object.assign(portableEntry, { enabled: false, trigger_mode: 'agent_tool' })
+    const imported = repository.import(importDocument(portable), 'eleckoi').preset
+    expect(imported.entries.find(entry => entry.kind === 'hidden_tool_timeline')).toMatchObject({ enabled: true, triggerMode: 'always', position: 'insert_point_3' })
+    repository.setActive(imported.id)
+    expect(repository.runtimeContext()?.entries.find(entry => entry.kind === 'hidden_tool_timeline'))
+      .toMatchObject({ enabled: true, triggerMode: 'always', position: 'insert_point_3' })
     database.close(); database.open()
     expect(new AgentPresetRepository(database).get(saved.id).entries.find(entry => entry.kind === 'hidden_tool_timeline'))
-      .toMatchObject({ enabled: false, position: 'insert_point_3' })
+      .toMatchObject({ enabled: true, position: 'insert_point_3' })
   })
 
   it('saves the shared prompt in a file and leaves it out of portable presets', () => {

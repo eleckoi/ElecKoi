@@ -9,9 +9,9 @@ import type { SettingLibraryPromptPosition } from '@shared/contracts/settingLibr
 import { HiddenToolTimelineFile, readOptionalPromptFile, replacePromptFile } from '../../../HiddenToolTimelineFile'
 import { hiddenTimelineSettingsPath, hiddenTimelineSettingsSchema, isHiddenToolTimelinePosition, type HiddenToolTimelineSettingsRecords } from '../../../domain/agentPresets/HiddenToolTimelineSettings'
 
-// RETIRE WHEN: 支持的旧安装与数据库恢复入口都已迁出本条目的正文、开关与位置。
+// RETIRE WHEN: 支持的旧安装与数据库恢复入口都已迁出本条目的旧字段。
 // 正式停止支持仍在 SQLite 保存这些字段的版本后，移除此入口、数据库打开阶段的调用和专项回归。
-// 仅在同目录设置文件尚未完成搬迁时执行，原子清理当前预设和历史版本的旧字段。
+// 仅在设置文件尚未完成搬迁时执行，转存当前位置和历史版本位置，清除 SQLite 中的旧字段。
 // 退役时改由设置文件事务加载启动快照。
 export function prepareHiddenToolTimelineFiles(database: Database.Database): HiddenToolTimelineSettingsRecords | undefined {
   if (database.memory) return
@@ -42,7 +42,6 @@ export function prepareHiddenToolTimelineFiles(database: Database.Database): Hid
       records[row.presetId] ??= {}
       records[row.presetId]![row.versionId] ??= {
         entry: {
-          enabled: entry.enabled ?? true,
           position: entry.position === undefined ? slot.anchor : entry.position,
           promptPositionId: entry.promptPositionId ?? HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID
         },

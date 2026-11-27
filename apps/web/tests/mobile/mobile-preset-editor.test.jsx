@@ -258,17 +258,21 @@ describe('Android preset presentation', () => {
     expect(model.save.mock.calls[1][0].entries.find(entry => entry.title === '新建提示词').groupId).toBe('synthetic-group');
   });
 
-  it('keeps the fixed prompt protection and existing disable confirmation', async () => {
+  it('shows the fixed protocol as always on and keeps its editor accessible without a toggle', async () => {
     await mount();
     await section('预设提示词');
     const fixedPrompt = () => row(HIDDEN_TOOL_TIMELINE_ENTRY_TITLE);
     await click(fixedPrompt());
     expect(button('删除').disabled).toBe(true);
     expect(button('移动').disabled).toBe(true);
-    await click(fixedPrompt().querySelector('[role=switch]'));
-    expect(document.querySelector('[role=dialog]')).not.toBeNull();
-    await click(button('取消'));
-    expect(fixedPrompt().querySelector('[role=switch]').getAttribute('aria-checked')).toBe('true');
+    expect(fixedPrompt().textContent).toContain('常驻');
+    expect(fixedPrompt().querySelector('[role=switch]')).toBeNull();
+    expect(row('自动压缩摘要模板').querySelector('[role=switch]')).not.toBeNull();
+    await click(button('编辑'));
+    const document = host.querySelector('.mobile-editor-document');
+    expect(document.querySelector('.setting-writing-board')).not.toBeNull();
+    expect(document.querySelector('.setting-editor-tools')).toBeNull();
+    expect(document.querySelector('.setting-immersive-host button')).not.toBeNull();
   });
 
   it('uses a full tool configuration page, restores the list, and discards changes with the existing tab guard', async () => {
