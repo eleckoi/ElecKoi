@@ -503,6 +503,9 @@ article .screenshot-legend {
 }
 
 .tutorial-screenshot-android { --screenshot-width: 19rem; }
+.tutorial-screenshot-layout.tutorial-screenshot-android {
+  inline-size: min(100%, var(--image-width), var(--screenshot-width));
+}
 
 .tutorial-screenshot-media {
   position: relative;

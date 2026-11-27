@@ -54,6 +54,7 @@ const pageFiles = new Map([
   ['dsh-内置提供商配置', 'usage-beginner-windows-model-catalog.html'],
   ['自定义提供商配置', 'usage-beginner-windows-model-custom.html'],
   ['基础资料', 'usage-beginner-windows-create-profile.html'],
+  ['登场角色', 'usage-beginner-windows-create-cast.html'],
   ['开场白', 'usage-beginner-windows-create-openings.html'],
   ['设定库', 'usage-beginner-windows-create-settings.html'],
   ['设定', 'usage-beginner-windows-create-settings-entry.html'],
@@ -355,11 +356,17 @@ function renderVersionSwitcher(document, device, player) {
 }
 
 const screenshotAnnotations = new Map([
+  ['assets/screenshots/common/creator-studio-location.png', {
+    regions: [{ label: 'AI 创作工作室', box: [6, 230, 38, 38], position: 'beside', circle: true }],
+  }],
+  ['assets/screenshots/windows/setting-library-character.png', {
+    regions: [{ box: [927, 53, 99, 34] }, { box: [234, 529, 452, 34] }],
+  }],
   ['assets/screenshots/windows/setting-library-entry-optional.png', {
-    regions: [{ box: [265, 350, 143, 74] }, { box: [770, 385, 365, 88] }],
+    regions: [{ box: [288, 347, 396, 34] }, { box: [851, 450, 222, 80] }],
   }],
   ['assets/screenshots/windows/setting-library-placement-workspace.png', {
-    regions: [{ box: [577, 99, 67, 36] }, { box: [964, 389, 106, 34] }],
+    regions: [{ box: [1034, 53, 78, 34] }, { box: [955, 452, 102, 30] }],
   }],
   ['导入角色卡:assets/screenshots/windows/character-create-library.png', {
     regions: [{ box: [1063, 51, 120, 46] }],
@@ -389,14 +396,6 @@ const screenshotAnnotations = new Map([
     crop: { top: 472, height: 502 },
     regions: [{ box: [46, 744, 1653, 62] }],
   }],
-  ['assets/screenshots/windows/setting-library-merge-file.png', {
-    crop: { left: 345, width: 215, top: 486, height: 59 },
-    regions: [],
-  }],
-  ['assets/screenshots/windows/setting-library-merge-entries.png', {
-    crop: { top: 0, height: 277 },
-    regions: [],
-  }],
 ])
 
 const screenshotDetails = new Map([
@@ -405,31 +404,43 @@ const screenshotDetails = new Map([
 ])
 
 const screenshotPreviewSizes = new Map([
+  ['assets/screenshots/common/creator-studio-location.png', 'layout'],
+  ['assets/screenshots/common/creator-studio-ask-topic.png', 'overview'],
+  ['assets/screenshots/android/character-cast-overview.png', 'layout'],
+  ['assets/screenshots/android/character-editor-navigation.png', 'layout'],
+  ['assets/screenshots/android/character-editor-overview.png', 'layout'],
+  ['assets/screenshots/android/character-opening-overview.png', 'layout'],
   ['assets/screenshots/common/deepseek-key-copy.png', 'compact'],
   ['assets/screenshots/common/deepseek-key-create.png', 'compact'],
   ['assets/screenshots/common/setting-library-folders-collapsed.png', 'layout'],
   ['assets/screenshots/common/setting-library-folders-expanded.png', 'layout'],
-  ['assets/screenshots/windows/character-cover-crop.png', 'overview'],
+  ['assets/screenshots/common/setting-library-version-manager.png', 'layout'],
+  ['assets/screenshots/common/setting-library-version-picker.png', 'layout'],
+  ['assets/screenshots/windows/character-cast-overview.png', 'layout'],
   ['assets/screenshots/windows/character-create-library.png', 'overview'],
   ['assets/screenshots/windows/character-create-menu.png', 'compact'],
   ['assets/screenshots/windows/character-edit-context-menu.png', 'compact'],
   ['assets/screenshots/windows/character-edit-profile.png', 'overview'],
-  ['assets/screenshots/windows/character-editor-overview.png', 'overview'],
+  ['assets/screenshots/windows/character-editor-overview.png', 'layout'],
   ['assets/screenshots/windows/character-export-selection.png', 'overview'],
   ['assets/screenshots/windows/character-import-preview.png', 'compact'],
   ['assets/screenshots/windows/character-import-source.png', 'compact'],
   ['assets/screenshots/windows/character-new-card.png', 'overview'],
-  ['assets/screenshots/windows/character-opening-create.png', 'compact'],
-  ['assets/screenshots/windows/character-opening-overview.png', 'overview'],
+  ['assets/screenshots/windows/character-opening-overview.png', 'layout'],
+  ['assets/screenshots/windows/character-opening-speaker.png', 'overview'],
   ['assets/screenshots/windows/model-create-menu.png', 'compact'],
   ['assets/screenshots/windows/model-dsh-directory.png', 'compact'],
   ['assets/screenshots/windows/model-overview.png', 'overview'],
   ['assets/screenshots/windows/setting-library-always-options.png', 'layout'],
-  ['assets/screenshots/windows/setting-library-create-menu.png', 'compact'],
+  ['assets/screenshots/windows/setting-library-character.png', 'layout'],
+  ['assets/screenshots/windows/setting-library-create-menu.png', 'layout'],
   ['assets/screenshots/windows/setting-library-entry-optional.png', 'layout'],
-  ['assets/screenshots/windows/setting-library-import-options.png', 'compact'],
-  ['assets/screenshots/windows/setting-library-import-tavern.png', 'compact'],
-  ['assets/screenshots/windows/setting-library-placement-workspace.png', 'overview'],
+  ['assets/screenshots/windows/setting-library-global.png', 'layout'],
+  ['assets/screenshots/windows/setting-library-import-options.png', 'layout'],
+  ['assets/screenshots/windows/setting-library-import-tavern.png', 'overview'],
+  ['assets/screenshots/windows/setting-library-merge-entries.png', 'layout'],
+  ['assets/screenshots/windows/setting-library-merge-file.png', 'layout'],
+  ['assets/screenshots/windows/setting-library-placement-workspace.png', 'layout'],
 ])
 
 function annotateScreenshot(media, image, { width, height, regions, crop }) {
@@ -638,7 +649,8 @@ function addPageOutline(article, list) {
   compactLinks.setAttribute('aria-label', '本页目录')
   compactLinks.append(list.cloneNode(true))
   disclosure.append(summary, compactLinks)
-  article.querySelector('h1, h2').after(disclosure)
+  const outlineAnchor = article.querySelector(':scope > .tutorial-quick-start') ?? article.querySelector('h1, h2')
+  outlineAnchor.after(disclosure)
 }
 
 function indexArticle(article, entry, guidePreference, installDevice) {
