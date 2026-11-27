@@ -6,7 +6,7 @@ import { delegatedRoleplayReplyBlocks, ELECKOI_FAILURE_CODES, productFailure, is
 import type { ConversationMessageEdit } from '@eleckoi/dsh-product-api/types'
 import { readDshSessionLog } from './trajectory'
 import { retainSessionModelPreferences } from './sessionModelPreferences'
-import { interruptedTurnClosers, Session, SessionId, SessionLogOffset, SessionSeq, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
+import { interruptedTurnClosers, Session, SessionId, SessionLogOffset, SessionSeq, type SessionEvent, type SessionHeader, type SessionMessageProjection } from '@deepseek-ai/dsh-session'
 import { buildForkSeed } from '@deepseek-ai/dsh-session/fork'
 import { ROLEPLAY_REPLY_TOOL } from '@eleckoi/dsh-client-roleplay/host/roleplay-reply-tool.mjs'
 
@@ -24,7 +24,8 @@ function editReplyBlocks<T extends { id: string; text: string }>(blocks: T[] | u
 
 /** Delete the selected message and its suffix, preserving the exact earlier history. */
 export function deleteDshSessionMessagesFrom(
-  sessionRoot: string, sessionId: string, eventSeq: number, role: MessageRole
+  sessionRoot: string, sessionId: string, eventSeq: number, role: MessageRole,
+  projections?: readonly SessionMessageProjection[]
 ): void {
   if (!Number.isSafeInteger(eventSeq) || eventSeq < 0) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '消息删除参数不正确。', { field: '消息删除参数' })
   const log = readEditableDshSessionLog(sessionRoot, sessionId)
@@ -46,12 +47,13 @@ export function deleteDshSessionMessagesFrom(
     ? { ...event, data: { ...event.data, reason: { kind: 'aborted', reason: { kind: 'user' } } } } as SessionEvent
     : event))
   retainSessionModelPreferences(events, log.events)
-  rewriteDshSessionEvents(sessionRoot, log, events)
+  rewriteDshSessionEvents(sessionRoot, log, events, projections)
 }
 
 /** Edit the selected persisted message while preserving every other Session event. */
 export function editDshSessionMessage(
-  sessionRoot: string, sessionId: string, eventSeq: number, role: MessageRole, content: ConversationMessageEdit
+  sessionRoot: string, sessionId: string, eventSeq: number, role: MessageRole, content: ConversationMessageEdit,
+  projections?: readonly SessionMessageProjection[]
 ): void {
   if (!Number.isSafeInteger(eventSeq) || eventSeq < 0
     || (typeof content === 'string' ? !content.trim() : !Array.isArray(content))) {
@@ -67,7 +69,7 @@ export function editDshSessionMessage(
     const blocks = typeof content === 'string' ? original.map(block => ({ ...block, text: content })) : editReplyBlocks(original, content)
     const data = { ...delegated.data, blocks, text: blocks.map(block => block.text).join('\n\n') }
     rewriteDshSessionEvents(sessionRoot, log,
-      log.events.map(event => event === delegated ? { ...delegated, data } : event))
+      log.events.map(event => event === delegated ? { ...delegated, data } : event), projections)
     return
   }
   const reply = role === 'assistant' ? log.events.find(event => event.seq === eventSeq && isToolBackedRoleplayReply(event)) : undefined
@@ -87,7 +89,7 @@ export function editDshSessionMessage(
     // This is a user edit to the product reply. The model event, tool call
     // arguments and tool result remain exactly as originally recorded.
     const events = log.events.map(event => event === reply ? { ...reply, data } : event)
-    rewriteDshSessionEvents(sessionRoot, log, events)
+    rewriteDshSessionEvents(sessionRoot, log, events, projections)
     return
   }
   if (typeof content !== 'string') throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, '这条消息只接受一段正文。', { field: '消息正文' })
@@ -123,7 +125,7 @@ export function editDshSessionMessage(
   const editedData = role === 'user' ? editedMessage : { ...data, message: editedMessage }
   const events = log.events.map((event) => event === selected
     ? { ...event, data: editedData } as typeof event : event)
-  rewriteDshSessionEvents(sessionRoot, log, events)
+  rewriteDshSessionEvents(sessionRoot, log, events, projections)
 }
 
 export function readEditableDshSessionLog(sessionRoot: string, sessionId: string): NonNullable<ReturnType<typeof readDshSessionLog>> {
@@ -140,9 +142,12 @@ export function readEditableDshSessionLog(sessionRoot: string, sessionId: string
 }
 
 /** Preserve the current official format, identities and all unrelated events. */
-export function rewriteDshSessionEvents(sessionRoot: string, log: NonNullable<ReturnType<typeof readDshSessionLog>>, events: SessionEvent[]): void {
+export function rewriteDshSessionEvents(
+  sessionRoot: string, log: NonNullable<ReturnType<typeof readDshSessionLog>>, events: SessionEvent[],
+  projections: readonly SessionMessageProjection[] | undefined
+): void {
   const sessionId = log.header.id
-  const { rows, eventCount } = encodeEditedSessionRows(log, events)
+  const { rows, eventCount } = encodeEditedSessionRows(log, events, projections)
   const serialized = `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`
   const restore = sessionFormatCatalog.createRestore(rows[0], { recovery: 'strict', validation: 'current' })
   for (const row of rows.slice(1)) restore.decodeRow(row)
@@ -188,14 +193,17 @@ export function rewriteDshSessionEvents(sessionRoot: string, log: NonNullable<Re
 }
 
 /** Rebuild a root's inherited cut after an edit while retaining receipt ownership. */
-export function encodeEditedSessionRows(log: NonNullable<ReturnType<typeof readDshSessionLog>>, events: SessionEvent[]) {
+export function encodeEditedSessionRows(
+  log: NonNullable<ReturnType<typeof readDshSessionLog>>, events: SessionEvent[],
+  projections: readonly SessionMessageProjection[] | undefined
+) {
   if (!log.header.isSeeded && log.inheritedEventCount === 0) {
     return { rows: [sessionFormatCatalog.encodeCurrentHeader(log.header, log.inheritedEventCount),
       ...events.map(event => sessionFormatCatalog.encodeCurrentEvent(event))], eventCount: events.length }
   }
   const seed = events.length ? buildForkSeed(events, SessionSeq(events.length - 1)) : []
   const session = Session.create(SessionId(log.header.id), seed,
-    { ...log.header, isSeeded: true } as unknown as SessionHeader, SessionLogOffset(events.length))
+    { ...log.header, isSeeded: true } as unknown as SessionHeader, SessionLogOffset(events.length), projections)
   const retained = session.snapshotEvents()
   return { rows: [sessionFormatCatalog.encodeCurrentHeader(
     { ...session.header, delegationDepth: session.header.delegationDepth ?? 0 } as unknown as Parameters<typeof sessionFormatCatalog.encodeCurrentHeader>[0], session.inheritedEventCount),

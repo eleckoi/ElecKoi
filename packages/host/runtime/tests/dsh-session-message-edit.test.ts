@@ -1,9 +1,14 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { pathToFileURL } from 'node:url'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
-import { Session, SessionId } from '@deepseek-ai/dsh-session'
+import { AttachmentId } from '@deepseek-ai/dsh-attachment'
+import { imageOffloadProjection } from '@deepseek-ai/dsh-compaction-image-offload/projection'
+import { Session, SessionId, SessionLogOffset, SessionSeq, SessionStore } from '@deepseek-ai/dsh-session'
+import { buildForkSeed } from '@deepseek-ai/dsh-session/fork'
 import { createAssistantMessage, createToolResultMessage, createUserMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { DELEGATED_ROLEPLAY_REPLY_EVENT, isDelegatedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE } from '@eleckoi/dsh-product-api'
@@ -12,20 +17,26 @@ import { deleteDshSessionMessagesFrom, editDshSessionMessage, readDshSessionLog 
 const cleanups: Array<() => void | Promise<void>> = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
 
-async function fixture(mode: 'plain' | 'multipart' | 'delegated' = 'plain') {
+async function fixture(mode: 'plain' | 'multipart' | 'delegated' | 'offloaded' = 'plain', seeded = false) {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-message-edit-'))
   cleanups.push(() => rmSync(root, { recursive: true, force: true }))
   const ctx = new Context()
   cleanups.push(() => ctx.fiber.dispose())
   await ctx.plugin(JsonlSessionPersistence, { root, compression: 'none' })
-  const session = Session.create(SessionId('session-edit'))
+  await ctx.plugin(SessionStore)
+  if (mode === 'offloaded') ctx.sessions.registerMessageProjection(imageOffloadProjection)
+  let session = Session.create(SessionId('session-edit'), undefined, undefined, undefined, ctx.sessions.messageProjections)
   session.append('turn/start', { turn: 1 })
   session.append('step/start', { turn: 1, step: 1 })
-  const user = createUserMessage({ content: [{ type: 'text', text: '你好' }], source: { kind: 'user' } })
+  const user = createUserMessage({ content: [{ type: 'text', text: '你好' }, ...(mode === 'offloaded' ? [{
+    type: 'image' as const, attachment: { attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`), mediaType: 'image/png' as const,
+      bytes: 68, width: 1, height: 1 }
+  }] : [])], source: { kind: 'user' } })
   const assistant = createAssistantMessage({
     content: [{ type: 'text', text: '你好，欢迎。' }], source: { provider: 'test', model: 'test' }
   })
   const userEvent = session.append('user/message', user, { surfaceOp: 'append' })
+  if (mode === 'offloaded') session.append('image/offload', { targets: [{ seq: userEvent.seq, imageIndexes: [0] }] })
   const assistantEvent = session.append('assistant/message', { turn: 1, step: 1, message: assistant, stream: [] }, { surfaceOp: 'append' })
   session.append('step/end', { turn: 1, step: 1 })
   session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
@@ -69,7 +80,12 @@ async function fixture(mode: 'plain' | 'multipart' | 'delegated' = 'plain') {
     session.append(ROLEPLAY_OUTPUT_EVENT, { turn, replySeq: reply.seq, toolBacked: true, nativeText: true }, { ignorable: true })
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
   }
-  const writer = await ctx.sessionPersistence.create(session.header)
+  if (seeded) {
+    const events = session.snapshotEvents()
+    session = Session.create(session.id, buildForkSeed(events, SessionSeq(events.length - 1)), { ...session.header, isSeeded: true },
+      SessionLogOffset(events.length), ctx.sessions.messageProjections)
+  }
+  const writer = await ctx.sessionPersistence.create(session.header, { inheritedEventCount: session.inheritedEventCount })
   try {
     await writer.append(session.snapshotEvents())
     await writer.flush()
@@ -79,10 +95,61 @@ async function fixture(mode: 'plain' | 'multipart' | 'delegated' = 'plain') {
     try { return { ...(await reader.read()), header: reader.header, inheritedEventCount: reader.inheritedEventCount } }
     finally { await reader.close() }
   }
-  return { root, sessionId: session.id, readSession, userEvent, assistantEvent }
+  return { ctx, root, sessionId: session.id, readSession, userEvent, assistantEvent }
 }
 
 describe('DSH message edit', { timeout: 30_000 }, () => {
+  it.each([false, true])('replays an offloaded image after editing and rewinding a stored Session (seeded=%s)', async seeded => {
+    const { ctx, root, sessionId, readSession, assistantEvent } = await fixture('offloaded', seeded)
+    vi.stubEnv('DSH_SESSION_ROOT', root)
+    cleanups.push(() => { vi.unstubAllEnvs() })
+    const hydrate = vi.fn()
+    const write = vi.fn(async (_session: Session) => {})
+    const provide = vi.fn()
+    const entry = pathToFileURL(createRequire(import.meta.url).resolve('@eleckoi/dsh-runtime/session-edit-plugin')).href
+    const { apply: installSessionEditor }: typeof import('@eleckoi/dsh-runtime/session-edit-plugin') = await import(entry)
+    installSessionEditor({
+      sessions: ctx.sessions,
+      sessionPersistence: {
+        open: ctx.sessionPersistence.open.bind(ctx.sessionPersistence),
+        list: async () => [...await ctx.sessionPersistence.list()],
+      },
+      sessionProjections: { hydrate },
+      sessionProjectionCache: { write },
+      eleckoiSessionHandles: { withClosed: async <T>(_id: string, action: () => T | Promise<T>) => action() },
+      attachments: { imageHostPath: vi.fn() },
+      eleckoiProductData: { listInputImageReferences: () => [], runtimeSessionId: vi.fn() },
+      workspaceRegistry: { list: () => [], unpinSession: vi.fn(), unarchiveSession: vi.fn() },
+      get: () => undefined,
+      logger: { error: vi.fn() },
+      provide,
+    })
+    const editor = provide.mock.calls[0]![1] as {
+      editMessage(id: string, seq: number, role: 'assistant', text: string): Promise<void>
+      rewind(id: string, fromTurn: number): Promise<number | undefined>
+    }
+    const original = await readSession()
+    const offload = original.events.find(event => event.type === 'image/offload')
+    expect(offload).toBeDefined()
+
+    await editor.editMessage(sessionId, assistantEvent.seq, 'assistant', '改过的回复')
+    const edited = await readSession()
+    expect(edited.events.find(event => event.type === 'image/offload')).toEqual(offload)
+    expect(write.mock.lastCall?.[0].deriveMessages()[1]?.content).toEqual([{ type: 'text', text: '改过的回复' }])
+
+    await expect(editor.rewind(sessionId, 2)).resolves.toBeGreaterThan(0)
+    const rewound = await readSession()
+    expect(rewound.events.find(event => event.type === 'image/offload')).toEqual(offload)
+    expect(rewound.events.some(event => event.type === 'turn/start' && event.data.turn === 2)).toBe(false)
+    expect(hydrate).toHaveBeenCalledTimes(2)
+    expect(write).toHaveBeenCalledTimes(2)
+    for (const [session] of write.mock.calls) {
+      expect(session.deriveMessages()[0]?.content[1]).toMatchObject({ type: 'image', offloaded: true })
+    }
+    const reopened = Session.create(sessionId, rewound.events, rewound.header, rewound.inheritedEventCount, ctx.sessions.messageProjections)
+    expect(reopened.deriveMessages()[0]?.content[1]).toEqual(write.mock.lastCall?.[0].deriveMessages()[0]?.content[1])
+  })
+
   it.each([0, 1])('deletes assistant reply %s and its suffix while keeping its user input and earlier answers', async answerIndex => {
     const { root, sessionId, readSession } = await fixture()
     const original = await readSession()

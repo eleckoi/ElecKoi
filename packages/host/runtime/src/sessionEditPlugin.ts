@@ -75,7 +75,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
         if (!log) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '当前聊天对应的 DSH 会话日志无法读取。', { what: '当前聊天的 DSH 会话日志' })
         const lease = await SessionWriteLease.acquire(dirname(log.path), SessionId(sessionId))
         try {
-          editDshSessionMessage(sessionRoot, sessionId, eventSeq, role, content)
+          editDshSessionMessage(sessionRoot, sessionId, eventSeq, role, content, ctx.sessions.messageProjections)
           await refreshSessionProjections(ctx, sessionId)
         } finally { await lease.release() }
       })
@@ -87,7 +87,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
         const log = readEditableDshSessionLog(sessionRoot, sessionId)
         const lease = await SessionWriteLease.acquire(dirname(log.path), SessionId(sessionId))
         try {
-          deleteDshSessionMessagesFrom(sessionRoot, sessionId, eventSeq, role)
+          deleteDshSessionMessagesFrom(sessionRoot, sessionId, eventSeq, role, ctx.sessions.messageProjections)
           await refreshSessionProjections(ctx, sessionId)
           if (!transactions.has(sessionId)) await cleanCommittedImages(sessionId, generatedImageReferences(log.events))
         } finally { await lease.release() }
@@ -102,7 +102,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
         if (!log) return undefined
         const lease = await SessionWriteLease.acquire(dirname(log.path), SessionId(sessionId))
         try {
-          const count = rewindDshSession(sessionRoot, sessionId, fromTurn, fromEventSeq, retainInput)
+          const count = rewindDshSession(sessionRoot, sessionId, fromTurn, fromEventSeq, retainInput, ctx.sessions.messageProjections)
           await refreshSessionProjections(ctx, sessionId)
           if (!transactions.has(sessionId)) await cleanCommittedImages(sessionId, generatedImageReferences(log.events))
           return count
@@ -196,7 +196,7 @@ export function apply(ctx: SessionProjectionRefreshContext & GeneratedImageClean
             ...(errors.length ? { error: errors.join('\n') } : {}) }
           const { error: previousError, ...previousData } = selected.event.data
           const events = original.events.map(event => event === selected.event ? { ...event, data: { ...previousData, ...value } } as SessionEvent : event)
-          rewriteDshSessionEvents(sessionRoot, original, events)
+          rewriteDshSessionEvents(sessionRoot, original, events, ctx.sessions.messageProjections)
           await refreshSessionProjections(ctx, sessionId)
           await cleanCommittedImages(sessionId, generatedImageReferences(original.events))
           return next

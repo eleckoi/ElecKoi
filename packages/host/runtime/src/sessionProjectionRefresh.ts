@@ -1,6 +1,7 @@
-import { Session, SessionId, SessionLogOffset, type SessionEvent, type SessionHeader } from '@deepseek-ai/dsh-session'
+import { Session, SessionId, SessionLogOffset, type SessionEvent, type SessionHeader, type SessionStore } from '@deepseek-ai/dsh-session'
 
 export interface SessionProjectionRefreshContext {
+  sessions: Pick<SessionStore, 'messageProjections'>
   sessionPersistence: {
     open(id: SessionId, access: 'read'): Promise<{
       header: SessionHeader
@@ -20,7 +21,7 @@ export async function refreshSessionProjections(ctx: SessionProjectionRefreshCon
   const handle = await ctx.sessionPersistence.open(SessionId(sessionId), 'read')
   try {
     const { events } = await handle.read()
-    const session = Session.create(SessionId(sessionId), events, handle.header, handle.inheritedEventCount)
+    const session = Session.create(SessionId(sessionId), events, handle.header, handle.inheritedEventCount, ctx.sessions.messageProjections)
     ctx.sessionProjections.hydrate(session, {}, events, SessionLogOffset(0))
     await ctx.sessionProjectionCache.write(session)
   } finally { await handle.close() }

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { copyFileSync, existsSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
 import { sessionFormatCatalog } from '@deepseek-ai/dsh-session-format-catalog'
-import { interruptedTurnClosers, type SessionEvent } from '@deepseek-ai/dsh-session'
+import { interruptedTurnClosers, type SessionEvent, type SessionMessageProjection } from '@deepseek-ai/dsh-session'
 import { readDshSessionLog } from './trajectory'
 import { retainSessionModelPreferences } from './sessionModelPreferences'
 import { encodeEditedSessionRows } from './sessionMessageEdit'
@@ -16,7 +16,8 @@ export class DshSessionRewindUnavailableError extends Error {}
  * The caller must first dispose every active DSH handle for this Session.
  */
 export function rewindDshSession(
-  sessionRoot: string, sessionId: string, fromTurn: number, fromEventSeq?: number, retainInput = false
+  sessionRoot: string, sessionId: string, fromTurn: number, fromEventSeq?: number, retainInput = false,
+  projections?: readonly SessionMessageProjection[]
 ): number {
   if (!Number.isSafeInteger(fromTurn) || fromTurn < 1) throw productFailure(ELECKOI_FAILURE_CODES.inputInvalid, 'DSH 回退轮次必须是正整数。', { field: '回退轮次' })
   const log = readDshSessionLog(sessionRoot, sessionId)
@@ -110,7 +111,7 @@ export function rewindDshSession(
     throw productFailure(ELECKOI_FAILURE_CODES.statePrecondition, 'DSH 会话上一轮尚未结束，不能回退。', { what: '等上一轮结束' })
   }
   retainSessionModelPreferences(retained, log.events)
-  const { rows, eventCount } = encodeEditedSessionRows(log, retained)
+  const { rows, eventCount } = encodeEditedSessionRows(log, retained, projections)
   const serialized = `${rows.map((row) => JSON.stringify(row)).join('\n')}\n`
   verifyEncodedLog(serialized, sessionId, eventCount)
 
