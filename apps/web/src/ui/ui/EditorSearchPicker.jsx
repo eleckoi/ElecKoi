@@ -5,8 +5,8 @@ import { useProductTranslation } from '../../app/i18n/ProductLocaleContext.jsx';
 import './editor-select.css';
 import './editor-search-picker.css';
 
-export function EditorPickerButton({ label, children, disabled, onClick }) {
-  return <Button variant="outline" className="editor-select-control editor-picker-trigger" aria-label={label}
+export function EditorPickerButton({ label, children, disabled, onClick, desktop = false }) {
+  return <Button variant="outline" className={`editor-select-control editor-picker-trigger${desktop ? ' is-desktop' : ''}`} aria-label={label}
     aria-haspopup="dialog" disabled={disabled} onClick={onClick}><span>{children}</span><CaretDown size={14} /></Button>;
 }
 

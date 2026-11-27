@@ -43,10 +43,10 @@ describe('native script library status display', () => {
     try {
       await act(async () => root.render(<ScriptLibrariesPanel characterId="synthetic-character" scriptLibraries={services} scriptRuntimeConnection={connection} />));
       const group = scope => node.querySelector(`[aria-label="${{ global: '全局脚本', character: '角色脚本', preset: '预设脚本' }[scope]}"]`);
-      await act(() => node.querySelector('[aria-label=脚本目录操作]').click());
-      await act(() => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '管理版本与导入导出').click());
+      await act(() => node.querySelector('[aria-label=版本管理]').click());
       for (const scope of ['global', 'character']) {
-        await act(() => { const select = document.querySelector('.editor-management-fields select'); select.value = scope; select.dispatchEvent(new Event('change', { bubbles: true })); });
+        await act(() => document.querySelector('button[aria-label="归属"]').click());
+        await act(() => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === (scope === 'global' ? '全局' : '角色卡')).click());
         await act(async () => [...document.querySelectorAll('.editor-management-modal button')].find(button => button.textContent === '打开源码目录').click());
         expect(services.openDirectory).toHaveBeenLastCalledWith(scope, owners[scope]);
       }

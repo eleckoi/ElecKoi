@@ -360,11 +360,12 @@ export const ScriptLibrariesPanel = forwardRef(function ScriptLibrariesPanel({ c
     onChange={patch => change(selection.key, library => updateScriptItem(library, selection.id, patch))} onMove={folderId => change(selection.key, library => moveScriptItem(library, selection.id, folderId))}
     onDuplicate={() => duplicate()} onDelete={() => setDeleteTarget({ key: selection.key, id: selectedItem.id, name: selectedItem.name, folder: selectedItem.type === 'folder' })} /> : null;
   function switchScope(next) { setActiveScope(next); setSelection(null); setEditing(false); setDragged(null); setDropTarget(null); context.close(); if (multi.active) multi.toggle(); }
-  return <>{!compact ? <EditorLibraryWorkspace label={tUi('脚本')} scope={activeScope} ownerScope={ownerScope} onScopeChange={switchScope} panelId={scopePanelId} config={versions.current(activeScope)}
+  return <>{!compact ? <EditorLibraryWorkspace label={tUi('脚本')} scope={activeScope} ownerScope={ownerScope} ownerId={ownerId} onScopeChange={switchScope} panelId={scopePanelId} config={versions.current(activeScope)}
     query={query} onQueryChange={setQuery} createItems={visibleGroups.flatMap(group => [{ label: tUi('脚本'), Icon: FileCode, run: () => create(libraryKey(group.scope, group.ownerId), 'script') }, { label: tUi('文件夹'), Icon: FolderSimple, run: () => create(libraryKey(group.scope, group.ownerId), 'folder') }])}
     selection={{ ...multi, toggle: () => { multi.toggle(); setSelection(null); } }} saving={saving} disabled={!versions.ready || Object.keys(drafts).length !== 2}
     save={<SaveControl workspace dirty={dirty} saving={saving} error={error || versions.error} notice={notice} onSave={save} title={tUi('统一保存脚本全部修改')} />}
-    onManage={() => setManagerOpen(true)} onVersionChange={id => { try { versions.select(activeScope, id); } catch (cause) { setError(resolveFailure(cause, { fallback: tUi('切换版本失败') }).text); } }} inspector={documentEditor}>
+    onManage={() => setManagerOpen(true)} onImportVersion={json => versions.importVersion(activeScope, json)}
+    onVersionChange={id => { try { versions.select(activeScope, id); } catch (cause) { setError(resolveFailure(cause, { fallback: tUi('切换版本失败') }).text); } }} inspector={documentEditor}>
     <EditorSelectionBar selection={multi} visibleIds={visibleTargets.map(target => target.selectionId)} disabled={saving}
       onCopy={() => { batchTargets().forEach(target => duplicate({ key: target.key, id: target.item.id })); multi.clear(); }}
       onDelete={() => setDeleteTarget({ targets: batchTargets().map(target => ({ key: target.key, id: target.item.id })), name: tUi('选中的 {value0} 个项目', { value0: multi.selected.size }), folder: batchTargets().some(target => target.item.type === 'folder') })} />

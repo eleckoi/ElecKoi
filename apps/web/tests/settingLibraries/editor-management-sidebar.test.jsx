@@ -103,8 +103,7 @@ describe('management dialog and editor sidebar', () => {
           await act(async () => container.querySelector('[aria-label=变量目录操作]').click());
           await act(async () => [...document.querySelectorAll('[role=menuitem]')].find(button => button.textContent === '管理版本与导入导出').click());
         } else {
-          await act(async () => container.querySelector('[aria-label=正则目录操作]').click());
-          await act(async () => [...document.querySelectorAll('[role=menuitem]')].find(button=>button.textContent==='管理版本与导入导出').click());
+          await act(async () => container.querySelector('[aria-label=版本管理]').click());
         }
         expect(document.querySelector('.editor-management-modal')).toBeTruthy();
         expect(pane.classList.contains('is-closing')).toBe(false);

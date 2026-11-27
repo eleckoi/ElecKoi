@@ -29,15 +29,25 @@ app.whenReady().then(async () => {
   try {
     for (const kind of ['regex', 'scripts']) for (const [width, theme] of [[1480, 'light'], [900, 'light'], [1480, 'dark']]) {
       await load(kind, width, theme);
-      const layout = await evaluate(`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {kind:${JSON.stringify(kind)},width:innerWidth,theme:${JSON.stringify(theme)},directory:r('.setting-directory'),editor:r('.setting-document'),header:r('.character-studio-toolbar'),save:r('.setting-document-save'),create:r('.setting-toolbar-create'),search:r('.setting-search-input'),select:r('.editor-directory-select'),font:getComputedStyle(document.querySelector('.cm-content')).fontSize,overflow:document.documentElement.scrollWidth>innerWidth,editors:document.querySelectorAll('.cm-editor').length}})()`);
+      const layout = await evaluate(`(()=>{const r=s=>document.querySelector(s).getBoundingClientRect().toJSON();return {kind:${JSON.stringify(kind)},width:innerWidth,theme:${JSON.stringify(theme)},directory:r('.setting-directory'),editor:r('.setting-document'),header:r('.character-studio-toolbar'),save:r('.setting-document-save'),create:r('.setting-toolbar-create'),importVersion:r('.setting-toolbar-import'),manageVersion:r('.setting-toolbar-version-manage'),search:r('.setting-search-input'),select:r('.editor-directory-select'),font:getComputedStyle(document.querySelector('.cm-content')).fontSize,overflow:document.documentElement.scrollWidth>innerWidth,editors:document.querySelectorAll('.cm-editor').length}})()`);
       check(!layout.overflow && layout.header.top === 40 && layout.directory.top === layout.header.bottom && layout.editor.top === layout.header.bottom && layout.directory.width === Math.min(480, Math.max(260, layout.header.width - 388)) && layout.editor.left - layout.directory.right === 1 && layout.directory.bottom === layout.editor.bottom && layout.font === '14px', 'Layout ' + JSON.stringify(layout));
-      check(layout.create.right < layout.save.left && layout.save.right <= layout.header.right && layout.search.right < layout.select.left && await evaluate('document.querySelectorAll(".setting-document-save").length===1 && !document.querySelector(".setting-document .setting-document-save")'), 'Unified save position');
+      check(layout.create.right < layout.importVersion.left && layout.importVersion.right < layout.manageVersion.left
+        && layout.manageVersion.right < layout.save.left && layout.save.right <= layout.header.right && layout.search.right < layout.select.left
+        && await evaluate('document.querySelectorAll(".setting-document-save").length===1 && !document.querySelector(".setting-document .setting-document-save")'), 'Toolbar order and unified save position');
       check(await evaluate(`(() => {
         const header = document.querySelector('.character-studio-toolbar');
         return Boolean(header.querySelector('.editor-scope-tabs [aria-selected="true"]')
           && header.querySelector('.setting-toolbar-group') && document.querySelector('.rs-row.is-selected .rs-card-meta')?.textContent);
       })()`), 'Scope and actions must share the header and selected cards must show their details');
       layouts.push(layout); await snap(`${kind}-${theme}-${width}`);
+      await click('.setting-toolbar-version-manage');
+      const fields = await evaluate(`(() => {
+        const modal = document.querySelector('.editor-management-modal');
+        return ['归属', '当前版本'].map(label => modal.querySelector('button[aria-label="' + label + '"]').getBoundingClientRect().toJSON());
+      })()`);
+      check(fields[0].height > 0 && fields[0].height === fields[1].height && fields[0].top === fields[1].top,
+        'Version management controls must align: ' + JSON.stringify(fields));
+      await click('.editor-management-modal [aria-label=关闭]');
       if (kind === 'regex') {
         check(await evaluate('document.querySelectorAll(".rs-view-tabs [role=tab]").length===2 && !!document.querySelector(".rs-regex-options [role=switch]") && document.querySelectorAll(".cm-editor").length===2'), 'Regex options must share Edit with both text editors');
         check(await evaluate('(()=>{const boards=[...document.querySelectorAll(".rs-regex-edit>.rs-writing")].map(e=>e.getBoundingClientRect()), options=document.querySelector(".rs-regex-options").getBoundingClientRect(), panel=document.querySelector(".setting-document").getBoundingClientRect();return Math.abs(boards[0].height-boards[1].height)<1 && boards[0].height>150 && panel.bottom-boards[1].bottom<30 && options.bottom<boards[0].top && !!document.querySelector("input[aria-label=规则名称设置]")})()'), 'Regex inputs must share remaining height and retain Basic information');
@@ -64,7 +74,7 @@ app.whenReady().then(async () => {
       await textClick('[role=tab]', '全局'); check(await evaluate('document.querySelector(".rs-library-heading").textContent.includes("全局")'), 'Global scope missing'); await textClick('[role=tab]', '角色'); actions[kind + 'Scopes'] = true;
       await click('.setting-version-button');
       check(await evaluate('!!document.querySelector(".editor-search-modal [aria-label=搜索版本]") && !!document.querySelector(".editor-picker-row[aria-pressed=true]")'), 'Version picker must show search and the current version');
-      await textClick('.editor-search-modal button', '管理版本'); await wait('.editor-management-modal'); await snap(`${kind}-manager-light-1480`);
+      await textClick('.editor-search-modal button', '返回'); await click('.setting-toolbar-version-manage'); await wait('.editor-management-modal'); await snap(`${kind}-manager-light-1480`);
       if (kind === 'scripts') { await textClick('.editor-management-modal button', '打开源码目录'); check(await evaluate('window.openDirectoryCalls===1'), 'Original source directory action missing'); }
       await textClick('.editor-management-modal button', '创建空白版本'); await evaluate(`(()=>{const e=document.querySelector('[placeholder="版本名称"]');e.focus();e.select()})()`); await win.webContents.insertText('空白测试'); await textClick('button', '创建'); await click('.editor-management-modal [aria-label=关闭]'); check(await evaluate('!!document.querySelector(".setting-document-empty") && !!document.querySelector(".setting-document-save") && !document.querySelector(".rs-row")'), 'Empty version state'); const emptyPosition = await evaluate('(()=>{const p=document.querySelector(".rs-directory-empty").getBoundingClientRect(), tree=document.querySelector(".rs-directory-library [role=tree]").getBoundingClientRect();return {dx:Math.abs(p.left+p.width/2-tree.left-tree.width/2),dy:Math.abs(p.top+p.height/2-tree.top-tree.height/2)}})()');
       check(emptyPosition.dx < 1 && emptyPosition.dy < 1, 'Empty directory text must be centered: ' + JSON.stringify(emptyPosition));

@@ -294,9 +294,8 @@ describe('Editor loading toolbar', () => {
         expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
         await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
       } else if (!scenario.compact && scenario.search === '搜索正则') {
-      await click('正则目录操作');
-      expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
-      await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+       expect(container.querySelector('[aria-label="导入"]').disabled).toBe(true);
+       expect(container.querySelector('[aria-label="版本管理"]').disabled).toBe(true);
     } else expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
     await fill(input, '合成');
     if (scenario.outcome === 'error') await act(async () => rejectRead(new Error('合成读取失败')));
@@ -315,9 +314,8 @@ describe('Editor loading toolbar', () => {
         expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
         await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
       } else if (!scenario.compact && scenario.search === '搜索正则') {
-      await click('正则目录操作');
-      expect([...document.querySelectorAll('[role=menuitem]')].find(e => e.textContent === '管理版本与导入导出').disabled).toBe(true);
-      await act(async () => document.body.dispatchEvent(new Event('pointerdown', { bubbles: true })));
+       expect(container.querySelector('[aria-label="导入"]').disabled).toBe(true);
+       expect(container.querySelector('[aria-label="版本管理"]').disabled).toBe(true);
     } else expect(container.querySelector('button[aria-label="管理"]')?.disabled).toBe(true);
     }
   });

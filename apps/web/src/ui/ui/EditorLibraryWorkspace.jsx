@@ -1,15 +1,52 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Button, Menu } from '@deepseek-ai/dsh-client-ui-primitives';
-import { ListChecks, Plus, SlidersHorizontal } from '../icons/interfaceIcons.jsx';
+import { ELECKOI_FAILURE_CODES } from '@shared/contracts/errors/codes';
+import { DesktopError } from '@shared/foundation/DesktopError';
+import { GearSix, ListChecks, Plus, SlidersHorizontal } from '../icons/interfaceIcons.jsx';
+import { ImportIcon } from '../icons/index.jsx';
 import { useProductTranslation } from '../../app/i18n/ProductLocaleContext.jsx';
+import { resolveFailure } from '../../utils/failureText.js';
 import '../styles/editor-library-workspace.css';
+import { AppErrorDialog } from './AppErrorDialog.jsx';
 import { EditorDirectoryActions, EditorDirectoryHeading } from './EditorDirectoryHeading.jsx';
 import { EditorDirectorySearch } from './EditorDirectorySearch.jsx';
 import { EditorScopeTabs } from './EditorScopeTabs.jsx';
 import { EditorWorkspaceVersion } from './EditorVersionPicker.jsx';
 import { EDITOR_DIRECTORY_DEFAULT_WIDTH, useEditorPresentation } from './EditorPresentationContext.jsx';
 
-export function EditorLibraryWorkspace({ label, scope, ownerScope, onScopeChange, panelId, config, query, onQueryChange, createItems, selection, saving, disabled, save, onManage, onVersionChange, inspector, children, directoryHeading, directoryActions, className = '' }) {
+function ImportLibraryVersion({ onImportVersion, disabled }) {
+  const tUi = useProductTranslation();
+  const input = useRef(null), unavailable = useRef(disabled);
+  const [reading, setReading] = useState(false), [error, setError] = useState(null);
+  useLayoutEffect(() => { unavailable.current = disabled; }, [disabled]);
+
+  async function importFile(event) {
+    const field = event.currentTarget, file = field.files?.[0];
+    field.value = '';
+    if (!file) return;
+    setReading(true);
+    try {
+      const json = await file.text();
+      if (input.current !== field) return;
+      if (unavailable.current) throw new DesktopError(ELECKOI_FAILURE_CODES.statePrecondition, '编辑器暂时无法导入配置版本。', { what: '导入版本' });
+      onImportVersion(json);
+    } catch (cause) {
+      if (input.current === field) setError(resolveFailure(cause, { fallback: tUi('导入版本失败') }));
+    } finally {
+      if (input.current === field) setReading(false);
+    }
+  }
+
+  return <>
+    <Button data-dsh-control variant="ghost" className="setting-toolbar-button setting-toolbar-import"
+      icon={<ImportIcon size={17} />} aria-label={tUi('导入')} title={tUi('导入为新版本')}
+      disabled={disabled || reading} aria-busy={reading || undefined} onClick={() => input.current?.click()}><span>{tUi('导入')}</span></Button>
+    <input ref={input} type="file" accept="application/json,.json" hidden onChange={importFile} />
+    {error && <AppErrorDialog notice={{ id: error.text, message: error.text, failure: error }} onDismiss={() => setError(null)} />}
+  </>;
+}
+
+export function EditorLibraryWorkspace({ label, scope, ownerScope, ownerId, onScopeChange, panelId, config, query, onQueryChange, createItems, selection, saving, disabled, save, onManage, onImportVersion, onVersionChange, inspector, children, directoryHeading, directoryActions, className = '' }) {
   const tUi = useProductTranslation();
   const { characterStudio } = useEditorPresentation();
   const root = useRef(null), drag = useRef(null);
@@ -18,6 +55,7 @@ export function EditorLibraryWorkspace({ label, scope, ownerScope, onScopeChange
   const [moreOpen, setMoreOpen] = useState(false);
   const max = Math.max(260, Math.min(520, available - 388)), actualWidth = Math.max(260, Math.min(width, max));
   const resize = next => setWidth(Math.max(260, Math.min(max, next)));
+  const versionActionsDisabled = saving || disabled || !config || selection?.active;
   useLayoutEffect(() => {
     const measure = () => { const next = root.current?.getBoundingClientRect().width; if (next) setAvailable(next); };
     measure();
@@ -34,13 +72,16 @@ export function EditorLibraryWorkspace({ label, scope, ownerScope, onScopeChange
         aria-label={tUi('新建{value0}', { value0: label })} title={tUi('新建')} aria-haspopup="menu" aria-expanded={createOpen}
         disabled={saving || disabled || !config || selection.active} onClick={() => setCreateOpen(!createOpen)}><span>{tUi('新建')}</span></Button>}
         items={createItems.map((item, index) => ({ id: String(index), label: item.label, disabled: item.disabled, icon: item.Icon ? <item.Icon size={16} /> : undefined }))} onSelect={id => { setCreateOpen(false); createItems[Number(id)]?.run(); }} />
+      {onImportVersion && <ImportLibraryVersion key={JSON.stringify([ownerScope, ownerId, scope])} onImportVersion={onImportVersion} disabled={versionActionsDisabled} />}
+      {onImportVersion && <Button data-dsh-control variant="ghost" className="setting-toolbar-button setting-toolbar-version-manage"
+        icon={<GearSix size={16} />} aria-label={tUi('版本管理')} title={tUi('版本管理')} aria-haspopup="dialog"
+        disabled={versionActionsDisabled} onClick={onManage}><span>{tUi('版本管理')}</span></Button>}
       {save}
       {!characterStudio && <Menu portal dense open={moreOpen} onClose={() => setMoreOpen(false)} anchor={<Button data-dsh-control variant="ghost"
         className="setting-toolbar-button setting-toolbar-icon" icon={<SlidersHorizontal size={19} />}
         aria-label={tUi('{value0}目录操作', { value0: label })} title={tUi('管理')} aria-haspopup="menu" aria-expanded={moreOpen} onClick={() => setMoreOpen(!moreOpen)} />}
-        items={[{ id: 'select', label: selection.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} />, disabled: saving || !config },
-          { id: 'manage', label: tUi('管理版本与导入导出'), icon: <SlidersHorizontal size={16} />, disabled: saving || disabled || !config || selection.active }]}
-        onSelect={id => { setMoreOpen(false); id === 'select' ? selection.toggle() : onManage(); }} />}
+        items={[{ id: 'select', label: selection.active ? tUi('完成多选') : tUi('多选'), icon: <ListChecks size={16} />, disabled: saving || !config }]}
+        onSelect={() => { setMoreOpen(false); selection.toggle(); }} />}
     </>}</EditorDirectoryActions></EditorDirectoryHeading>
   );
   return <section ref={root} className={`setting-workspace rs-workspace${resizing ? ' is-resizing' : ''}${characterStudio ? ' is-character-studio' : ''} ${className}`} aria-label={label}

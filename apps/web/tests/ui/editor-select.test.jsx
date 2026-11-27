@@ -42,7 +42,7 @@ it('preserves the desktop select and its value change', async()=>{
   await act(()=>{control.value='b';control.dispatchEvent(new Event('change',{bubbles:true}));});
   expect(change).toHaveBeenCalledExactlyOnceWith('b');
 });
-it.each([false, true])('uses the official menu for version and scope choices inside a management modal (compact=%s)', async compact => {
+it.each([false, true])('uses the searchable version picker and official scope menu in version management (compact=%s)', async compact => {
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
   const scope = vi.fn(), version = vi.fn(), node = document.createElement('div'); document.body.append(node); root = createRoot(node);
   await act(() => root.render(<EditorPresentationContext.Provider value={{compact}}><EditorVersionManager title="合成版本管理"
@@ -50,7 +50,7 @@ it.each([false, true])('uses the official menu for version and scope choices ins
     scopes={[{id:'character',label:'角色'},{id:'global',label:'全局'}]} onScopeChange={scope} onSelect={version} onClose={()=>{}} /></EditorPresentationContext.Provider>));
   expect(document.querySelector('select')).toBeNull();
   await act(() => document.querySelector('[aria-label="当前版本"]').click());
-  await act(() => [...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.includes('合成乙')).click());
+  await act(() => [...document.querySelectorAll('.editor-search-modal .editor-picker-row')].find(item => item.textContent.includes('合成乙')).click());
   expect(version).toHaveBeenCalledExactlyOnceWith('b');
   await act(() => document.querySelector('[aria-label="归属"]').click());
   await act(() => [...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent.includes('全局')).click());

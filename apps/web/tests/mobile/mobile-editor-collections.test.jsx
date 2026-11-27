@@ -102,10 +102,11 @@ it.each(['character', 'preset'])('scripts $s opens folders and nested scripts on
 
 it.each([false, true].flatMap(compact => ['character', 'preset'].map(scope => ({ compact, scope }))))('regex management retains library versions without extra rule-file or combination entries (compact=$compact, $scope)', async ({ compact, scope }) => {
   await mount('regex', scope, compact);
-  if (!compact) { await click('正则目录操作'); await click('管理版本与导入导出', document.body); } else { await click('管理'); await click('管理', document.body.querySelector('[role=menu]')); }
+  if (!compact) await click('版本管理'); else { await click('管理'); await click('管理', document.body.querySelector('[role=menu]')); }
   const modal = document.querySelector('.editor-management-modal');
   const actions = [...modal.querySelectorAll('button')].map(button => button.textContent);
-  expect(actions).toContain('导入为新版本'); expect(actions).toContain('导出当前版本');
+  expect(actions.includes('导入为新版本')).toBe(compact);
+  expect(actions).toContain('导出当前版本');
   for (const removed of ['导入规则文件', '导出规则文件', '启用组合']) expect(actions).not.toContain(removed);
   expect(node.querySelector('.regex-file-input')).toBeNull();
   await click('当前版本', modal);

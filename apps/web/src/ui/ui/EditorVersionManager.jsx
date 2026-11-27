@@ -8,6 +8,7 @@ import { VersionNameDialog } from './VersionNameDialog.jsx';
 import { ConfirmationDialog } from './ConfirmationDialog.jsx';
 import { EditorSelect } from './EditorSelect.jsx';
 import { EditorPickerButton } from './EditorSearchPicker.jsx';
+import { useEditorPresentation } from './EditorPresentationContext.jsx';
 import { EditorVersionPicker } from './EditorVersionPicker.jsx';
 
 /** Version commands change the owner's draft; the surrounding editor performs the save. */
@@ -15,17 +16,19 @@ export function EditorVersionManager({ title, versions, activeVersionId, scopes,
   onSelect, onCopy, onCreate, onRename, onImport, onExport, onDelete, onClose, busy = false,
   children, extraActions = [], notice, error, deleteDisabled = false }) {
   const tUi = useProductTranslation();
+  const { compact } = useEditorPresentation();
   const [dialog, setDialog] = useState('');
   const current = versions.find(version => version.id === activeVersionId);
+  const hasScopeChoice = scopes?.length > 1;
   if (dialog === 'versions') {
     return <EditorVersionPicker versions={versions} activeVersionId={activeVersionId} onSelect={onSelect} onClose={() => setDialog('')} />;
   }
   return <>
     <EditorManagementModal title={title} onClose={onClose}>
       <div className="editor-management-fields">
-        {scopes?.length > 1 ? <label>{tUi("归属")}<EditorSelect menu label={tUi("归属")} value={scope} disabled={busy}
+        {hasScopeChoice ? <label>{tUi("归属")}<EditorSelect menu label={tUi("归属")} value={scope} disabled={busy}
           onChange={value => { setDialog(''); onScopeChange(value); }} options={scopes.map(item => ({ value: item.id, label: item.label }))} /></label> : null}
-        <label>{tUi("当前版本")}<EditorPickerButton label={tUi('当前版本')} disabled={busy || !versions.length}
+        <label>{tUi("当前版本")}<EditorPickerButton label={tUi('当前版本')} desktop={hasScopeChoice && !compact} disabled={busy || !versions.length}
           onClick={() => setDialog('versions')}>{current ? current.name.trim() || tUi('待命名') : tUi('未选择版本')}</EditorPickerButton></label>
       </div>
       <EditorManagementAction label={tUi("复制当前版本")} Icon={Copy} disabled={busy || !current} onClick={() => setDialog('copy')} />

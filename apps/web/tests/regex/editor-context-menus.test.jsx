@@ -10,6 +10,7 @@ import { createScriptItem } from '../../src/modules/scripts/model/scriptEditing.
 import { createRegexRule } from '../../src/modules/regex/model/regexRulesEditing.js';
 import { withLibraryVersions } from '../helpers/editorLibraryVersions.js';
 import { withRegexEditor } from '../helpers/regexEditorModel.js';
+import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
 
 vi.stubGlobal('React', React);
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -22,7 +23,7 @@ const scenarios = [
 ];
 const labels = { global: '全局', character: '角色', preset: '预设' };
 const switchScope = async scope => act(() => [...node.querySelectorAll('.setting-scope-switch [role=tab]')].find(tab => tab.textContent === labels[scope]).click());
-async function mount(scenario, ownerScope = 'character', empty = false, trees, pendingVersions = false) {
+async function mount(scenario, ownerScope = 'character', empty = false, trees, pendingVersions = false, characterStudio = false) {
   const ownerId = `synthetic-${ownerScope}`;
   const owners = { global: '', [ownerScope]: ownerId };
   let service, write;
@@ -52,7 +53,9 @@ async function mount(scenario, ownerScope = 'character', empty = false, trees, p
   }
   node = document.createElement('div'); document.body.append(node); root = createRoot(node);
   const ownerProps = ownerScope === 'preset' ? { presetId: ownerId } : { characterId: ownerId };
-  await act(async () => root.render(scenario.kind === 'regex' ? <RegexRulesPanel {...ownerProps} regexRules={service} /> : <ScriptLibrariesPanel {...ownerProps} scriptLibraries={service} />));
+  await act(async () => root.render(<EditorPresentationContext.Provider value={{ compact: false, characterStudio }}>
+    {scenario.kind === 'regex' ? <RegexRulesPanel {...ownerProps} regexRules={service} /> : <ScriptLibrariesPanel {...ownerProps} scriptLibraries={service} />}
+  </EditorPresentationContext.Provider>));
   return { write, group: scope => node.querySelector(`section[aria-label="${labels[scope]}${scenario.noun}"]`) };
 }
 async function rightClick(element) {
@@ -69,6 +72,52 @@ async function action(label) {
 async function save() { await act(async () => node.querySelector('.setting-directory .setting-library-save-button').click()); }
 
 describe('editor context menus', () => {
+  it.each(scenarios.flatMap(scenario => ['character', 'preset'].map(ownerScope => ({ ...scenario, ownerScope }))))('$kind $ownerScope can import from the desktop toolbar and export from version management', async scenario => {
+    const { group, write } = await mount(scenario, scenario.ownerScope, false, undefined, false, true);
+    const toolbar = node.querySelector('.character-studio-toolbar .setting-toolbar-group');
+    expect([...toolbar.querySelectorAll('button')].map(button => button.textContent.trim())).toEqual(['新建', '导入', '版本管理', '保存更改']);
+    const importButton = toolbar.querySelector('[aria-label="导入"]');
+    const manageButton = toolbar.querySelector('[aria-label="版本管理"]');
+    const input = toolbar.querySelector('input[type=file]');
+    const pick = vi.spyOn(input, 'click');
+    await act(() => importButton.click());
+    expect(pick).toHaveBeenCalledOnce();
+    const content = scenario.kind === 'regex' ? { enabled: true, rules: [] } : { enabled: false, trees: [], variables: {}, files: [] };
+    const json = JSON.stringify({ format: 'eleckoi.editor-library-version', version: 1, kind: scenario.kind, name: '合成导入版本', content: JSON.stringify(content) });
+    Object.defineProperty(input, 'files', { configurable: true, value: [{ text: async () => json }] });
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+    expect(write).not.toHaveBeenCalled();
+    expect(group(scenario.ownerScope).querySelectorAll(scenario.row)).toHaveLength(0);
+    expect(node.querySelector('.setting-version-value').textContent).toContain('合成导入版本');
+    await act(() => manageButton.click());
+    const manager = document.querySelector('.editor-management-modal');
+    const actions = [...manager.querySelectorAll('button')];
+    expect(actions.some(button => button.textContent === '导入为新版本')).toBe(false);
+    const exportButton = actions.find(button => button.textContent === '导出当前版本');
+    const { createObjectURL, revokeObjectURL } = URL;
+    const exported = vi.fn(() => 'blob:synthetic-version');
+    const revoke = vi.fn();
+    const download = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    URL.createObjectURL = exported;
+    URL.revokeObjectURL = revoke;
+    vi.useFakeTimers();
+    try {
+      await act(() => exportButton.click());
+      expect(exported).toHaveBeenCalledOnce();
+      expect(download.mock.instances[0].download).toBe('合成导入版本.json');
+      vi.runOnlyPendingTimers();
+      expect(revoke).toHaveBeenCalledWith('blob:synthetic-version');
+    } finally {
+      vi.useRealTimers(); download.mockRestore(); URL.createObjectURL = createObjectURL; URL.revokeObjectURL = revokeObjectURL;
+    }
+    const reader = new FileReader();
+    const payload = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exported.mock.calls[0][0]);
+    });
+    expect(JSON.parse(payload)).toEqual(JSON.parse(json));
+  });
   it.each(scenarios.flatMap(scenario => ['character', 'preset'].map(ownerScope => ({ ...scenario, ownerScope }))))('$kind $ownerScope right-clicks keep the editor closed or preserve the current editor', async scenario => {
     const { group } = await mount(scenario, scenario.ownerScope);
     await rightClick(group(scenario.ownerScope).querySelector(scenario.row));
