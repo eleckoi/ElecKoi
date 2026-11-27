@@ -42,7 +42,7 @@ describe('ElecKoi DSH client navigation', () => {
     const slots = {
       provideRoot: (shares: any) => { rootShares = shares; return () => {} },
       register: (options: any, component: any) => {
-        const entry = { options, component, dispose: () => { entries.splice(entries.indexOf(entry), 1) } }
+      const entry = { options, component, registrant: options.registrant, dispose: () => { entries.splice(entries.indexOf(entry), 1) } }
         entries.push(entry)
         if (options.name === 'root') root = options
         return entry.dispose
@@ -56,6 +56,7 @@ describe('ElecKoi DSH client navigation', () => {
       entriesOfSlot: (name: string) => entries.filter(entry => entry.options.name === name),
       spec: () => undefined,
       subscribe: () => () => {},
+      getVersion: () => entries.length,
     }
     for (const packageName of packages) {
       let registration: any
@@ -136,7 +137,9 @@ describe('ElecKoi DSH client navigation', () => {
 
     const layout = root.inject().layout
     expect(slots.entriesOfSlot('sidebar.panellist.actions').some(entry => entry.options.id === 'eleckoi-workspace')).toBe(false)
-    slots.register({ name: 'main', key: 'extension-page' }, () => null)
+    const extension = '@eleckoi/dsh-client-manga-example'
+    const disposeExtensionPage = slots.register({ name: 'main', key: 'extension-page', registrant: extension }, () => null)
+    slots.register({ name: 'sidebar.panellist', id: 'extension-page', order: 20, registrant: extension }, () => null)
     layout.selectPanel('extension-page')
     expect(layout.panelInfo.getSnapshot().activePanelId).toBe('extension-page')
     layout.selectPanel('messages')
@@ -148,11 +151,22 @@ describe('ElecKoi DSH client navigation', () => {
     const sidebar = slots.entriesOfSlot('sidebar')[0]!
     expect(sidebar.options.children['sidebar.update']).toMatchObject({ kind: 'single', scope: 'root' })
     const renderNativeSlot = vi.fn()
-    const face = sidebar.component({ renderSlot: renderNativeSlot,
-      usePanels: (select: any) => select([{ id: 'schedules' }, { id: 'plugins' }]), collapsed: false, width: 280 }).children[0].props
+    slots.register({ name: 'main', key: 'schedules' }, () => null)
+    slots.register({ name: 'sidebar.panellist', id: 'schedules', order: 10 }, () => null)
+    slots.register({ name: 'main', key: 'plugins' }, () => null)
+    slots.register({ name: 'sidebar.panellist', id: 'plugins', order: 0 }, () => null)
+    const renderSidebar = () => sidebar.component({ renderSlot: renderNativeSlot,
+      usePanels: (select: any) => select(slots.entriesOfSlot('sidebar.panellist')
+        .map(({ options }) => ({ id: options.id, order: options.order }))
+        .sort((a, b) => a.order - b.order)), collapsed: false, width: 280 }).children[0].props
+    const face = renderSidebar()
     const workspace = face.workspaceSidebar
+    const schedules = { id: 'schedules', order: 10 }
     expect(workspace).toMatchObject({ component: OfficialSidebar, props: { collapsed: false, width: 280 } })
-    expect(workspace.props.usePanels((rows: any) => rows)).toEqual([{ id: 'schedules' }])
+    expect(workspace.props.usePanels((rows: any) => rows)).toEqual(platform === 'desktop'
+      ? [schedules, { id: 'extension-page', order: 20 }] : [schedules])
+    disposeExtensionPage()
+    expect(renderSidebar().workspaceSidebar.props.usePanels((rows: any) => rows)).toEqual([schedules])
     expect(workspace.props.useEntryActions()).toBe(false)
     workspace.props.renderSlot('sidebar.settings', {})
     expect(renderNativeSlot).not.toHaveBeenCalled()
@@ -204,7 +218,7 @@ describe('ElecKoi DSH client navigation', () => {
     expect(() => layout.selectPanel('missing-page')).toThrow('not registered')
   })
 
-  it('keeps the mobile sidebar contract and renders its footer without a second slot', () => {
+  it.each(['desktop', 'android'])('keeps the %s product navigation and renders its footer without a second slot', platform => {
     let registration: any
     let rootComponent: any
     let rootOptions: any
@@ -215,12 +229,23 @@ describe('ElecKoi DSH client navigation', () => {
       { options: { name: 'settings.section', id: 'plugins', order: 15, label: '内置插件' } },
       { options: { name: 'settings.section', id: 'web-search', order: 20, label: '网页搜索' } },
     ]
+    const extension = '@eleckoi/dsh-client-manga-example'
+    const panels = [
+      { id: 'messages', order: -40, registrant: '@eleckoi/dsh-client-conversations' },
+      { id: 'plugins', order: 0 },
+      { id: 'schedules', order: 10 },
+      { id: 'extension-page', order: 20, registrant: extension },
+    ]
+    const panelEntries = panels.map(({ registrant, ...options }) => ({ options, registrant }))
+    const mainEntries = panels.map(({ id, registrant }) => ({ options: { key: id }, registrant }))
     const slots = {
       subscribe: () => () => {},
       getVersion: () => 1,
       entries: () => [],
-    entriesOfSlot: (name: string) => name === 'sidebar.footer.action' ? footerEntries
-        : name === 'settings.section' ? settingsEntries : [],
+      entriesOfSlot: (name: string) => ({
+        'sidebar.footer.action': footerEntries, 'settings.section': settingsEntries,
+        'sidebar.panellist': panelEntries, main: mainEntries,
+      })[name as 'main' | 'sidebar.panellist' | 'settings.section' | 'sidebar.footer.action'] ?? [],
       provideRoot: () => () => {},
       register: (options: any, component: any) => {
         if (options.name === 'root') {
@@ -246,7 +271,7 @@ describe('ElecKoi DSH client navigation', () => {
     }
     const source = readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8')
     runInNewContext(source, {
-      __ELECKOI_CLIENT_PLATFORM__: { kind: 'android' },
+      __ELECKOI_CLIENT_PLATFORM__: { kind: platform },
       __ELECKOI_DSH_APP__: ProductApp,
       window: { __ModuleLoader__: { load: (value: any) => { registration = value } } },
       AbortController,
@@ -292,6 +317,9 @@ describe('ElecKoi DSH client navigation', () => {
 
     expect(rootOptions.children.sidebar).toEqual({ kind: 'single', scope: 'root' })
     expect(render().markdownComponent).toBe(uiPrimitives.MarkdownText)
+    expect(render().navigation.items.map((item: any) => item.id)).toEqual(platform === 'desktop'
+      ? ['messages', 'plugins'] : ['messages', 'plugins', 'extension-page'])
+    expect(render().navigation.productPanelIds).toEqual(['messages'])
     expect(render().navigation.hasSidebarFooterActions).toBe(true)
     expect(render().navigation.selectedPanelId).toBe('conversation')
     expect(render({ activePanelId: null, windowPanelId: 'conversation' }).navigation.selectedPanelId).toBe('conversation')

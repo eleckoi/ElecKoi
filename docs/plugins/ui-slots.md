@@ -63,6 +63,8 @@ ctx.slots.inject('main', () => ctx.slots.register({
 
 通常还要向 `sidebar.panellist` 注册同 ID 的导航入口。key 必须唯一。
 
+在 PC 上，插件的入口由 DSH 工作区侧栏呈现，位于「新会话」和「工作区」之间。`order` 决定排列顺序，官方「自动化任务」的 `order` 为 `10`。在 Android 上，插件入口仍由产品导航呈现。
+
 ## 类型使用
 
 DSH 官方 slot 类型由对应官方 Client 包的 `./client` 入口提供。ElecKoi 业务 slot 的 owner 类型由各包的 `./slots` 入口提供：

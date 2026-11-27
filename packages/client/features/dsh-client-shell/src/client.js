@@ -33,6 +33,15 @@ window.__ModuleLoader__.load({
       "@eleckoi/dsh-runtime",
       "@eleckoi/dsh-web-search-tavily"
     ]
+    function isProductRailEntry({ options, registrant }) {
+      return builtInBundles.includes(registrant) || options.id === 'plugins' || shellActions.has(options.id)
+    }
+    function useSlotVersion(slots, name) {
+      return React.useSyncExternalStore(
+        listener => slots.subscribe(name, listener),
+        () => slots.getVersion(name)
+      )
+    }
     const phaseLabels = { pending: '等待中', loading: '加载中', active: '运行中', failed: '加载失败', unloading: '卸载中' }
     const phaseDots = { pending: 'idle', loading: 'ongoing', active: 'done', failed: 'error', unloading: 'ongoing' }
     const interfaceKindLabels = {
@@ -197,7 +206,7 @@ window.__ModuleLoader__.load({
     function mountWorkspaceSidebar(ctx, officialSidebar) {
       const slots = ctx.slots
       const visibility = createWorkspaceVisibility(ctx)
-      const workspacePanel = id => id === 'schedules'
+      const android = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android'
       const noEntryActions = () => false
       // Adapt the public plugin registration, retaining its child-slot ownership,
       // injected hooks and lifecycle. Only the native workspace uses its shell.
@@ -211,6 +220,14 @@ window.__ModuleLoader__.load({
               return { ...face, hooks: { ...face.hooks, eleckoiWorkspaceSessions: visibility.sessions, eleckoiWorkspaceRegistry: visibility.workspaces } }
             }
           } : options, options.name === 'sidebar' ? props => {
+               // The official list supplies rows, order and labels. The two
+               // slot subscriptions also cover main pages registering or unloading on their own.
+               useSlotVersion(slots, 'sidebar.panellist')
+               useSlotVersion(slots, 'main')
+               const mainPanels = new Set(slots.entriesOfSlot('main').map(entry => entry.options.key))
+               const workspacePanels = new Set(slots.entriesOfSlot('sidebar.panellist')
+                 .filter(entry => !isProductRailEntry(entry) && mainPanels.has(entry.options.id))
+                 .map(entry => entry.options.id))
               const scopedSessions = props.useEleckoiWorkspaceSessions?.(value => value)
               const panel = ctx.get('layout').panelInfo?.getSnapshot()
               const openingStudio = ['creatorStudio', 'schedules'].includes(panel?.activePanelId)
@@ -231,7 +248,8 @@ window.__ModuleLoader__.load({
               }
               const workspaceSidebar = React.createElement(Component, {
                 ...props,
-                usePanels: select => props.usePanels(rows => select(rows.filter(item => workspacePanel(item.id)))),
+                 usePanels: select => props.usePanels(rows => select(rows.filter(({ id }) =>
+                   android ? id === 'schedules' : workspacePanels.has(id)))),
                 useEntryActions: noEntryActions,
                 startSession: visibility.startSession,
                 renderSlot: (key, owner, renderOptions) => key === 'sidebar.settings'
@@ -410,18 +428,12 @@ window.__ModuleLoader__.load({
         listener => slots.subscribe('settings.section', listener),
         () => slots.getVersion('settings.section')
       )
-      const navigationVersion = React.useSyncExternalStore(
-        listener => slots.subscribe('sidebar.panellist', listener),
-        () => slots.getVersion('sidebar.panellist')
-      )
+      const navigationVersion = useSlotVersion(slots, 'sidebar.panellist')
       const footerVersion = React.useSyncExternalStore(
         listener => slots.subscribe('sidebar.footer.action', listener),
         () => slots.getVersion('sidebar.footer.action')
       )
-      const mainVersion = React.useSyncExternalStore(
-        listener => slots.subscribe('main', listener),
-        () => slots.getVersion('main')
-      )
+      const mainVersion = useSlotVersion(slots, 'main')
       const panelInfo = React.useSyncExternalStore(
         listener => layout.panelInfo.subscribe(listener),
         () => layout.panelInfo.getSnapshot()
@@ -446,8 +458,10 @@ window.__ModuleLoader__.load({
       }, [slots, settingsVersion, localeRevision])
       const navigationItems = React.useMemo(() => {
         const panels = new Set(slots.entriesOfSlot('main').map(entry => entry.options.key))
+        const android = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android'
         return slots.entriesOfSlot('sidebar.panellist')
-          .filter(entry => entry.options.id !== 'schedules' && (panels.has(entry.options.id) || shellActions.has(entry.options.id)))
+          .filter(entry => entry.options.id !== 'schedules' && (android || isProductRailEntry(entry))
+            && (panels.has(entry.options.id) || shellActions.has(entry.options.id)))
           .map(entry => ({
             id: entry.options.id,
             order: entry.options.order || 0,
@@ -463,7 +477,7 @@ window.__ModuleLoader__.load({
         () => slots.entriesOfSlot('sidebar.panellist.actions').length > 0
       )
       const productPanelIds = React.useMemo(() => slots.entriesOfSlot('main')
-        .filter(entry => entry.registrant?.startsWith('@eleckoi/dsh-client-'))
+        .filter(entry => builtInBundles.includes(entry.registrant))
         .map(entry => entry.options.key), [slots, mainVersion])
       const hasSidebarFooterActions = React.useMemo(() =>
         slots.entriesOfSlot('sidebar.footer.action').length > 0, [slots, footerVersion])

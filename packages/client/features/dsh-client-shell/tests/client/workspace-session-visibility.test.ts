@@ -33,7 +33,7 @@ function fixture(platform = 'desktop', runtimeContext?: any) {
   const face = { requestSessionRename: vi.fn(), unarchiveSession: vi.fn() }
   const entries: any[] = []
   const slots: any = {
-    provideRoot: () => () => {}, spec: () => undefined, subscribe: () => () => {},
+    provideRoot: () => () => {}, spec: () => undefined, subscribe: () => () => {}, getVersion: () => entries.length,
     register: (options: any, component: any) => { const entry = { options, component, inject: options.inject, locale: options.locale, registrant: options.registrant }; entries.push(entry); return () => entries.splice(entries.indexOf(entry), 1) },
     inject: (_name: string, register: any) => { const disposers = register(); if (typeof disposers !== 'function') Array.from(disposers) },
     entries: (name: string) => entries.filter(entry => entry.options.name === name),
@@ -56,6 +56,7 @@ function fixture(platform = 'desktop', runtimeContext?: any) {
   }
   const official = { inject: [], apply: (ctx: any) => ctx.slots.inject('sidebar', () => ctx.slots.register({ name: 'sidebar' }, () => null)) }
   const React = { lazy: () => () => null, useEffect: (run: any) => run(),
+    useSyncExternalStore: (_subscribe: any, getSnapshot: () => unknown) => getSnapshot(),
     createElement: (component: any, props: any, ...children: any[]) => ({ component, props: { ...props, children: children[0] } }) }
   let registration: any
   runInNewContext(readFileSync(new URL('../../src/client.js', import.meta.url), 'utf8'), {
