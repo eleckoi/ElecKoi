@@ -63,11 +63,11 @@ it('reuses the native speaker when replacing a chat opening', () => {
     const before = database.native.prepare('SELECT id FROM conversation_speakers WHERE conversationId=?').all(id);
     conversations.restoreImportedOpening(id, { content: 'Synthetic imported opening', variableStateJson: '{"score":2}' });
     expect(database.native.prepare('SELECT id FROM conversation_speakers WHERE conversationId=?').all(id)).toEqual(before);
-    expect(conversations.openingText(id)).toBe('Synthetic imported opening');
+    expect(conversations.openingHistory(id).content).toBe('Synthetic imported opening');
     expect(database.native.prepare('SELECT variableStateJson FROM agent_turns WHERE conversationId=?').get(id))
       .toEqual({ variableStateJson: '{"score":2}' });
     conversations.restoreImportedOpening(id);
-    expect(conversations.openingText(id)).toBe('');
+    expect(conversations.openingHistory(id).content).toBe('');
     expect(database.native.prepare('SELECT historyMessageCount FROM chat_sessions WHERE id=?').get(id))
       .toEqual({ historyMessageCount: 0 });
     expect(database.native.prepare('SELECT id FROM conversation_speakers WHERE conversationId=?').all(id)).toEqual(before);

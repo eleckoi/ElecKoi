@@ -353,7 +353,7 @@ describe('opening variable version associations', () => {
     f.openings.save(characterId, { ...value, openingMessages: value.openingMessages.map(message => ({ ...message, content: '' })) })
     const blank = f.conversations.create({ metadata: { characterId } }).conversation.id
     expect(f.variables.forConversation(blank, characterId)?.activeVersionId).toBe('variant-a')
-    expect(f.conversations.openingText(blank)).toBe('')
+    expect(f.conversations.openingHistory(blank).content).toBe('')
   }, 20_000)
   it('loads the complete selected configuration and keeps it across active-version changes and reopening', async () => {
     const f = fixture()
@@ -417,7 +417,7 @@ describe('opening variable version associations', () => {
     const missing = f.conversations.create({ metadata: { characterId: 'synthetic-character' } }).conversation.id
     expect(f.variables.forConversation(missing, 'synthetic-character')).toBeNull()
     expect(f.states.runtimeContext(missing, { characterId: 'synthetic-character' })).toBeUndefined()
-    expect(f.conversations.openingText(missing)).toBe('合成开场 A')
+    expect(f.conversations.openingHistory(missing).content).toBe('合成开场 A')
     f.database.close(); f.database.open()
     expect(f.states.viewerStates(id)).toEqual(before)
     expect(f.variables.forConversation(id, 'synthetic-character')).toBeNull()
