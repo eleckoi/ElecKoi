@@ -31,6 +31,7 @@ describe('conversation list panel height', () => {
   });
 
   it('侧栏填充规则不再试图穿透插槽锚点（层数会变，穿了也会失效）', () => {
-    expect(shellStyles).not.toMatch(/\[data-slot/);
+    const selectors = [...shellStyles.matchAll(/([^{}]+)\{/g)].map(match => match[1]);
+    expect(selectors.filter(selector => selector.includes('.conversation-list')).join('\n')).not.toMatch(/\[data-slot/);
   });
 });

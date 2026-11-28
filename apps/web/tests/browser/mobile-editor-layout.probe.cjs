@@ -26,9 +26,8 @@ app.whenReady().then(async () => {
       await evaluate(`document.documentElement.dataset.theme='${theme}'; document.body.toggleAttribute('data-ds-dark-theme','${theme}'==='dark'); document.documentElement.dataset.eleckoiMobile='${compact}'`);
       await evaluate(`document.querySelector('[data-editor="${key}"]').click()`);
       await wait(`document.querySelector('main').dataset.current==='${key}' && Boolean(document.querySelector('.editor-management-modal'))`);
-      await evaluate(`[...document.querySelector('.editor-management-modal').querySelectorAll('button')].find(button=>button.textContent==='并入设定库').click()`);
-      await wait(`Boolean(document.querySelector('.setting-library-manager-row:not(:disabled)'))`);
-      await evaluate(`document.querySelector('.setting-library-manager-row:not(:disabled)').click()`);
+      await wait(`Boolean(document.querySelector('.editor-management-modal .editor-picker-row:not(:disabled)'))`);
+      await evaluate(`document.querySelector('.editor-management-modal .editor-picker-row:not(:disabled)').click()`);
       await wait(`document.querySelectorAll('.setting-library-tri-checkbox').length===3`);
       const report = await evaluate(`(()=>{const rect=node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}};return {dialog:rect(document.querySelector('.editor-management-modal')),boxes:[...document.querySelectorAll('.setting-library-tri-checkbox')].map(node=>({hit:rect(node),mark:rect(node.firstElementChild)}))}})()`);
       await evaluate(`document.querySelectorAll('.setting-library-tri-checkbox')[1].click()`);
@@ -37,7 +36,7 @@ app.whenReady().then(async () => {
       await evaluate(`document.querySelector('.setting-library-tri-checkbox').click()`);
       await wait(`[...document.querySelectorAll('.setting-library-tri-checkbox')].every(node=>node.getAttribute('aria-checked')==='true')`);
       report.checked = await evaluate(`[...document.querySelectorAll('.setting-library-tri-checkbox')].map(node=>node.getAttribute('aria-checked'))`);
-      report.canMerge = await evaluate(`!document.querySelector('.setting-library-merge-button').disabled`);
+      report.canMerge = await evaluate(`!![...document.querySelectorAll('.editor-management-modal button')].find(button=>button.textContent==='检查并入结果'&&!button.disabled)`);
       merges.push({ width, compact, scope, theme, ...report });
     }
     writeFileSync(reportPath, JSON.stringify({ layouts: reports, merges, searches }, null, 2)); win.destroy(); app.exit(0);

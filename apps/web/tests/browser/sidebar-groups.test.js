@@ -33,7 +33,11 @@ it('keeps preset, plugin and model groups reachable and all sidebar scrollbars o
       expect(row.selected, detail).toBe(true);
       expect(row.filtered.count, detail).toBe(row.kind === 'presets' ? 2 : 1);
       expect(row.filtered.names.every(name => name.includes('合成条目 90')), detail).toBe(true);
-      expect(row.restored, detail).toBe(row.kind === 'presets' ? 180 : 90);
+      if (row.kind === 'messages') {
+        expect(row.restored, detail).toBeGreaterThan(row.filtered.count);
+        expect(row.restored, detail).toBeLessThan(90);
+        expect(row.lastReached, detail).toBe(true);
+      } else expect(row.restored, detail).toBe(row.kind === 'presets' ? 180 : 90);
       expect(row.short.bar, detail).toBe(false);
       expect(row.short.selected, detail).toBe(true);
       expect(row.short.rightHit, detail).toBe(true);

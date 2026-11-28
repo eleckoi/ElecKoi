@@ -139,7 +139,7 @@ describe('Android first-use workspace directory', () => {
     const { config, controllerConfig } = preparedWorkspace()
     const { ctx, controller } = await workspaceHost(join(config.runtimeDataRoot, 'registry'), controllerConfig)
     const workspace = await controller.initializeDefault(new AbortController().signal)
-    expect(workspace?.workspace.path).toBe(join(realpathSync(config.workspaceRoot), 'deepseek-harness', 'default-workspace'))
+    expect(realpathSync.native(workspace!.workspace.path)).toBe(realpathSync.native(join(config.workspaceRoot, 'deepseek-harness', 'default-workspace')))
     expect(ctx.sessions.list()).toEqual([])
     expect(await controller.initializeDefault(new AbortController().signal)).toEqual(workspace)
     expect(ctx.workspaceRegistry.list()).toHaveLength(1)

@@ -147,7 +147,7 @@ app.whenReady().then(async () => {
             const rect = overlay?.getBoundingClientRect();
             const exit = overlay?.querySelector('.immersive-markdown-exit');
             return rect?.width >= innerWidth - 1 && rect.height >= innerHeight - 1
-              && exit?.textContent.trim() === '退出沉浸' && exit.getBoundingClientRect().bottom < innerHeight
+              && exit?.getAttribute('aria-label') === '返回' && exit.getBoundingClientRect().bottom < innerHeight
               && overlay.querySelector('.opening-immersive-toolbar .opening-add-button')
               && document.querySelectorAll('.opening-segment-editor .cm-editor').length === 1;
           })()`;

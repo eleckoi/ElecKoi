@@ -352,7 +352,7 @@ describe('opening variable version associations', () => {
     expect(f.variables.forConversation(second, characterId)).toBeNull()
     f.openings.save(characterId, { ...value, openingMessages: value.openingMessages.map(message => ({ ...message, content: '' })) })
     const blank = f.conversations.create({ metadata: { characterId } }).conversation.id
-    expect(f.variables.forConversation(blank, characterId)).toBeNull()
+    expect(f.variables.forConversation(blank, characterId)?.activeVersionId).toBe('variant-a')
     expect(f.conversations.openingText(blank)).toBe('')
   }, 20_000)
   it('loads the complete selected configuration and keeps it across active-version changes and reopening', async () => {

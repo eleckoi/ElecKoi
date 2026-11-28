@@ -29,7 +29,8 @@ app.whenReady().then(async () => {
     await run(`(()=>{const input=document.querySelector('[aria-label="名字"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'新名字');input.dispatchEvent(new Event('input',{bubbles:true}));})()`); await settle();
     const before = await run(`({stored:window.settingsCompanionFixture.persona.user_name,name:document.querySelector('[aria-label="名字"]').value})`);
     await run(`(()=>{const button=document.querySelector('[aria-label="管理头像"]');button.focus();button.click()})()`); await settle();
-    const initial = await run(`({name:document.querySelector('[aria-label="名字"]').value,tab:document.querySelector('.sd-avatar-tabs [aria-selected="true"]').textContent.trim(),returns:[...document.querySelector('.profile-avatar-dialog').querySelectorAll('button')].some(b=>b.textContent.includes('返回')),material:document.querySelector('.profile-avatar-dialog').dataset.menuMaterial})`);
+    const avatarDialog = '[role="dialog"][aria-label="管理头像"]';
+    const initial = await run(`({name:document.querySelector('[aria-label="名字"]').value,tab:document.querySelector('.sd-avatar-tabs [aria-selected="true"]').textContent.trim(),bodyPortaled:document.querySelector('${avatarDialog}').parentElement.parentElement===document.body,hasClose:!!document.querySelector('${avatarDialog} [aria-label="关闭头像管理"]')})`);
     await run(`(()=>{window.pickerClicks=0;document.querySelector('input[type=file]').addEventListener('click',event=>{event.preventDefault();window.pickerClicks++})})()`);
     for (const label of ['圆形', '正方形', '竖图']) {
       await run(`[...document.querySelectorAll('.sd-avatar-tabs [role=tab]')].find(b=>b.textContent.trim()==='${label}').click()`); await settle();
@@ -40,13 +41,13 @@ app.whenReady().then(async () => {
     await run(`(async()=>{const canvas=document.createElement('canvas');canvas.width=80;canvas.height=120;const ctx=canvas.getContext('2d');ctx.fillStyle='#4176e6';ctx.fillRect(0,0,80,120);ctx.fillStyle='#fff';ctx.fillRect(10,20,35,50);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));const transfer=new DataTransfer();transfer.items.add(new File([blob],'synthetic-avatar.png',{type:'image/png'}));const input=document.querySelector('input[type=file]');input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));})()`);
     for (let index = 0; index < 50; index++) {
       await settle();
-      if (await run(`!document.querySelector('.profile-avatar-dialog').hasAttribute('aria-busy')`)) break;
+      if (await run(`!document.querySelector('${avatarDialog} .sd-avatar-replace').disabled && window.settingsCompanionFixture.saves.at(-1)?.avatars.portrait`)) break;
     }
-    const draft = await run(`({source:document.querySelector('.sd-profile-avatar img').getAttribute('src'),portrait:window.settingsCompanionFixture.saves.at(-1).avatars.portrait,saves:window.settingsCompanionFixture.saves.length,stored:window.settingsCompanionFixture.persona.user_name,error:document.querySelector('.profile-avatar-dialog [role=alert]')?.textContent||''})`);
-    await run(`document.querySelector('.sd-crop-action').click()`); await settle();
+    const draft = await run(`({source:document.querySelector('.sd-profile-avatar img').getAttribute('src'),portrait:window.settingsCompanionFixture.saves.at(-1).avatars.portrait,saves:window.settingsCompanionFixture.saves.length,stored:window.settingsCompanionFixture.persona.user_name,error:document.querySelector('${avatarDialog} [role=alert]')?.textContent||''})`);
+    await run(`[...document.querySelectorAll('${avatarDialog} button')].find(button=>button.textContent==='调整裁剪').click()`); await settle();
     const cropping = await run(`document.querySelectorAll('[role=dialog]').length`);
     await run(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`); await settle();
-    const afterCropEscape = await run(`({dialogs:document.querySelectorAll('[role=dialog]').length,manager:!!document.querySelector('.profile-avatar-dialog')})`);
+    const afterCropEscape = await run(`({dialogs:document.querySelectorAll('[role=dialog]').length,manager:!!document.querySelector('${avatarDialog}')})`);
     await run(`document.querySelector('[aria-label="关闭头像管理"]').click()`); await settle();
     const afterClose = await run(`({name:document.querySelector('[aria-label="名字"]').value,saves:window.settingsCompanionFixture.saves.length,source:document.querySelector('.sd-profile-avatar img').getAttribute('src'),focus:document.activeElement.getAttribute('aria-label')})`);
     await run(`(()=>{window.settingsCompanionFixture.failSave=true;const input=document.querySelector('[aria-label="名字"]');input.focus();Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'重试名字');input.dispatchEvent(new Event('input',{bubbles:true}));})()`); await settle();

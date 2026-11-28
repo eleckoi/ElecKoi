@@ -247,14 +247,15 @@ describe('native author setting library', () => {
     }
     const storage = r.readStorage()
     try {
+      const versionRows = storage.prepare('SELECT payloadJson FROM agent_preset_version_entries WHERE presetId=? AND versionId=? ORDER BY entryId')
+      const before = versionRows.all(original.id, original.activeVersionId)
+      expect(before).toHaveLength(original.entries.length)
       storage.exec("CREATE TRIGGER synthetic_preset_failure BEFORE UPDATE ON agent_preset_version_entries WHEN NEW.entryId='synthetic-alternative' BEGIN SELECT RAISE(ABORT, 'Synthetic preset failure'); END")
       const updates = [{ id: 'synthetic-entry', changes: { enabled: false } },
         { id: 'synthetic-alternative', changes: { enabled: true } }]
       await expect(r.api.presets.updateEntries(original.id, updates)).rejects.toThrow('Synthetic preset failure')
       expect(await r.api.presets.get(original.id)).toEqual(original)
-      const versions = storage.prepare('SELECT payloadJson FROM agent_preset_version_entries WHERE presetId=? AND versionId=?')
-        .all(original.id, original.activeVersionId) as Array<{ payloadJson: string }>
-      expect(versions.map(row => JSON.parse(row.payloadJson))).toEqual(expect.arrayContaining(original.entries))
+      expect(versionRows.all(original.id, original.activeVersionId)).toEqual(before)
       expect(r.publish).not.toHaveBeenCalled()
       storage.exec('DROP TRIGGER synthetic_preset_failure')
       expect(await r.api.presets.updateEntries(original.id, updates)).toHaveLength(2)
@@ -317,7 +318,7 @@ describe('native author setting library', () => {
     const variants: Array<[AuthorSettingLibrary, string | undefined]> = [
       [{ ...saved, characterId: 'synthetic-other-character' }, '不匹配'],
       [{ ...saved, entries: [...saved.entries, saved.entries.find(entry => entry.id === 'synthetic-entry')!] }, '编号不能重复'],
-      [{ ...saved, entries: saved.entries.map(entry => entry.id === 'synthetic-entry' ? { ...entry, dynamicMode: 'unsupported' as any } : entry) }, undefined],
+      [{ ...saved, entries: saved.entries.map(entry => entry.id === 'synthetic-entry' ? { ...entry, contentMode: 'unsupported' as any } : entry) }, undefined],
     ]
     for (const [invalid, message] of variants) {
       await expect(r.api.settingLibrary.replace(invalid)).rejects.toThrow(message)

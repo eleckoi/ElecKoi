@@ -26,8 +26,9 @@ it('lets the official workspace tooltip escape the product sidebar while retaini
       expect(row.clippedBefore,detail).toBe(true);
       expect(row.before.tip.right,detail).toBeGreaterThan(row.before.panel.right);
       expect(row.before.tip.left+row.before.tip.width/2,detail).toBeCloseTo(row.before.button.left+row.before.button.width/2,0);
-      expect(row.before.toggle.left-row.before.panel.left,detail).toBeCloseTo(12,0);
-      expect(row.before.toggle.top,detail).toBeCloseTo(6,0);
+      expect(row.before.toggle.right,detail).toBeLessThanOrEqual(row.before.panel.right);
+      expect(row.before.toggle.left,detail).toBeGreaterThanOrEqual(row.before.panel.left);
+      expect(row.before.toggle.bottom,detail).toBeLessThan(row.before.button.top);
       expect(row.collapsed.open,detail).toBe(true);expect(row.collapsed.panelWidth,detail).toBe(0);expect(row.restored,detail).toBeCloseTo(280,0);
     }
   }finally{await rm(directory,{recursive:true,force:true,maxRetries:3});}

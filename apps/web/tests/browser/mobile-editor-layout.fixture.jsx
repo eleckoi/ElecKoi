@@ -96,7 +96,7 @@ function Fixture() {
             <NativeFrontendProvider connection={assetConnection}><CharacterAssetLibrary {...ownerProps} /></NativeFrontendProvider>
           ) : ['prompts', 'tools'].includes(kind) ? <PresetFixture kind={kind} />
             : kind === 'branches' ? <DynamicSettingsPanel characterId="synthetic-character" settingLibraries={service} />
-            : kind === 'merge' ? <SettingLibraryManager characterId="synthetic-character" settingLibraries={service} library={service.value} onChange={() => {}} onClose={() => {}} onError={error => { throw new Error(error); }} />
+            : kind === 'merge' ? <SettingLibraryManager initialAction="merge" characterId="synthetic-character" settingLibraries={service} library={service.value} onChange={() => {}} onClose={() => {}} onError={error => { throw new Error(error); }} />
             : kind === 'settings' ? <SettingLibraryPanel characterId="synthetic-character" settingLibraries={service} />
             : kind === 'variables' ? <VariableConfigPanel characterId="synthetic-character" variables={service} />
             : kind === 'regex' ? <RegexRulesPanel {...ownerProps} regexRules={service} />

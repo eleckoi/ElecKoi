@@ -36,7 +36,8 @@ it('renders independent global and role sections, shared editing and save in lig
       const {enabled,disabled,collapsed,restored}=item.appearance;
       expect(enabled.nameOpacity).toBe(1); expect(enabled.disabled).toBe(false);
       expect(disabled.disabled).toBe(true); expect(disabled.nameOpacity).toBe(.46);
-      expect(disabled.labels.every(label=>label.opacity===.46)).toBe(true);
+      expect(disabled.labels.map(label => label.opacity)).toEqual([.46, .54, .46]);
+      expect(disabled.labels.every((label, index) => label.color !== enabled.labels[index].color)).toBe(true);
       expect(disabled.nameColor).not.toBe(enabled.nameColor);
       expect(collapsed.nameOpacity).toBe(.46); expect(collapsed.disabled).toBe(true);
       expect(restored.disabled).toBe(false); expect(restored.nameOpacity).toBe(1); expect(restored.nameColor).toBe(enabled.nameColor);

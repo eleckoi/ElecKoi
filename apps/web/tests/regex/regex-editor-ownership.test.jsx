@@ -40,8 +40,10 @@ describe('regex editor isolation and shared globals', () => {
         <div data-editor="preset"><RegexRulesPanel presetId="synthetic-inactive-preset" regexRules={model} ref={refs[1]} /></div>
       </EditorPresentationContext.Provider>));
       const panels = [...node.querySelectorAll('[data-editor]')];
-      expect([...panels[0].querySelectorAll(compact ? '.editor-library-heading strong' : '.rs-library-heading > span')].map(item => item.textContent)).toEqual(['角色正则']);
-      expect([...panels[1].querySelectorAll(compact ? '.editor-library-heading strong' : '.rs-library-heading > span')].map(item => item.textContent)).toEqual(['预设正则']);
+      const headingLabels = panel => [...panel.querySelectorAll(compact ? '.editor-library-heading strong' : '.rs-library-heading > span')]
+        .map(item => item.textContent.trim()).filter(Boolean);
+      expect(headingLabels(panels[0])).toEqual(['角色正则']);
+      expect(headingLabels(panels[1])).toEqual(['预设正则']);
       for (const panel of panels) {
         await act(() => [...panel.querySelectorAll('[role="tab"]')].find(tab => tab.textContent === '全局').click());
         await act(() => panel.querySelector('.regex-rule-row').dispatchEvent(new MouseEvent(compact ? 'dblclick' : 'click', { bubbles: true })));

@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Modal, ImageLightbox } from '@deepseek-ai/dsh-client-ui-primitives';
-import { ConfirmationDialog } from '../../src/ui/ui/ConfirmationDialog.jsx';
 
 globalThis.React = React;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -50,7 +49,7 @@ describe('Android appearance adapter for unchanged official modals', () => {
     const appearances = bridge();
     const render = (official, product) => act(() => root.render(<>
       <Modal open={official} onClose={() => {}} title="合成插件安装" closeLabel="关闭">合成内容</Modal>
-      <ConfirmationDialog open={product} title="合成确认" description="合成操作" onCancel={() => {}} onConfirm={() => {}} />
+      {product && <div data-synthetic-mask="" />}
     </>));
     const original = window.getComputedStyle.bind(window);
     vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => pseudo === '::after' && element.parentElement?.getAttribute('role') === 'presentation'
@@ -59,10 +58,12 @@ describe('Android appearance adapter for unchanged official modals', () => {
     await settle();
     expect(appearances.at(-1).surface).toBe('#bfbfbf');
     await render(true, true);
-    const product = document.querySelector('.confirmation-overlay');
+    const product = document.querySelector('[data-synthetic-mask]');
     product.style.cssText = 'background-color:rgba(0,0,0,0.5);z-index:1200';
+    document.dispatchEvent(new CustomEvent('eleckoi:system-bar-mask', { detail: { mask: product, pseudo: '', active: true } }));
     await settle();
     expect(appearances.at(-1).surface).toBe('#606060');
+    document.dispatchEvent(new CustomEvent('eleckoi:system-bar-mask', { detail: { mask: product, pseudo: '', active: false } }));
     await render(true, false); await settle();
     expect(appearances.at(-1).surface).toBe('#bfbfbf');
     const before = appearances.length;

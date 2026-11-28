@@ -44,7 +44,7 @@ it('automatically saves profile edits and avatar changes, retries failures, and 
       }
     }
     expect(result.before).toEqual({ stored: '访客', name: '新名字' });
-    expect(result.initial).toEqual({ name: '新名字', tab: '圆形', returns: false, material: 'translucent' });
+    expect(result.initial).toEqual({ name: '新名字', tab: '圆形', bodyPortaled: true, hasClose: true });
     expect(result.pickerClicks).toBe(3);
     expect(result.draft).toMatchObject({ stored: '新名字', error: '' });
     expect(result.draft.saves).toBeGreaterThanOrEqual(2);

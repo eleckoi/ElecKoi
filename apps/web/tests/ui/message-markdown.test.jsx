@@ -400,8 +400,8 @@ describe("message markdown presentation", () => {
     }));
 
     expect(html).toMatch(/aria-label="复制"[^>]*>.*?<\/button><button[^>]*aria-label="重新生成"/);
-    expect(html).toMatch(/aria-label="复制"[^>]*><svg /);
-    expect(html).toMatch(/aria-label="编辑"[^>]*><svg width="18" height="18"/);
+    expect(html).toMatch(/aria-label="复制"[^>]*><span[^>]*class="message-mask-icon agent-message-action-icon"[^>]*mask-image:/);
+    expect(html).toMatch(/aria-label="编辑"[^>]*><span[^>]*class="message-mask-icon agent-message-action-icon"[^>]*mask-image:/);
     expect(html).toContain('class="agent-message-footer"');
   });
 

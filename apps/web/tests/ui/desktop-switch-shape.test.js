@@ -15,17 +15,22 @@ const declarations = (sheet, selector) => {
 };
 
 const controls = [
-  ['setting library', 'modules/settingLibraries/styles/setting-library.css', '.setting-library-tree-switch', '.setting-library-tree-switch span'],
   ['scripts', 'modules/scripts/styles/script-libraries.css', '.script-switch i', '.script-switch i::before'],
-  ['variables', 'modules/variables/styles/variable-config.css', '.variable-tree-switch', '.variable-tree-switch > span'],
   ['regex list', 'modules/regex/styles/regex-rules.css', '.regex-rule-switch i', '.regex-rule-switch i::after'],
   ['regex options', 'modules/regex/styles/regex-rules.css', '.regex-inline-switch i', '.regex-inline-switch i::after'],
-  ['preset regex', 'modules/presets/styles/preset-panel.css', '.preset-regex-enabled', '.preset-regex-enabled i'],
-  ['preset tools', 'modules/presets/styles/preset-panel.css', '.preset-tool-toggle', '.preset-tool-toggle i'],
   ['chat tools', 'modules/chat/styles/chat-panel.css', '.agent-tool-switch', '.agent-tool-switch span'],
 ];
 
 describe('desktop switch shape', () => {
+  it('keeps the official switch shape for the shared editor toggle', () => {
+    const source = readFileSync(new URL('../../src/ui/ui/EditorToggle.jsx', import.meta.url), 'utf8');
+    expect(source).toContain('import { Switch } from \'@deepseek-ai/dsh-client-ui-primitives\'');
+    expect(source).toContain('<Switch className={');
+    const sheet = postcss.parse(readFileSync(
+      new URL('../../../../node_modules/@deepseek-ai/dsh-client-ui-primitives/src/Switch.module.css', import.meta.url), 'utf8'));
+    expect(declarations(sheet, '.switch')).toMatchObject({ 'border-radius': '999px', 'corner-shape': 'round' });
+    expect(declarations(sheet, '.thumb')).toMatchObject({ 'border-radius': '50%', 'corner-shape': 'round' });
+  });
   it('uses the original script switch radii and theme corner shape only for desktop presentation', () => {
     const tokens = parseStyles('app/windows/styles/tokens.css');
     expect(declarations(tokens, ':root:not([data-eleckoi-mobile="true"])')).toMatchObject({

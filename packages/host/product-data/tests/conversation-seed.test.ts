@@ -41,27 +41,36 @@ describe('conversation opening seed', () => {
       {} as never,
       openings as never,
       variables as never
-    )).toEqual({ variableVersionId: '', initialVariableStateJson: '{}', initialVariableIdentityJson: '{}', openingText: '', openingOptions: [], selectedOpeningId: '' })
+    )).toEqual({
+      variableVersionId: '', initialVariableStateJson: '{}', initialVariableIdentityJson: '{}', openingText: '',
+      openingOptions: [{ id: 'primary', title: '', content: '', variableVersionId: '', initialVariableStateJson: '{}', initialVariableIdentityJson: '{}' }],
+      selectedOpeningId: 'primary'
+    })
   })
 
-  it.each([true, false])('leaves empty and whitespace-only openings absent regardless of the saved enabled field (%s)', enabled => {
+  it.each([true, false])('retains blank opening choices regardless of the saved enabled field (%s)', enabled => {
     const openings = { get: () => ({ enabled, defaultOpeningMessageId: 'primary', openingMessages: [
-      { id: 'primary', title: '合成空开场', content: ' \n\t ', variableVersionId: 'missing-unused-version', initialVariableStateJson: '' },
+      { id: 'primary', title: '合成空开场', content: ' \n\t ', variableVersionId: 'version-a', initialVariableStateJson: '' },
       { id: 'backup', title: '合成空备用', content: '', initialVariableStateJson: '' },
     ] }) };
     const variables = { get: () => ({ activeVersionId: 'version-a', initialStateJson: '{}', versions: [{ id: 'version-a', initialStateJson: '{}' }] }) };
     expect(resolveConversationSeed('card-a', {} as never, openings as never, variables as never))
-      .toEqual({ variableVersionId: '', initialVariableStateJson: '{}', initialVariableIdentityJson: '{}', openingText: '', openingOptions: [], selectedOpeningId: '' });
+      .toMatchObject({
+        variableVersionId: 'version-a', initialVariableStateJson: '{}', openingText: '',
+        openingOptions: [{ id: 'primary', content: ' \n\t ', variableVersionId: 'version-a' }, { id: 'backup', content: '', variableVersionId: '' }],
+        selectedOpeningId: 'primary'
+      });
   })
 
-  it('uses nonempty openings without an enable gate and excludes blank backup choices', () => {
+  it('uses nonempty openings without an enable gate and keeps blank backup choices', () => {
     const openings = { get: () => ({ enabled: false, defaultOpeningMessageId: 'primary', openingMessages: [
       { id: 'primary', title: '合成主开场', content: '  合成正文  ', initialVariableStateJson: '{"score":1}' },
       { id: 'backup', title: '合成空备用', content: '\n ', initialVariableStateJson: '' },
     ] }) };
     const variables = { get: () => ({ activeVersionId: 'version-a', initialStateJson: '{}', versions: [{ id: 'version-a', initialStateJson: '{}' }] }) };
     expect(resolveConversationSeed('card-a', {} as never, openings as never, variables as never))
-      .toMatchObject({ openingText: '合成正文', selectedOpeningId: 'primary', initialVariableStateJson: '{}', openingOptions: [{ id: 'primary' }] });
+      .toMatchObject({ openingText: '合成正文', selectedOpeningId: 'primary', initialVariableStateJson: '{}',
+        openingOptions: [{ id: 'primary', content: '  合成正文  ' }, { id: 'backup', content: '\n ' }] });
   })
 
   it('loads only explicit opening bindings and never reads variable configuration for unbound openings', () => {

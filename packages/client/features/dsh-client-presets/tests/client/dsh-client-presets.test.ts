@@ -182,7 +182,7 @@ describe('DSH ElecKoi preset client model', () => {
           reads += 1
           return reads === 1 ? first : Promise.resolve({ ok: true, value: detail('newer') })
       },
-      save: () => Promise.resolve({ ok: true, value: detail('saved') })
+      save: vi.fn(async (..._args: unknown[]) => ({ ok: true, value: detail('saved') }))
     }
     const changeFeed = presetChanges()
     runInNewContext(source, {
@@ -205,7 +205,12 @@ describe('DSH ElecKoi preset client model', () => {
     await pending
     expect(model.getDetailSnapshot('preset-1').preset.name).toBe('newer')
     await model.save(detail('edited'), [])
+    expect(remote.save.mock.calls[0]).toStrictEqual([detail('edited'), [], undefined])
     expect(model.getDetailSnapshot('preset-1').preset.name).toBe('saved')
+    for (const originalPrompt of ['', '原来的共享提示词']) {
+      await model.save(detail('edited'), [], originalPrompt)
+      expect(remote.save.mock.lastCall).toStrictEqual([detail('edited'), [], originalPrompt])
+    }
     cleanup()
     expect(changeFeed.isStopped()).toBe(true)
   })

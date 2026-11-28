@@ -26,7 +26,7 @@ it("opens the phone process sheet from the record icon without desktop blur or a
     } catch (error) {
       failure = error;
     }
-    const result = JSON.parse(await readFile(report, "utf8"));
+    const result = JSON.parse(await readFile(report, "utf8").catch(error => { throw failure ?? error; }));
     await mkdir(resolve("build/mobile-process-open-check"), { recursive: true });
     await copyFile(report, resolve("build/mobile-process-open-check/browser.json"));
     expect(result.passed, result.error || failure?.message).toBe(true);

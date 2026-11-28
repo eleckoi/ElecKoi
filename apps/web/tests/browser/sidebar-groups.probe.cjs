@@ -82,6 +82,7 @@ app.whenReady().then(async () => {
       const home = await run('document.querySelector(selectors.scroll).scrollTop');
       await run('document.querySelector(".sidebar-scrollbar").dispatchEvent(new KeyboardEvent("keydown",{key:"End",bubbles:true,cancelable:true}))'); await pause();
       const end = await run('document.querySelector(selectors.scroll).scrollTop');
+      const lastReached = kind === 'messages' && await run('!!document.querySelector(".virtual-list-rows > [data-index=\'89\'] .conversation-item")');
       let trackInput;
       if(width===328&&!dark) {
         await run('document.querySelector(selectors.scroll).scrollTop=0'); await pause();
@@ -104,7 +105,7 @@ app.whenReady().then(async () => {
       await pause(); await run('document.querySelector(selectors.item).click()'); await pause();
       const short = await run(`(() => {const scroll=document.querySelector(selectors.scroll),item=scroll.querySelector(selectors.item),r=item.getBoundingClientRect();return {scroll:scroll.getBoundingClientRect().toJSON(),item:r.toJSON(),clientWidth:scroll.clientWidth,bar:!!document.querySelector('.sidebar-scrollbar'),selected:item.classList.contains('active'),background:getComputedStyle(item).backgroundColor,rightHit:document.elementFromPoint(r.right-1,r.top+r.height/2)?.closest(selectors.item)===item}})()`);
       if(screenshots&&width===328) writeFileSync(join(screenshots,`${kind}-short-${dark?'dark':'light'}.png`),(await win.webContents.capturePage()).toPNG());
-      rows.push({kind,width,dark,collapsed,expanded,sticky,folded,nextSticky,old,nextFolded,filtered,selected,restored,drag:{captured,...dragged,max:dragStart.max,home,end},trackInput,short});
+      rows.push({kind,width,dark,collapsed,expanded,sticky,folded,nextSticky,old,nextFolded,filtered,selected,restored,lastReached,drag:{captured,...dragged,max:dragStart.max,home,end},trackInput,short});
     }
     writeFileSync(report, JSON.stringify({ rows, errors }));
     win.destroy(); app.exit(0);

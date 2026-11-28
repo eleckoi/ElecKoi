@@ -51,12 +51,12 @@ function VariableTreeNode({ item, data, itemProps, style, level, isSelected, isE
       onContextMenu={(event) => actions?.openContextMenu(event, data)}
     >
       <EditorSelectionCheckbox selection={actions?.selection} id={data.id} label={data.label} disabled={actions?.saving || data.fixed} />
-      {expandable && (
+      {expandable ? (
         <button type="button" className="variable-tree-expander" aria-label={isExpanded ? tUi("折叠变量组") : tUi("展开变量组")} aria-expanded={isExpanded}
           onDoubleClick={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); if (isExpanded) item.collapse(); else item.expand(); }}>
           {isExpanded ? <CaretDown size={13} /> : <CaretRight size={13} />}
         </button>
-      )}
+      ) : <span className="variable-tree-expander" aria-hidden="true" />}
       <span className="variable-tree-leading">
         {data.nodeKind === "object"
           ? <VariableGroupIcon initialization={data.fixed} className="variable-tree-icon" />

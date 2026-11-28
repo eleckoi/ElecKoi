@@ -166,7 +166,7 @@ describe('window report flow', () => {
     expect(document.querySelector('.bug-report-notes textarea')).toBe(notes);
     expect(notes.value).toBe('Synthetic edited notes');
     expect(open).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled();
-    const close = document.querySelector('.bug-report-close');
+    const close = [...document.querySelectorAll('.bug-report-modal button')].find(button => button.getAttribute('aria-label') === t('关闭报告'));
     await act(async () => close.click());
     expect(document.querySelector('.bug-report-dialog')).toBeNull();
     expect(saveDraft).not.toHaveBeenCalled();

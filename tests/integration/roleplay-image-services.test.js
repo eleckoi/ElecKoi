@@ -43,7 +43,7 @@ it('binds the real roleplay image APIs after editor readiness and reads, repaint
       content: [{ type: 'text', text: '<ACTION_CALL name="generate_image">{"frames":[{"id":1,"prompt":"synthetic scene","negative_prompt":"synthetic avoid"}]}</ACTION_CALL><FINAL>合成正文\n[[IMAGE:1]]</FINAL>' }] }) }, { surfaceOp: 'append' });
     const entry = { provider: 'novelai_image', model: 'nai-diffusion-4-5-full', base_url: `http://127.0.0.1:${server.address().port}`, credentialRef: 'SYNTHETIC_KEY' };
     const services = {
-      agents: { get: () => undefined, create() {}, resume() {} },
+      agents: { get: () => undefined, admitActivation: vi.fn(() => () => {}) },
       agentPresets: { register: async () => () => {} },
       agentDefaultModel: { currentSelection: () => ({ provider: 'synthetic', model: 'synthetic' }) },
       llm: { resolveModelInfo: async () => ({}) },

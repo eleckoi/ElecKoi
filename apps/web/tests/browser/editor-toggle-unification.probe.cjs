@@ -28,7 +28,7 @@ app.whenReady().then(async()=>{
         await choose(`${kind}:${owner}:${compact}`);
         const selector=compact?'.mobile-editor-actions [role=toolbar] button':kind==='prompts'?'.setting-library-add-wrap button':'.setting-toolbar-create';
         if(['settings','variables'].includes(kind)){
-          await click(selector,'新建');await click('[role=menu] [role=menuitem]',kind==='settings'?'设定':'变量');
+          await click(selector,'新建');await click('[role=menu] [role=menuitem]',kind==='settings'?'新建设定':'变量');
           await wait(`!!document.querySelector('[aria-label="${kind==='settings'?'条目标题':'当前变量名称'}"]')`);
           if(compact){await run('document.querySelector("[data-fixture-back]").click()');await wait('!document.querySelector(".editor-page-detail")');}
         }

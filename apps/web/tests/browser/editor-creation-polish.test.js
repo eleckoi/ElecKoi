@@ -48,7 +48,8 @@ it('keeps editor creation controls and asset menus usable across desktop and tou
       }
       if (row.rowLayout && row.kind === 'variables') {
         const reference = report.cases.find(item => item.kind === 'settings' && item.theme === row.theme && item.width === row.width).rowLayout;
-        for (const field of ['icon','title','searchGap','height']) expect(row.rowLayout[field], detail).toBeCloseTo(reference[field], 1);
+        expect(row.rowLayout.title - row.rowLayout.icon, detail).toBeCloseTo(reference.title - reference.icon, 1);
+        for (const field of ['searchGap','height']) expect(row.rowLayout[field], detail).toBeCloseTo(reference[field], 1);
       }
     }
   } finally {

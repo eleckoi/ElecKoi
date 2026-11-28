@@ -22,8 +22,13 @@ it.each([
     });
     for (const name of fixtures) await writeFile(resolve(directory, `${name}.html`), `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${browserThemeCss()}body{margin:0}.side-panel-brand .eleckoi-wordmark{width:139px}</style><link rel="stylesheet" href="${name}.css"></head><body><div id="root"></div><script type="module" src="${name}.js"></script></body></html>`);
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
-    await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/editor-long-text.probe.cjs'), directory, resolve(directory, 'report.json'), ...(mobile ? ['--mobile-caret'] : [])], { env, windowsHide: true, timeout: mobile ? 40000 : 150000 });
-    const result = JSON.parse(await readFile(resolve(directory, 'report.json'), 'utf8'));
+    const reportPath = resolve(directory, 'report.json');
+    try {
+      await promisify(execFile)(require('electron'), [resolve('apps/web/tests/browser/editor-long-text.probe.cjs'), directory, reportPath, ...(mobile ? ['--mobile-caret'] : [])], { env, windowsHide: true, timeout: mobile ? 40000 : 150000 });
+    } catch (cause) {
+      throw new Error(await readFile(reportPath, 'utf8').catch(() => cause.stderr || cause.message), { cause });
+    }
+    const result = JSON.parse(await readFile(reportPath, 'utf8'));
     expect(result.errors).toEqual([]);
     if (mobile) expect(result.actions).toEqual({ mobileIntro: true, mobileSetting: true, mobileImmersion: true, mobilePresetUpdate: true });
     else {

@@ -79,7 +79,7 @@ describe("right sidebar shell layout", () => {
   });
 
   it("uses the collapsed left-sidebar width immediately on narrow windows", () => {
-    expect(frameSource).toContain('const narrow = viewport < SIDEBAR_AUTO_COLLAPSE');
+    expect(frameSource).toContain('const narrow = layoutInfo.sidebarDrawer || viewport < SIDEBAR_AUTO_COLLAPSE');
     expect(frameSource).toContain('const sidebarCollapsed = narrow ? !layoutInfo.narrowExpanded');
   });
 

@@ -178,7 +178,7 @@ describe('automatic chat branch settings', () => {
     const library = { characterId: 'synthetic-character', name: '设定库', entries: [], groups: [],
       promptPositions: [], versions: [], activeVersionId: 'main', expandedGroupIds: [], listAllExpanded: false }
     const first = { sessionId: 'synthetic-chat-first', title: '第一段聊天', characterName: '合成角色',
-      summary: '<FINAL>最后一条 AI\n回复</FINAL>', updatedAt: new Date().toISOString(), library }
+      summary: '最后一条 AI\n回复', updatedAt: new Date().toISOString(), library }
     const second = { ...first, sessionId: 'synthetic-chat-second', title: '第二段聊天', summary: '另一段真实摘要' }
     const model = { readConversations: vi.fn().mockResolvedValue([first, second]),
       subscribe(listener) { notify = listener; return () => {} } }

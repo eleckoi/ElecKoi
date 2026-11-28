@@ -33,6 +33,11 @@ async function mount(element) {
 }
 
 const composerAction = label => [...document.querySelectorAll('.preset-content-composer button, .mobile-overlay-primary')].find(button => button.textContent === label);
+const writingInput = (container, label) => vi.waitFor(() => {
+  const input = container.querySelector(`.cm-content[aria-label="${label}"]`);
+  expect(input).not.toBeNull();
+  return input;
+});
 
 describe('preset profile grouping', () => {
   it('keeps activation next to the name in the identity group for both states', async () => {
@@ -97,9 +102,10 @@ describe('preset introduction regions', () => {
     const { container, root } = await mount(<Editor />);
     await act(() => container.querySelector('[aria-label="编辑更新：合成旧版记录"]').click());
     expect(container.querySelector('[aria-label="更新标题"]').value).toBe('合成旧版记录');
+    const writing = await writingInput(container, '更新内容');
     for (const [label, value] of [['更新标题', '修订后的合成旧版记录'], ['更新日期', '2026-10-10'], ['更新内容', '修订后的合成内容']]) {
       await act(() => {
-        const field = container.querySelector(`[aria-label="${label === '更新内容' ? '更新内容输入区' : label}"]`);
+        const field = label === '更新内容' ? writing : container.querySelector(`[aria-label="${label}"]`);
         changeEditorText(field, value);
       });
     }
@@ -119,12 +125,10 @@ describe('preset introduction regions', () => {
     const { container } = await mount(<PresetIntroductionEditor preset={{ ...preset, profile: { ...preset.profile, timeline } }}
       saving={false} error="" onClearError={() => {}} onSaveProfile={onSaveProfile} />);
     await act(() => container.querySelector('[aria-label="编辑更新：合成更新"]').click());
-    await act(() => {
-      const field = container.querySelector('[aria-label="更新内容输入区"]');
-      changeEditorText(field, '合成待保存内容');
-    });
+    const writing = await writingInput(container, '更新内容');
+    await act(() => changeEditorText(writing, '合成待保存内容'));
     await act(() => container.querySelector('button[type="submit"]').click());
-    expect(editorText(container.querySelector('[aria-label="更新内容输入区"]'))).toBe('合成待保存内容');
+    expect(editorText(writing)).toBe('合成待保存内容');
     expect(onSaveProfile).toHaveBeenCalledTimes(1);
     await act(() => composerAction('取消').click());
     expect(container.querySelector('.preset-content-composer')).toBeNull();
@@ -148,10 +152,11 @@ describe('preset introduction regions', () => {
     const region = container.querySelector('.preset-usage-section');
     await act(async () => region.querySelector('button').click());
     expect(region.querySelector('form')).not.toBeNull();
-    expect(editorText(region.querySelector('[aria-label="使用说明输入区"]'))).toBe(preset.profile.usageInstructions);
+    const writing = await writingInput(region, '使用说明');
+    expect(editorText(writing)).toBe(preset.profile.usageInstructions);
     expect(composerAction('取消')).not.toBeUndefined();
     await act(async () => {
-      changeEditorText(region.querySelector('[aria-label="使用说明输入区"]'), '修改后的使用说明。');
+      changeEditorText(writing, '修改后的使用说明。');
     });
     await act(async () => region.querySelector('button[type="submit"]').click());
     expect(onSaveProfile).toHaveBeenCalledWith({ usageInstructions: '修改后的使用说明。' });

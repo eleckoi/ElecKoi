@@ -1,6 +1,10 @@
 const assert = require('node:assert/strict');
 
 exports.checkDesktopSectionMotion = async (webContents, down, up) => {
+  webContents.debugger.attach('1.3');
+  await webContents.debugger.sendCommand('Emulation.setEmulatedMedia', {
+    features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+  });
   const inspect = async (next, direction) => webContents.executeJavaScript(`(async () => {
     const nav = document.querySelector('.character-editor-navigation');
     const button = [...nav.querySelectorAll('button')].find(item => item.textContent.trim() === ${JSON.stringify(next)});
@@ -26,6 +30,10 @@ exports.checkDesktopSectionMotion = async (webContents, down, up) => {
     return false;
   })()`);
 
-  assert.equal(await inspect(down, 'forward'), true, `Opening ${down} should animate only the editor workspace`);
-  assert.equal(await inspect(up, 'backward'), true, `Returning to ${up} should reverse the editor transition`);
+  try {
+    assert.equal(await inspect(down, 'forward'), true, `Opening ${down} should animate only the editor workspace`);
+    assert.equal(await inspect(up, 'backward'), true, `Returning to ${up} should reverse the editor transition`);
+  } finally {
+    webContents.debugger.detach();
+  }
 };

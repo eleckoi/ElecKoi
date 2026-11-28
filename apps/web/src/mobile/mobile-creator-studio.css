@@ -23,6 +23,8 @@
 .creator-studio-transcript { display: flex; flex: 1 0 auto; flex-direction: column; min-width: 0; min-height: auto; }
 .creator-studio-transcript.creator-studio-panel-view { flex: 1 1 0; min-height: 0; overflow: hidden; padding: 0; }
 .creator-studio-panel-view > [data-slot] { flex: 1; min-width: 0; min-height: 0; }
+/* The native trajectory disables the spacer. Reserve the measured composer height for its fixed viewport. */
+.creator-studio-session-body [data-conversation-scroll]:has(.creator-studio-trajectory) { padding-bottom: var(--dsh-composer-height, 0px); }
 .creator-studio-transcript.creator-studio-trajectory { --dsh-composer-height: 0px; overflow: hidden; padding: 0; }
 .creator-studio-trajectory > [data-slot], .creator-studio-trajectory > [data-slot] > * { flex: 1; min-width: 0; min-height: 0; }
 .creator-studio-session-body .chat-composer-region { flex: none; padding: 0; }

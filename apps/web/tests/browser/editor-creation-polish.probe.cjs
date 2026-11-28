@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
       const createSelector = compact ? '.mobile-editor-actions [role=toolbar] button' : kind==='prompts' ? '.setting-library-add-wrap button' : '.setting-toolbar-create';
       await wait(`document.querySelector('main').dataset.current==='${key}'&&!!document.querySelector('${createSelector}')`);
       await textClick(createSelector, '新建');
-      const item = kind === 'variables' ? '变量' : kind === 'prompts' ? '提示词' : '设定';
+      const item = kind === 'variables' ? '变量' : kind === 'prompts' ? '提示词' : '新建设定';
       await wait(`!!document.querySelector('[role=menu]')`);
       const shadow = compact ? await run(`(()=>{const e=document.querySelector('.mobile-editor-action-menu'),r=document.createElement('span');r.style.cssText='--dsw-elevation-stroke-color:var(--dsw-alias-border-l1);box-shadow:var(--dsw-elevation-prominent)';document.body.append(r);const v={actual:getComputedStyle(e).boxShadow,official:getComputedStyle(r).boxShadow,toolbar:getComputedStyle(document.querySelector('.mobile-editor-actions [role=toolbar]')).boxShadow};r.remove();return v})()`) : null;
       if (compact && theme==='dark' && width===390 && kind==='settings') { await new Promise(resolve => setTimeout(resolve, 80)); writeFileSync(join(dirname(html),'menu-dark.png'),(await win.webContents.capturePage()).toPNG()); }
@@ -49,6 +49,7 @@ app.whenReady().then(async () => {
       let alignment = null;
       if (kind === 'variables') {
         alignment = await run(`(()=>{const rows=[...document.querySelectorAll('.variable-tree-row')],at=r=>({icon:r.querySelector('.variable-tree-icon').getBoundingClientRect().left,title:r.querySelector('.variable-tree-label').getBoundingClientRect().left});return {fixed:at(rows.find(r=>r.dataset.reorderFixed==='true')),variable:at(rows.find(r=>r.dataset.reorderFixed!=='true'))}})()`);
+        await run(`document.querySelector('.variable-tree').dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button:0}))`);
         await textClick(compact ? '.mobile-editor-actions [role=toolbar] button' : '.setting-toolbar-create', '新建');
         await textClick('[role=menu] [role=menuitem]', '变量组');
         await wait('!!document.querySelector("[aria-label=当前变量名称]")');

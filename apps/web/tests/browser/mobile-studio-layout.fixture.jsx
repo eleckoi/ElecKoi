@@ -6,12 +6,17 @@ import { InputBar, DraftEditorRuntime, registerPlainText, conversationZh } from 
 import { MainPageContext } from '../../src/app/windows/MainPageContext.jsx';
 import { MobileCreatorStudioPage } from '../../src/mobile/MobileCreatorStudioPage.jsx';
 import { MobileConversationPage } from '../../src/mobile/MobileConversationPage.jsx';
+import { ConversationContent } from '@deepseek-ai/dsh-client-ui-conversation/src/client/skeleton/ConversationContent.tsx';
+import { ConversationRoot } from '@deepseek-ai/dsh-client-ui-conversation/src/client/skeleton/ConversationRoot.tsx';
+import { ConversationWidthControls } from '@deepseek-ai/dsh-client-ui-conversation/src/client/skeleton/ConversationWidthControls.tsx';
+import { createNativeConversationPresentation } from '../helpers/NativeConversationPresentationBase.jsx';
 import '../../src/app/windows/styles/tokens.css';
 import '../../src/app/windows/styles/base.css';
 import '../../src/modules/chat/styles/chat-panel.css';
 import '../../src/modules/chat/styles/trajectory.css';
 import '../../src/mobile/mobile.css';
 
+const renderNativeContent = createNativeConversationPresentation(ConversationContent, ConversationWidthControls, ConversationRoot);
 const svgNamespace = 'http://www.w3.org/2000/svg', sprite = document.createElementNS(svgNamespace, 'svg');
 sprite.setAttribute('aria-hidden', 'true'); sprite.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden';
 for (const [id, markup] of Object.entries(ICON_SYMBOLS)) {
@@ -62,6 +67,7 @@ const view = { presets: { subscribe: () => () => {}, getSnapshot: () => presetSn
       : name.endsWith('.actions') ? <span data-slot={name}><Button size="sm"><IconAgentPresetOutlineRegular size={14} /><span>默认创作预设</span></Button></span>
       : name.endsWith('.utilities') ? <Button size="sm" aria-label="下载 Session 日志">日志</Button> : null}
     openView={openView} actions={{ completeViewRequest }} renderSlotChain={(_name, _owner, options) => options.fallback}
+    renderFactorySlot={(_name, owner) => renderNativeContent(owner.presentation)}
     renderSlot={(name, owner, options) => name === 'eleckoi.creator-studio.view' ? <div data-slot={name} data-view={options.only}>
       {options.only === 'trajectory' ? <TrajectoryView {...trajectoryProps} viewRequest={owner.viewRequest} completeViewRequest={owner.completeViewRequest} />
         : <p>合成对话正文</p>}</div> : name === 'eleckoi.creator-studio.composer.bar' ? <NativeComposer {...owner} /> : null} />,

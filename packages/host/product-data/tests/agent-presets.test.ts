@@ -14,12 +14,13 @@ import { agentPresetSchema } from '../../../shared/src/contracts/presets/schemas
 import { LEGACY_HIDDEN_TOOL_TIMELINE_CONTENT } from '../../../shared/src/contracts/presets/builtIns'
 import { ROLEPLAY_REPLY_GROUP_ID } from '../../../shared/src/contracts/agent/tools'
 import { emptyEntry } from '../src/domain/settingLibraries/index'
-import { HiddenToolTimelineFile, hiddenToolTimelineFileName } from '../src/HiddenToolTimelineFile'
+import { bundledHiddenToolTimeline, HiddenToolTimelineFile, hiddenToolTimelineFileName } from '../src/HiddenToolTimelineFile'
 import * as promptFiles from '../src/HiddenToolTimelineFile'
 import { hiddenTimelineSettingsPath } from '../src/domain/agentPresets/HiddenToolTimelineSettings'
 
 const databases: SqliteDatabase[] = []
 const directories: string[] = []
+const bundledRoleplayPrompt = readFileSync(bundledHiddenToolTimeline, 'utf8').replaceAll('\r\n', '\n').trimEnd()
 const avatarPng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
 
 afterEach(() => {
@@ -260,7 +261,7 @@ describe('agent preset repository', () => {
     expect(migrated.entries.find(item => item.kind === 'hidden_tool_timeline')?.title).toBe('隐藏工具调用过程')
     expect(prompt).toMatch(/^<roleplay_output_protocol>\n/)
     expect(prompt).toContain('\ntool_phase:')
-    expect(prompt).toMatch(/reply_phase:\n  output: "设定和变量准备后，每轮必须至少调用一次 eleckoi_roleplay_reply，选出本轮发言角色。下一步按工具给出的格式直接输出正文。"/)
+    expect(prompt).toBe(bundledRoleplayPrompt)
     expect(prompt).not.toMatch(/<FINAL>|final_phase|visible_output/)
     const storedVersionEntry = database.native.prepare('SELECT payloadJson FROM agent_preset_version_entries WHERE presetId = ? AND entryId = ?')
       .get(preset.id, 'built-in-hidden-tool-timeline') as { payloadJson: string }
@@ -309,7 +310,7 @@ describe('agent preset repository', () => {
     const reopened = new AgentPresetRepository(database)
     expect(database.native.pragma('user_version', { simple: true })).toBe(20)
     expect(reopened.get(preset.id).entries.find(item => item.id === entry.id))
-      .toMatchObject({ enabled: true, position: 'insert_point_2', content: expect.stringContaining('每轮必须至少调用一次') })
+      .toMatchObject({ enabled: true, position: 'insert_point_2', content: bundledRoleplayPrompt })
     const transferred = JSON.parse(Buffer.from(reopened.export(preset.id, 'json').base64, 'base64').toString('utf8'))
     expect(transferred.preset.versions[0].entries.find((item: { id: string }) => item.id === entry.id))
       .toMatchObject({ enabled: true, position: 'insert_point_4' })
@@ -411,7 +412,7 @@ describe('agent preset repository', () => {
       side: 'after_setting_position'
     }))
     expect(initial.entries.find((entry) => entry.kind === 'hidden_tool_timeline')).toMatchObject({
-      content: expect.stringContaining('设定和变量准备后，每轮必须至少调用一次 eleckoi_roleplay_reply'),
+      content: bundledRoleplayPrompt,
       position: 'insert_point_5',
       promptPositionId: 'hidden-tool-timeline'
     })
@@ -469,7 +470,7 @@ describe('agent preset repository', () => {
     expect(created.libraryGroupId).toBe(group?.id)
     expect(created.entries.map((entry) => entry.kind)).toEqual(['hidden_tool_timeline', 'history_compaction'])
     expect(created.entries.find((entry) => entry.kind === 'hidden_tool_timeline')?.content)
-      .toContain('设定和变量准备后，每轮必须至少调用一次 eleckoi_roleplay_reply')
+      .toBe(bundledRoleplayPrompt)
     expect(repository.setActive(created.id).activePresetIds.roleplay).toBe(created.id)
   })
 

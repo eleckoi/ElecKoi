@@ -182,7 +182,6 @@ jobs:
     needs: release
     runs-on: windows-latest
     timeout-minutes: 25
-    continue-on-error: true
     permissions:
       contents: read
     defaults:
@@ -222,7 +221,6 @@ jobs:
 
       - name: Check update discovery and reopening in wide and narrow windows
         id: updates
-        continue-on-error: true
         run: |
           $failedWidths = @()
           foreach ($probeWidth in @(1440, 1024)) {
@@ -252,7 +250,6 @@ jobs:
     needs: release
     runs-on: windows-latest
     timeout-minutes: 45
-    continue-on-error: true
     permissions:
       contents: read
     defaults:
@@ -286,7 +283,6 @@ jobs:
 
       - name: Run regression tests
         id: tests
-        continue-on-error: true
         run: pnpm test
 
       - name: Report the independent regression result

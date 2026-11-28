@@ -49,11 +49,11 @@ describe('mobile character library sorting and gestures', () => {
     expect(sortMobileCharacters(input, 'default')).toBe(input);
   });
   it('orders all 1001 cards by the displayed name and retains first, middle and last long values', () => {
-    const items = Array.from({ length: 1001 }, (_, index) => ({ id: `${index}`, name: 'Ignored', persona: { assistant_name: `合成角色 ${1000 - index} ${'资料'.repeat(1000)}` } }));
+    const items = Array.from({ length: 1001 }, (_, index) => ({ id: `${index}`, name: `合成角色 ${1000 - index} ${'资料'.repeat(1000)}`, persona: { assistant_name: '角色扮演名称' } }));
     const sorted = sortMobileCharacters(items, 'name', 'zh-CN');
     expect(sorted).toHaveLength(1001);
     expect([sorted[0].id, sorted[500].id, sorted[1000].id]).toEqual(['1000', '500', '0']);
-    expect(sorted[500].persona.assistant_name).toBe(items[500].persona.assistant_name);
+    expect(sorted[500].name).toBe(items[500].name);
   });
   it('persists the mobile sort preference, restores it on remount and exposes failed persistence', async () => {
     let snapshot = { status: 'ready', ui: { retained: 'value', mobile_character_sort: 'oldest' } };

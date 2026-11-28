@@ -25,7 +25,7 @@ function load(file, react = React) {
   runInNewContext(readFileSync(file, 'utf8'), {
     window: { __ModuleLoader__: { load: value => { registration = value; } },
       addEventListener: window.addEventListener.bind(window), removeEventListener: window.removeEventListener.bind(window) },
-    AbortController, document, getComputedStyle,
+    AbortController, document, getComputedStyle, CustomEvent,
   });
   return registration.factory(name => {
     if (name === 'react') return react;
@@ -33,6 +33,8 @@ function load(file, react = React) {
     return dependencies[name];
   });
 }
+
+dependencies['@deepseek-ai/dsh-client-ui-layout'] = load(require.resolve('@deepseek-ai/dsh-client-ui-layout/client'));
 
 it('passes the public SlotRegistry event subscription to the SDK application controller', async () => {
   const renderer = load(require.resolve('@deepseek-ai/dsh-client-ui-renderer/client'));
@@ -43,7 +45,7 @@ it('passes the public SlotRegistry event subscription to the SDK application con
     useState: () => [stateIndex++ === 0 ? ProductApp : '', () => {}],
     useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot(),
     useMemo: calculate => calculate(),
-    useEffect: () => {},
+    useEffect: () => {}, useCallback: callback => callback, useRef: value => ({ current: value }),
     createElement: (component, props, ...children) => ({ component, props, children }),
   });
   const ctx = new Cordis.Context();
@@ -51,12 +53,14 @@ it('passes the public SlotRegistry event subscription to the SDK application con
     await ctx.plugin({ name: 'synthetic-sdk-client-root', apply(owner) {
       new renderer.SlotRegistry(owner);
       owner.reflect.provide('locale', {
+        register: () => () => {},
         bind: () => key => key,
         subscribe: () => () => {}, getSnapshot: () => ({ revision: 0 }),
       });
       owner.reflect.provide('theme', {
         getTheme: () => ({ active: { colorScheme: 'light', tokens: {} }, fontSizes: { text: 15, code: 14, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' } }),
       });
+      owner.reflect.provide('shortcuts', { register: () => () => {} });
       for (const name of shell.inject.filter(name => !['slots', 'locale', 'theme'].includes(name))) {
         owner.reflect.provide(name, {});
       }
@@ -66,7 +70,8 @@ it('passes the public SlotRegistry event subscription to the SDK application con
     const root = ctx.slots.entriesOfSlot('root')[0];
     const injected = root.inject();
     expect(root.inject().subscribeSlots).toBe(injected.subscribeSlots);
-    const rendered = root.component({ ...injected, renderSlot: () => null });
+    const frame = root.component({ ...injected, renderSlot: () => null });
+    const rendered = frame.component(frame.props);
     const app = rendered.children[0].children[0];
     expect(app.component).toBe(ProductApp);
     expect(app.props.subscribeSlots).toBe(injected.subscribeSlots);
@@ -100,6 +105,7 @@ it('applies and releases all official theme font roles through startup and live 
       new renderer.SlotRegistry(owner);
       owner.reflect.provide('locale', { register: () => () => {}, bind: () => key => key });
       owner.reflect.provide('theme', { getTheme: () => snapshot });
+      owner.reflect.provide('shortcuts', { register: () => () => {} });
       for (const name of shell.inject.filter(name => !['slots', 'locale', 'theme'].includes(name))) owner.reflect.provide(name, {});
     } });
     const product = await ctx.plugin(shell);

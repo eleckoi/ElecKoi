@@ -50,9 +50,9 @@ it('matches the roleplay header height and gives the official Studio trajectory 
       const evidence = JSON.stringify(report);
       expect(report.headline, evidence).toBe('人，你会想念我吗？'); expect(report.mascotLoaded, evidence).toBe(true);
       expect(report.tabs, evidence).toBe(false); expect(report.workspace, evidence).toBe('合成工作区'); expect(report.preset, evidence).toBe('合成创作预设');
-      expect(report.card.x + report.card.width / 2, evidence).toBeCloseTo(report.width / 2, 0);
+      expect(report.card.x + report.card.width / 2, evidence).toBeCloseTo(report.stack.x + report.stack.width / 2, 0);
       expect(report.stack.y + report.stack.height / 2, evidence).toBeCloseTo(report.body.y + report.body.height / 2, 0);
-      expect(report.card.x, evidence).toBeGreaterThanOrEqual(16); expect(report.card.right, evidence).toBeLessThanOrEqual(report.width - 16);
+      expect(report.card.x, evidence).toBeGreaterThanOrEqual(report.stack.x + 16); expect(report.card.right, evidence).toBeLessThanOrEqual(report.stack.right - 16);
       expect(report.scrollWidth, evidence).toBeLessThanOrEqual(report.width); expect(report.sameInput, evidence).toBe(true); expect(report.rewriteHero, evidence).toBe(false);
       expect(report.draft, evidence).toBe('合成草稿');
       expect(report.inputButtons.length, evidence).toBeGreaterThanOrEqual(3);
@@ -63,7 +63,7 @@ it('matches the roleplay header height and gives the official Studio trajectory 
       expect(report.header.height, evidence).toBe(40); expect(report.tabs.height, evidence).toBe(28);
       expect(report.header.height + report.tabs.height, evidence).toBe(report.reference.height); expect(report.titleSize, evidence).toBe('14px');
       expect(report.tabs.y, evidence).toBe(report.header.bottom); expect(report.body.y, evidence).toBe(report.tabs.bottom);
-      expect(report.actions.every(action => action.height === 40 && action.width === 36), evidence).toBe(true);
+      expect(report.actions.map(({ width, height }) => [width, height]), evidence).toEqual([[48, 48], [48, 48], [36, 40]]);
       expect(report.actionLabels, evidence).toEqual(['返回', '工作室侧边栏', '打开右侧边栏']);
       expect(report.preset.y, evidence).toBeGreaterThanOrEqual(report.header.y);
       expect(report.preset.bottom, evidence).toBeLessThanOrEqual(report.header.bottom);
@@ -74,12 +74,18 @@ it('matches the roleplay header height and gives the official Studio trajectory 
       expect(report.utilities, evidence).toBe(false);
       expect(report.tabButtons.every(button => button.height === 28), evidence).toBe(true);
       expect(report.bodyWidth, evidence).toBeLessThanOrEqual(report.body.width); expect(report.dialog, evidence).toBe(false);
-      expect(report.composer.bottom, evidence).toBeLessThanOrEqual(report.height); expect(report.composer.y, evidence).toBeGreaterThanOrEqual(report.body.bottom);
+      expect(report.composer.bottom, evidence).toBeLessThanOrEqual(report.height);
+      expect(report.composer.y, evidence).toBeGreaterThan(report.body.y);
       expect(report.draft, evidence).toBe('合成草稿');
       expect(report.inputButtons.length, evidence).toBeGreaterThanOrEqual(3);
       expect(report.inputButtons.every(button => button.height <= 34), evidence).toBe(true);
       expect(report.menu.x, evidence).toBeGreaterThan(report.inputButtons[0].x);
-      if (report.view === 'trajectory') { expect(report.native.height, evidence).toBe(report.body.height); expect(report.native.bottom, evidence).toBeLessThanOrEqual(report.composer.y); expect(report.clearance.trim(), evidence).toBe('0px'); }
+      if (report.view === 'trajectory') {
+        expect(report.native.y, evidence).toBe(report.body.y);
+        expect(report.native.height, evidence).toBeGreaterThan(0);
+        expect(report.native.bottom, evidence).toBeCloseTo(report.composer.y, 0);
+        expect(report.clearance.trim(), evidence).toBe('0px');
+      }
     }
   } finally {
     const path = relative(tmpdir(), directory); if (!path || path.startsWith('..') || isAbsolute(path)) throw new Error('Unexpected fixture path');

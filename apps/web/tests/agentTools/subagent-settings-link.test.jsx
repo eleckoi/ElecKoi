@@ -63,15 +63,15 @@ describe('subagent settings navigation', () => {
     try {
       await act(async () => renderEditor(false));
       await act(async () => container.querySelector('.preset-tool-summary').click());
-      expect(document.body.querySelector('.preset-tool-config-dialog')).toBeTruthy();
+      expect(document.body.querySelector('.preset-tools-modal')).toBeTruthy();
 
       await act(async () => renderEditor(true));
-      await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
-      expect(document.body.querySelector('.preset-tool-config-dialog')).toBeTruthy();
+      await act(async () => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+      expect(document.body.querySelector('.preset-tools-modal')).toBeTruthy();
 
       await act(async () => renderEditor(false));
-      await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
-      expect(document.body.querySelector('.preset-tool-config-dialog')).toBeNull();
+      await act(async () => document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+      expect(document.body.querySelector('.preset-tools-modal')).toBeNull();
     } finally {
       await act(async () => root.unmount());
     }

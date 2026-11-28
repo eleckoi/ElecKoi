@@ -29,9 +29,11 @@ function readLayout(width, theme) {
     result.fonts.directory = font('.vm-directory-select');
     result.fonts.selectedDirectory = font('.vm-directory-row.selected .vm-directory-select');
     const indicator = style('.vm-tabs > [aria-selected="true"]', '::after');
-    const search = '.vm-toolbar > span';
+    const search = '.vm-toolbar-search';
+    const input = find(`${search} input`);
+    input.blur();
     const searchBorder = style(search).borderTopColor;
-    find(`${search} input`).focus();
+    input.focus();
     result.readability = {
       indicator: parseFloat(indicator.height) >= 2 && indicator.backgroundColor !== 'rgba(0, 0, 0, 0)',
       selectedDirectory: style('.vm-directory-row.selected').backgroundColor !== style('.vm-directory-row:not(.selected)').backgroundColor,
@@ -39,11 +41,11 @@ function readLayout(width, theme) {
       tableBorder: borderVisible('.vm-browser', 'Top') && borderVisible('.vm-directory', 'Right'),
       versionBorder: borderVisible('.vm-config-trigger', 'Top'),
       searchBorder: borderVisible(search, 'Top'),
-      searchFocus: style(search).borderTopColor !== searchBorder,
+      searchFocus: document.activeElement === input && style(search).borderTopColor !== searchBorder,
       searchPlaceholder: style(`${search} input`, '::placeholder').color,
       searchBackground: style(search).backgroundColor,
     };
-    find(`${search} input`).blur();
+    input.blur();
   }
   return result;
 }

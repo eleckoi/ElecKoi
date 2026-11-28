@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatView, chatFixture, userNode, turnNode, ManualCompactionNodeView } from '../helpers/officialChatView.jsx'
 import { MessageList } from '../helpers/officialMarkdown.jsx'
 import { selectRoleplayChatSeat, selectRoleplayPendingInput } from '../../src/modules/chat/model/chatViewSeats.js'
+import { ChatPanel } from '../../src/modules/chat/components/ChatPanel.jsx'
+import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx'
 import { officialChatFixture } from '../../../../tests/helpers/officialTrajectory.js'
 import { interruptedTurnClosers } from '@deepseek-ai/dsh-session'
 import { HistoricalImageCache } from '@deepseek-ai/dsh-client-ui-conversation/src/client/conversation/historical-images.ts'
@@ -170,35 +172,42 @@ describe('official ChatView with roleplay presentation', () => {
       await view.render([message], { ...snapshot, session: { ...view.fixture.state.session, running: true } })
       expect(view.scroller.querySelectorAll('.message-flow-row')).toHaveLength(2)
       expect(view.scroller.textContent.match(/Synthetic retained input/g)).toHaveLength(1)
-      expect(view.scroller.querySelectorAll('[aria-label="查看处理过程：正在自动压缩"]')).toHaveLength(layoutMode === 'agent' ? 1 : 0)
+      expect(view.scroller.querySelector('[aria-label="查看处理过程：正在自动压缩"]')).toBeNull()
       const oldControl = [...snapshot.nodes.values()].find(node => node.kind === 'turn-process' && node.data.turn === 1)
       expect(view.scroller.querySelector(`[data-chat-node-key="${oldControl.key}"] .message-flow-row`)).toBeNull()
     } finally { await view.close() }
   })
 
-  it('opens the live process owner from the Agent message row during compaction', async () => {
-    const view = mountChat()
-    view.rowProps.layoutMode = 'agent'
-    let selectedMessage
-    view.rowProps.onOpenProcess = message => { selectedMessage = message }
-    const control = turnNode('synthetic-process', 2)
+  it('opens the live process owner above the composer during Agent compaction', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
     const compaction = { id: 'compaction:9', kind: 'compaction', status: 'running', toolName: 'compaction',
       arguments: '', summary: '', detail: '', startedAtMillis: 900 }
     const message = { id: 'synthetic-live', runtimeSessionId: 'session-render',
       renderKey: 'dsh-reply-session-render-2', dshTurn: 2, role: 'assistant',
       pending: true, status: 'streaming', content: '', process: [compaction] }
+    const scrollRef = { current: null }
+    const render = reply => act(async () => root.render(<ChatPanel hasActiveChat
+      currentTitle="合成角色" conversationId="synthetic-chat" runtimeSessionId={reply.runtimeSessionId}
+      persona={{}} messages={[reply]} input="" setInput={() => {}} modelConfigs={[]} isSending={reply.pending} scrollRef={scrollRef}
+      chatDisplay={{ layout: 'agent' }} renderConversationContent={renderNativeConversationContent} />))
     try {
-      await view.render([message], { order: [control.key], nodes: new Map([[control.key, control]]) })
-      const button = view.scroller.querySelector('[aria-label="查看处理过程：正在自动压缩"]')
+      await render(message)
+      const button = container.querySelector('[data-chat-running-seat] [aria-label="查看处理过程：正在自动压缩"]')
       expect(button).not.toBeNull()
       await act(async () => button.click())
-      expect(selectedMessage.process).toEqual([compaction])
+      const dialog = document.querySelector('[role="dialog"][aria-label="处理过程"]')
+      expect(dialog).not.toBeNull()
+      await act(async () => dialog.querySelector('.roleplay-process-close').click())
       const completed = { ...message, process: [{ ...compaction, status: 'complete', completedAtMillis: 1200,
         detail: 'Synthetic compacted summary' }] }
-      await view.render([completed])
-      expect(view.scroller.textContent).toContain('上下文已自动压缩')
-      expect(view.scroller.textContent).not.toContain('正在自动压缩')
-    } finally { await view.close() }
+      await render(completed)
+      expect(container.querySelector('[data-chat-running-seat]').textContent).toContain('上下文已自动压缩')
+      expect(container.textContent).not.toContain('正在自动压缩')
+      await render({ ...completed, pending: false })
+      expect(container.querySelector('[data-chat-running-seat]').childElementCount).toBe(0)
+    } finally { await act(async () => root.unmount()) }
   })
   it('does not render a separate automatic compression checkpoint after the AI row', () => {
     expect(selectRoleplayChatSeat([], 'session-render', {

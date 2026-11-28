@@ -6,10 +6,12 @@ const directory = process.argv[2], reportPath = process.argv[3];
 const mobileOnly = process.argv.includes('--mobile-caret');
 app.setPath('userData', join(directory, 'browser-profile')); app.disableHardwareAcceleration(); app.commandLine.appendSwitch('force-device-scale-factor', '1');
 app.whenReady().then(async () => {
-  const win = new BrowserWindow({ show: false, width: 1480, height: 970, webPreferences: { sandbox: true, backgroundThrottling: false, offscreen: true } });
+  const win = new BrowserWindow({ show: false, width: 1480, height: 970, webPreferences: { sandbox: true, backgroundThrottling: false } });
   const errors = [], measurements = [], actions = {};
+  let stage = mobileOnly ? 'mobile' : 'desktop';
   win.webContents.on('console-message', ({ level, message }) => { if (level === 'error') errors.push(message); });
   const run = code => win.webContents.executeJavaScript(code), pause = () => new Promise(resolve => setTimeout(resolve, 180));
+  const frames = () => run('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   const check = (value, message) => { if (!value) throw Error(message); };
   const wait = async selector => { for (let i = 0; i < 80; i++) { if (await run(`!!document.querySelector(${JSON.stringify(selector)})`)) return; await pause(); } throw Error('Missing ' + selector); };
   const click = async selector => { await wait(selector); await run(`document.querySelector(${JSON.stringify(selector)}).click()`); await pause(); };
@@ -22,23 +24,26 @@ app.whenReady().then(async () => {
       window.mobileCaretView = view;
       const { from, to } = view.state.doc.line(view.state.doc.lines - 8);
       view.focus();
-      view.dispatch({ selection: { anchor: from + 1, head: to }, effects: view.constructor.scrollIntoView(to, { y: 'end', yMargin: 22 }) });
+      view.dispatch({ effects: view.constructor.scrollIntoView(to, { y: 'end', yMargin: 22 }) });
       return { anchor: from + 1, head: to };
     })()`);
-    await pause();
+    await frames();
+    await run(`window.mobileCaretView.dispatch({ selection: ${JSON.stringify(selection)} })`);
+    await frames();
     const measureCaret = `(() => {
       const view = window.mobileCaretView;
       const {anchor, head} = view.state.selection.main;
       const coords = view.coordsAtPos(head);
       const {top, bottom} = view.scrollDOM.getBoundingClientRect();
-      return {anchor, head, top, bottom, caret: coords?.bottom, focused: document.activeElement === view.contentDOM};
+      return {anchor, head, top, bottom, caret: coords?.bottom, focused: document.activeElement === view.contentDOM, viewport: [innerHeight,visualViewport.height]};
     })()`;
     const before = await run(measureCaret);
-    check(before.caret > 420 && before.caret <= Math.min(before.bottom, 820), label + ' selection must start visible near the bottom: ' + JSON.stringify(before));
+    check(before.focused && before.anchor === selection.anchor && before.head === selection.head
+      && before.caret > 420 && before.caret <= Math.min(before.bottom, 820), label + ' selection must start visible near the bottom: ' + JSON.stringify(before));
     for (const height of [420, 335]) {
       if (visualOnly) await run(`Object.defineProperty(visualViewport, 'height', { value: ${height}, configurable: true }); visualViewport.dispatchEvent(new Event('resize'))`);
       else win.setContentSize(390, height);
-      await pause();
+      await frames();
       const after = await run(measureCaret);
       check(after.focused && after.anchor === selection.anchor && after.head === selection.head
         && after.caret > Math.max(0, after.top) && after.caret <= Math.min(after.bottom, height),
@@ -117,17 +122,24 @@ app.whenReady().then(async () => {
       calls: window.saveCalls, notice: window.mobileNotice, error: document.querySelector('.preset-content-error')?.textContent })`);
     check(presetSave.saved, 'Preset note edit should save after the keyboard resize: ' + JSON.stringify(presetSave));
     await run(`delete visualViewport.height; visualViewport.dispatchEvent(new Event('resize'))`);
-    await pause();
+    await frames();
     check(await run(`!document.querySelector('.mobile-preset-editor').style.maxHeight`), 'Closing the keyboard should restore the full preset editor height');
     actions.mobilePresetUpdate = true;
   }
   try {
     if (mobileOnly) await mobileMultiline();
     for (const kind of mobileOnly ? [] : ['setting', 'variable', 'character-openings']) for (const mode of ['multi', 'single']) {
+      stage = `${kind}/${mode}`;
+      writeFileSync(reportPath, JSON.stringify({ status: 'running', stage, measurements, actions }));
       await win.loadURL(pathToFileURL(join(directory, `${kind}.html`)).href + '?long=' + mode); await wait('.character-editor-navigation');
       await textClick('.character-editor-navigation button', kind === 'setting' ? '设定库' : kind === 'variable' ? '变量' : '开场白');
       if (kind === 'variable') { await wait('.variable-tree-label'); await textClick('.variable-tree-label', '好感度'); }
-      else if (kind === 'setting') { await wait('.setting-library-tree-label'); await textClick('.setting-library-tree-label', '合成人设'); }
+      else if (kind === 'setting') {
+        await click('.setting-library-tree-label[title="合成人设"]');
+        if (!await run('!!document.querySelector(".cm-content[aria-label=设定正文]")')) {
+          await textClick('.setting-view-switch button', '正文');
+        }
+      }
       await wait('.cm-editor'); await pause();
       for (const label of kind !== 'variable' ? ['正文'] : ['说明', '更新规则']) {
         const actualLabel = await run(`(() => { const labels=[...document.querySelectorAll('[role=textbox]')].map(e=>e.getAttribute('aria-label'));return ${JSON.stringify(kind)}!=='variable'?labels[0]:${JSON.stringify(label)}; })()`);
@@ -142,10 +154,25 @@ app.whenReady().then(async () => {
       await click(kind === 'character-openings' ? '.setting-library-save-button' : '.setting-document-save'); check(await run('document.querySelector(".setting-library-save-button").disabled'), 'Long field unified save failed');
       if (kind === 'setting') check(await run('window.workspaceSaved().role.entries[0].content.endsWith("末尾保留")'), 'Setting tail was not saved');
       else if (kind === 'variable') check(await run('window.variableWorkspaceSaved().variables[0].description.endsWith("末尾保留") && window.variableWorkspaceSaved().variables[0].updateRule.endsWith("末尾保留")'), 'Variable long fields were not saved');
-      if (kind === 'character-openings') check(await run('window.openingSaved().openingMessages[0].content.endsWith("末尾保留")'), 'Opening tail was not saved');
+      if (kind === 'character-openings') {
+        check(await run('window.openingSaved().openingMessages[0].content.endsWith("末尾保留")'), 'Opening tail was not saved');
+        const search = value => run(`(() => {
+          const input = document.querySelector('[aria-label="搜索开场白"]');
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)});
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        })()`);
+        await search('这里没有对应的正文');
+        await wait('.opening-list-empty');
+        await search('末尾保留');
+        await wait('.opening-list-item');
+      }
       actions[`${kind}-${mode}-save`] = true;
-      await run('document.getAnimations().forEach(a=>a.finish())'); writeFileSync(join(directory, `${kind}-${mode}.png`), (await win.webContents.capturePage()).toPNG());
     }
     check(!errors.length, errors.join('\n')); writeFileSync(reportPath, JSON.stringify({ status: 'passed', errors, measurements, actions }, null, 2)); win.destroy(); app.exit(0);
-  } catch (error) { writeFileSync(join(directory, 'failure.png'), (await win.webContents.capturePage()).toPNG()); console.error(JSON.stringify({ message: error.message, errors, measurements, actions })); writeFileSync(reportPath, JSON.stringify({ status: 'failed', message: error.message, errors, measurements, actions }, null, 2)); win.destroy(); app.exit(1); }
+  } catch (error) {
+    writeFileSync(reportPath, JSON.stringify({ status: 'failed', stage, message: error.message, errors, measurements, actions }, null, 2));
+    console.error(error);
+    win.destroy();
+    app.exit(1);
+  }
 });

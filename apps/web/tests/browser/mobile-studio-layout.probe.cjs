@@ -24,7 +24,7 @@ app.whenReady().then(async () => {
         await evaluate(`[...document.querySelectorAll('.creator-studio-view-tabs button')].find(button=>button.textContent==='${tab}').click()`);
         await wait(`document.querySelector('.creator-studio-view-tabs [aria-selected="true"]').textContent==='${tab}'`);
         await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
-        const report = await evaluate(`(()=>{const rect=node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}},page=document.querySelector('.mobile-creator-studio-page'),title=page.querySelector('.mobile-header'),tabs=page.querySelector('.creator-studio-view-tabs'),body=page.querySelector('.creator-studio-chat-scroll'),native=body.querySelector('[data-conversation-composer-overlay]'),composer=page.querySelector('[data-composer-seat]');return {
+        const report = await evaluate(`(()=>{const rect=node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom}},page=document.querySelector('.mobile-creator-studio-page'),title=page.querySelector('.mobile-header'),tabs=page.querySelector('.creator-studio-view-tabs'),body=page.querySelector('[data-conversation-scroll]'),native=body.querySelector('.creator-studio-trajectory'),composer=page.querySelector('[data-composer-seat]');return {
           header:rect(title),tabs:rect(tabs),titleSize:getComputedStyle(title.querySelector('h1')).fontSize,reference:rect(document.querySelector('[data-roleplay-header]')),
           actions:[...title.querySelectorAll('button[aria-label]')].map(rect),actionLabels:[...title.querySelectorAll('button[aria-label]')].map(b=>b.getAttribute('aria-label')),
           actionColors:[...title.querySelectorAll('button[aria-label]')].map(b=>getComputedStyle(b).color),textColor:getComputedStyle(title.querySelector('h1')).color,
@@ -32,7 +32,7 @@ app.whenReady().then(async () => {
           utilities:!!page.querySelector('[aria-label="下载 Session 日志"]'),tabButtons:[...tabs.querySelectorAll('button')].map(rect),body:rect(body),native:native?rect(native):null,
           bodyWidth:body.scrollWidth,composer:rect(composer),draft:composer.querySelector('[data-composer-input]').textContent,dialog:!!page.querySelector('.creator-studio-native-detail'),
           inputButtons:[...composer.querySelectorAll('[data-composer-card] button')].map(rect),menu:rect(composer.querySelector('[aria-label="工作室菜单"]')),
-          clearance:getComputedStyle(body).getPropertyValue('--dsh-composer-height'),view:body.querySelector('[data-view]').dataset.view}})()`);
+          clearance:native?getComputedStyle(native).getPropertyValue('--dsh-composer-height'):null,view:body.querySelector('[data-view]').dataset.view}})()`);
         reports.push({ width, height, theme, tab, ...report });
         if (width === 390 && height === 844 && theme === 'light') writeFileSync(join(dirname(reportPath), `${report.view}.png`), (await win.webContents.capturePage()).toPNG());
         if (process.env.ELECKOI_MOBILE_STUDIO_SCREENSHOTS && height === 844 && tab === '对话') {

@@ -19,7 +19,7 @@ it('restores the approved mobile drawer presentation on the retained official fr
   await writeFile(resolve(dir,'fixture.html'),`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${browserThemeCss()}</style><link rel="stylesheet" href="fixture.css"></head><body><div id="root" style="height:100vh"></div><script src="fixture.js"></script></body></html>`);
   const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;let failure;
   try{await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/mobile-drawer-presentation.probe.cjs'),resolve(dir,'fixture.html'),resolve(dir,'report.json')],{env,timeout:45000,windowsHide:true});}catch(e){failure=e;}
-  const report=JSON.parse(await readFile(resolve(dir,'report.json'),'utf8')),evidence=resolve('build/mobile-drawer-restore-check');await mkdir(evidence,{recursive:true});await copyFile(resolve(dir,'report.json'),resolve(evidence,'browser.json'));
+  const report=JSON.parse(await readFile(resolve(dir,'report.json'),'utf8').catch(error=>{throw failure??error;})),evidence=resolve('build/mobile-drawer-restore-check');await mkdir(evidence,{recursive:true});await copyFile(resolve(dir,'report.json'),resolve(evidence,'browser.json'));
   if(report.passed)await copyFile(resolve(dir,'drawer-open-dark.png'),resolve(evidence,'drawer-open-dark.png'));
   expect(failure,JSON.stringify(report)).toBeUndefined();expect(report.errors).toEqual([]);expect(report.cases).toHaveLength(8);
   for(const row of report.cases){

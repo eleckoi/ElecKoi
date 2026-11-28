@@ -24,6 +24,7 @@ app.whenReady().then(async()=>{
         const controls=[...bar.children].filter(node=>getComputedStyle(node).display!=='none').map(r).filter(r=>r.width>0);
         return {theme:${JSON.stringify(theme)},width:${width},active:${active},overlap:controls.some((r,i)=>i>0&&r.left<controls[i-1].right-.5),overflow:bar.scrollWidth>bar.clientWidth||controls.some(r=>r.right>innerWidth)||document.documentElement.scrollWidth>innerWidth,
           tabHeight:r(tabs).height,importHeight:r(root.querySelector('[aria-label="导入前端包"]')).height,
+          importDrift:Math.abs(r(tabs).top+r(tabs).height/2-r(root.querySelector('[aria-label="导入前端包"]')).top-r(root.querySelector('[aria-label="导入前端包"]')).height/2),
           indicatorDrift:Math.abs(indicator.y+indicator.height/2-tab.y-tab.height/2),labelDrift:Math.abs(label.y+label.height/2-tab.y-tab.height/2),
           divider:parseFloat(getComputedStyle(bar).borderBottomWidth)>0,join:Math.abs(body.top-r(bar).bottom)<1,rendered:root.querySelectorAll('.cf-directory-row').length,
           toolbarIcons:[...bar.querySelectorAll('svg[data-icon]')].map(icon=>{const bounds=icon.getBBox();return{id:icon.dataset.icon,painted:bounds.width>0&&bounds.height>0,resolved:!!root.ownerDocument.getElementById(icon.dataset.icon)};}),
@@ -63,14 +64,15 @@ app.whenReady().then(async()=>{
     await run(`packageSeat.querySelector('[aria-label="前端包更多操作"]').click()`);await wait(`!!document.querySelector('[role=menu]')`);
     const menu=await run(`document.querySelector('[role=menu]').getBoundingClientRect().right<=innerWidth`);
     const originalIconHeight=await run(`packageSeat.querySelector('[aria-label="前端包更多操作"] svg').getBBox().height`);
-    const themedIcon=await run(`(()=>{const symbol=document.getElementById('dsw-icon-ellipsis-outline-regular');const shape=document.createElementNS('http://www.w3.org/2000/svg','rect');shape.setAttribute('x','2');shape.setAttribute('y','2');shape.setAttribute('width','12');shape.setAttribute('height','12');symbol.replaceChildren(shape);return symbol.outerHTML;})()`);
-    await wait(`document.getElementById('dsw-icon-ellipsis-outline-regular')?.outerHTML===${JSON.stringify(themedIcon)}`);
+    const optionsIcon = 'dsw-icon-sliders-two-outline-regular';
+    const themedIcon=await run(`(()=>{const symbol=document.getElementById('${optionsIcon}');const shape=document.createElementNS('http://www.w3.org/2000/svg','rect');shape.setAttribute('x','2');shape.setAttribute('y','2');shape.setAttribute('width','12');shape.setAttribute('height','12');symbol.replaceChildren(shape);return symbol.outerHTML;})()`);
+    await wait(`document.getElementById('${optionsIcon}')?.outerHTML===${JSON.stringify(themedIcon)}`);
     await paint();
     const themeUpdate=await run(`(()=>{const box=packageSeat.querySelector('[aria-label="前端包更多操作"] svg').getBBox();return box.width>0&&box.height>${originalIconHeight};})()`);
     await run(`window.previousPackageSeat=packageSeat;const sprite=document.querySelector('[data-dsh-icon-sprite]');window.replacementSprite=sprite.cloneNode(true);sprite.remove()`);
     await wait(`!document.querySelector('svg[data-dsh-icon-sprite]')`);
     await run(`document.body.prepend(window.replacementSprite)`);
-    await wait(`document.getElementById('dsw-icon-ellipsis-outline-regular')?.outerHTML===${JSON.stringify(themedIcon)}`);
+    await wait(`document.getElementById('${optionsIcon}')?.outerHTML===${JSON.stringify(themedIcon)}`);
     const sourceRemount=true;
     await run(`window.renderPackages(false,true)`);await paint();
     const emptyImports=await run(`packageSeat.querySelectorAll('[aria-label="导入前端包"]').length`);

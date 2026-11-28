@@ -12,7 +12,7 @@ let root, container, draft;
 beforeEach(async () => {
   container = document.createElement('div'); document.body.append(container); root = createRoot(container);
   function Harness() {
-    const [entry, setEntry] = useState(() => ({ ...createEntryDraft('', 1, []), id:'synthetic-entry', title:'合成条目', triggerMode:'agent_tool', agentReadStrategy:'keyword' }));
+    const [entry, setEntry] = useState(() => ({ ...createEntryDraft('', 1, []), id:'synthetic-entry', title:'合成条目', enabled:true, triggerMode:'agent_tool', agentReadStrategy:'keyword' }));
     draft = entry;
     return <SettingLibraryDocument selected={{kind:"entry",value:entry}} library={{entries:[entry],promptPositions:[]}} onUpdateEntry={setEntry} onEntriesChange={() => {}} />;
   }

@@ -62,7 +62,7 @@ async function click(label, scope = document.body) {
   expect(button, label).toBeTruthy(); await act(async () => button.click());
 }
 const scenarios = [
-  { section: '设定库', model: 'settingLibraries', choice: '设定', newName: '新建设定', rows: '.setting-library-tree-row',
+  { section: '设定库', model: 'settingLibraries', choice: '新建设定', newName: '新建设定', rows: '.setting-library-tree-row',
     count: value => value.entries.length },
   { section: '变量', model: 'variables', choice: '变量', newName: '新建变量', rows: '.variable-tree-row',
     count: value => value.variables.length },

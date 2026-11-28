@@ -10,6 +10,7 @@ import { EditorCollectionToolbar } from '../../../ui/ui/EditorCollectionControls
 import { EditorField } from '../../../ui/ui/EditorLibraryFields.jsx';
 import { OptionalEditorVersionField } from '../../../ui/ui/EditorVersionPicker.jsx';
 import { EditorContextMenu, useEditorContextMenu } from '../../../ui/ui/EditorContextMenu.jsx';
+import { conversationPreviewText } from '../../../ui/messages/conversationPreviewText.js';
 import { FailureAlert } from '../../../ui/ui/FailureAlert.jsx';
 import { OpeningBodyEditor } from './OpeningBodyEditor.jsx';
 import { createBackupOpening, duplicateOpening, moveBackupOpening, primaryFirstOpeningMessages, updateOpening, updateOpeningSegments } from '../model/openingEditing.js';
@@ -100,7 +101,7 @@ export const OpeningWorkspace = forwardRef(function OpeningWorkspace({ entry, ch
           <button type="button" className="opening-list-main" disabled={busy} aria-current={selectedId === message.id ? 'true' : undefined} title={message.title || tUi('未命名开场白')}>
             <ChatCircleDots size={17} />
             <span className="opening-card-copy"><span className="opening-list-name">{message.title || tUi('未命名开场白')}</span>
-              {!compact && <span className="opening-card-excerpt">{message.content.trim() || tUi('暂无正文')}</span>}
+              {!compact && <span className="opening-card-excerpt">{conversationPreviewText(message.content.trimStart().slice(0, 1024)) || tUi('暂无正文')}</span>}
             </span>
             {message.id === messages[0].id && <span className="opening-primary-label">{tUi('主开场白')}</span>}
           </button>

@@ -35,6 +35,12 @@ function packageSource(name) {
         }
     };
     visit(resolve(bundleRoot(name), 'src'));
+    if (name === '@eleckoi/dsh-client-shell') {
+        expect(files.some(source => source.includes("require('@deepseek-ai/dsh-client-ui-layout')")
+            && source.includes('officialLayout.apply(scope.extend({ slots: scopedSlots, reflect }))'))).toBe(true);
+        const require = createRequire(import.meta.url);
+        files.push(readFileSync(resolve(require.resolve('@deepseek-ai/dsh-client-ui-layout/client'), '../../src/client/index.ts'), 'utf8'));
+    }
     // Bundle contributions can be implemented by an explicitly inserted workspace package.
     const patch = bundleManifest(name).dsh?.bundle?.patch;
     if (patch) {
@@ -65,6 +71,7 @@ function inventory(face) {
             getSnapshot: () => ({ revision: 0 }),
         },
         inject: () => {},
+        plugin: () => {},
         effect: () => { },
         reflect: { provide: () => () => {} },
         slots: {
@@ -231,8 +238,7 @@ describe('ElecKoi built-in bundle details', () => {
     });
     it('publishes shipped bundles even when they are not installed into the user profile', () => {
         let registration;
-        let rootComponent;
-        let firstEffect = true;
+        let rootEntry;
         const effects = [];
         const observable = (value) => ({ subscribe: () => () => { }, getSnapshot: () => value });
         const face = {
@@ -249,38 +255,41 @@ describe('ElecKoi built-in bundle details', () => {
             entriesOfSlot: (name) => name === 'main' ? [{ options: { key: 'plugins' }, inject: () => face }] : [],
             inject: (_name, register) => register(),
             register: (options, component) => { if (options.name === 'root')
-                rootComponent = component; return () => { }; },
+                rootEntry = { options, component }; return () => { }; },
         };
         const react = {
-            lazy: () => () => null, createElement: () => null,
+            ...React,
+            lazy: () => () => null, createElement: (type, props) => ({ type, props }),
             useState: () => [null, () => { }], useMemo: (calculate) => calculate(),
+            useCallback: callback => callback, useRef: value => ({ current: value }),
             useSyncExternalStore: (_subscribe, read) => read(),
             useEffect: (run, deps) => effects.push({ run, deps }),
         };
         const original = window.__ModuleLoader__;
         try {
-            ;
             window.__ModuleLoader__ = { load: (value) => { registration = value; } };
+            const require = createRequire(import.meta.url);
+            runInNewContext(readFileSync(require.resolve('@deepseek-ai/dsh-client-ui-layout/client'), 'utf8'), { window, AbortController });
+            const layout = registration.factory(name => ({
+                'react': React, 'react/jsx-runtime': Jsx, '@deepseek-ai/dsh-client-store': Store,
+            })[name]);
             runInNewContext(readFileSync(resolve('packages/client/features/dsh-client-shell/src/client.js'), 'utf8'), { window, CustomEvent, AbortController });
-            registration.factory((name) => name === 'react' ? react : primitives).apply({
+            const locale = { ...observable({ revision: 0 }), register: () => () => {}, bind: () => key => key };
+            const theme = { getTheme: () => ({ active: { colorScheme: 'light', tokens: {} }, fontSizes: {}, fontFamilies: {} }) };
+            registration.factory(name => name === 'react' ? react : name === '@deepseek-ai/dsh-client-ui-layout' ? layout : primitives).apply({
                 inject: () => {},
                 slots, reflect: { provide: () => () => { } },
-                effect: (run) => { if (firstEffect) {
-                    firstEffect = false;
-                    run();
-                } },
-            });
-            rootComponent({
-                slots,
-                layout: {
-                    panelInfo: observable({ activePanelId: 'plugins' }),
-                    rightbarInfo: observable({ shown: false }),
-                    setViewportWidth: () => { },
-                    setRightbar: () => { },
+                effect: () => {},
+                plugin: plugin => {
+                    const scope = { locale, theme, slots, reflect: { provide: () => () => {} },
+                        shortcuts: { register: () => () => {} }, get: () => undefined,
+                        on: () => () => {}, effect: (run, description) => { if (description === 'ui-layout: service + root registration') run(); },
+                        extend: overrides => ({ ...scope, ...overrides }) };
+                    plugin.apply(scope);
                 },
-                locale: { ...observable({ revision: 0 }), bind: () => key => key },
-                renderSlot: () => null,
             });
+            const product = rootEntry.component({ ...rootEntry.options.inject(), renderSlot: () => null });
+            product.type(product.props);
             let published;
             const receive = (event) => { published = event.detail; };
             window.addEventListener('eleckoi:dsh-plugins:state', receive);
