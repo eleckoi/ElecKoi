@@ -1,7 +1,7 @@
 import { DEEPSEEK_DEFAULT_COUNT } from '@deepseek-ai/dsh-web-deepseek-api'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import { readSessionInspection, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
-import { executeToolCall, hasRoleplayReplyResult, streamRoleplayReply, streamNextRoleplayReply } from '../helpers/tool-call.js'
+import { executeToolCall, streamRoleplayReply } from '../helpers/tool-call.js'
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
@@ -31,7 +31,7 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-preset-position-profile-'))
   cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
   let f = await start(platform, root)
-  const requests = [], continuations = []
+  const requests = []
   const plainInput = '合成普通正文输入', plainReply = '合成普通正文'
   let replies = 0
   class Adapter extends LlmAdapter {
@@ -43,14 +43,9 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
         yield { type: 'finish', reason: { kind: 'stop' } }
         return
       }
-      if (hasRoleplayReplyResult(request)) {
-        continuations.push(request.messages)
-        yield* streamNextRoleplayReply(request)
-      } else {
-        requests.push(request.messages)
-        expect(request.tools.some(tool => tool.name === ROLEPLAY_REPLY_TOOL)).toBe(true)
-        yield* streamRoleplayReply(`合成回复 ${++replies}`, request)
-      }
+      requests.push(request.messages)
+      expect(request.tools.some(tool => tool.name === ROLEPLAY_REPLY_TOOL)).toBe(true)
+      yield* streamRoleplayReply(`合成回复 ${++replies}`, request)
     }
   }
   const provider = 'synthetic-preset-position'
@@ -101,13 +96,6 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
     ])
     const hiddenPrompt = { role: 'user', content: [{ type: 'text', text: activePrompt }] }
     expect(requests.at(-1).at(-1)).toMatchObject(hiddenPrompt)
-    expect(continuations).toHaveLength(requests.length)
-    expect(continuations.at(-1).slice(-4)).toMatchObject([
-      { role: 'assistant', content: [{ type: 'tool-call', name: ROLEPLAY_REPLY_TOOL }] },
-      { role: 'tool', content: [{ type: 'text', text: expect.stringContaining('<角色名>对应的角色扮演内容</角色名>') }] },
-      { role: 'user', content: [{ type: 'text', text: tail.name }] },
-      hiddenPrompt
-    ])
   }
   await send(first)
   verifyRequest(first)
@@ -137,10 +125,11 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   const regenerated = await inspect()
   expect(userEvents(regenerated).map(event => event.data.id)).toEqual([retainedInput.data.id, retryInput.data.id])
   const assistantText = events => roleplayReplyMessages(events).map(reply => reply.content)
-  const rawModelText = events => events.filter(event => event.type === 'assistant/message')
-    .flatMap(event => event.data.message.content.filter(block => block.type === 'text' && block.text).map(block => block.text))
+  const rawReplies = events => events.filter(event => event.type === 'assistant/message')
+    .flatMap(event => event.data.message.content.filter(block => block.type === 'tool-call' && block.name === ROLEPLAY_REPLY_TOOL)
+      .map(block => JSON.parse(block.arguments)))
   expect(assistantText(regenerated)).toEqual(['合成角色：合成回复 1', '合成角色：合成回复 3'])
-  expect(rawModelText(regenerated)).toEqual(['<合成角色>合成回复 1</合成角色>', '<合成角色>合成回复 3</合成角色>'])
+  expect(rawReplies(regenerated)).toEqual([{ 合成角色: '合成回复 1' }, { 合成角色: '合成回复 3' }])
   await invoke('deleteMessagesFrom', { eventSeq: retryInput.seq, role: 'user' })
   await f.close()
   f = await start(platform, root)
@@ -172,7 +161,9 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   await send(plainInput)
   const afterPlainReply = await inspect()
   expect(assistantText(afterPlainReply)).toEqual(['合成角色：合成回复 1'])
-  expect(rawModelText(afterPlainReply)).toEqual(['<合成角色>合成回复 1</合成角色>', plainReply])
+  expect(rawReplies(afterPlainReply)).toEqual([{ 合成角色: '合成回复 1' }])
+  expect(afterPlainReply.findLast(event => event.type === 'assistant/message').data.message.content)
+    .toContainEqual({ type: 'text', text: plainReply })
 }, 120_000)
 
 it.each(['desktop', 'android'])('%s keeps associated variable configuration live and continues chatting after it is removed', async platform => {
@@ -184,8 +175,7 @@ it.each(['desktop', 'android'])('%s keeps associated variable configuration live
     async listModels(provider) { return [await this.resolveModel(provider, 'synthetic-variable-model')] }
     async *stream(request) {
       if (holdReply) await holdReply
-      if (hasRoleplayReplyResult(request)) yield* streamNextRoleplayReply(request)
-      else yield* streamRoleplayReply('Synthetic continued reply', request)
+      yield* streamRoleplayReply('Synthetic continued reply', request)
     }
   }
   const install = () => ctx.llm.registerAdapter(['synthetic-variable-profile'], new Adapter())
@@ -279,10 +269,6 @@ it.each(['desktop', 'android'])('%s keeps authored removals out of actual model 
     async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
     async listModels(provider) { return [await this.resolveModel(provider, 'synthetic-removal-model')] }
     async *stream(options) {
-      if (hasRoleplayReplyResult(options)) {
-        yield* streamNextRoleplayReply(options)
-        return
-      }
       const calls = [
         ['eleckoi_glob_variables', {}],
         ['eleckoi_read_variables', { paths: ['/status'] }],
@@ -698,10 +684,6 @@ it.each(['desktop', 'android'])('%s keeps roleplay accessible after its saved pr
     async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
     async listModels(provider) { return [await this.resolveModel(provider, 'synthetic-model')] }
     async *stream(request) {
-      if (hasRoleplayReplyResult(request)) {
-        yield* streamNextRoleplayReply(request)
-        return
-      }
       requests.push(request)
       yield* streamRoleplayReply('Synthetic roleplay replacement reply', request)
     }
@@ -763,10 +745,6 @@ it('desktop compacts image and text history after switching away from an unavail
       return [await this.resolveModel(provider, provider === previous.provider ? previous.model : selected.model)]
     }
     async *stream(request) {
-      if (hasRoleplayReplyResult(request)) {
-        yield* streamNextRoleplayReply(request)
-        return
-      }
       requests.push(request)
       if (request.purpose === 'compaction') {
         yield { type: 'block-start', index: 0, blockType: 'text' }

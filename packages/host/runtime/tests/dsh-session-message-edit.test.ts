@@ -17,7 +17,7 @@ import { deleteDshSessionMessagesFrom, editDshSessionMessage, readDshSessionLog 
 const cleanups: Array<() => void | Promise<void>> = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup() })
 
-async function fixture(mode: 'plain' | 'multipart' | 'delegated' | 'offloaded' = 'plain', seeded = false) {
+async function fixture(mode: 'plain' | 'multipart' | 'mixed' | 'delegated' | 'offloaded' = 'plain', seeded = false) {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-message-edit-'))
   cleanups.push(() => rmSync(root, { recursive: true, force: true }))
   const ctx = new Context()
@@ -58,26 +58,32 @@ async function fixture(mode: 'plain' | 'multipart' | 'delegated' | 'offloaded' =
     const anchor = session.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...selection, status: 'waiting' }, { ignorable: true })
     session.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { ...selection, status: 'complete', anchorSeq: anchor.seq, text: '来了。' }, { ignorable: true })
   }
-  if (mode === 'multipart') {
-    const turn = 3, step = 1, name = 'eleckoi_roleplay_reply', callId = ToolCallId('speakers')
-    const speakers = [{ speakerName: '合成发言乙', speakerId: 'speaker-b' }, { speakerName: '合成发言甲', speakerId: 'speaker-a' }]
-    const argumentsJson = JSON.stringify({ names: speakers.map(speaker => speaker.speakerName) })
+  const replyFormats = mode === 'mixed' ? ['legacy', 'fields'] : mode === 'multipart' ? ['legacy'] : []
+  for (const [index, format] of replyFormats.entries()) {
+    const turn = 3 + index, step = 1, name = 'eleckoi_roleplay_reply', callId = ToolCallId('speakers-' + turn)
+    const speakers = [{ speakerName: '合成发言甲', speakerId: 'speaker-a' }, { speakerName: '合成发言乙', speakerId: 'speaker-b' }]
+    const marker = format === 'fields' ? { toolFields: Object.fromEntries(speakers.map(speaker => [speaker.speakerName, speaker])) }
+      : { nativeText: true as const }
+    const argumentsJson = JSON.stringify(format === 'fields' ? { 合成发言甲: '门开了。', 合成发言乙: '来了。' }
+      : { names: speakers.map(speaker => speaker.speakerName).reverse() })
     session.append('turn/start', { turn })
-    session.append(ROLEPLAY_OUTPUT_EVENT, { turn, nativeText: true }, { ignorable: true })
+    session.append(ROLEPLAY_OUTPUT_EVENT, { turn, ...marker }, { ignorable: true })
     session.append('step/start', { turn, step })
-    session.append('assistant/message', { turn, step, stream: [], message: createAssistantMessage({
+    let reply = session.append('assistant/message', { turn, step, stream: [], message: createAssistantMessage({
       content: [{ type: 'tool-call', id: callId, name, arguments: argumentsJson }], source: { provider: 'test', model: 'test' }
     }) }, { surfaceOp: 'append' })
     session.append('tool/call', { turn, step, callId, name, arguments: argumentsJson })
     session.append('tool/result', { turn, step, message: createToolResultMessage({ callId, isError: false, content: [{ type: 'text', text: '已选定发言者' }] }),
       meta: { source: ROLEPLAY_REPLY_SOURCE, speakers } }, { surfaceOp: 'append' })
     session.append('step/end', { turn, step })
-    session.append('step/start', { turn, step: 2 })
-    const reply = session.append('assistant/message', { turn, step: 2, stream: [], message: createAssistantMessage({
-      content: [{ type: 'text', text: '<合成发言甲>门开了。</合成发言甲>\n<合成发言乙>来了。</合成发言乙>' }], source: { provider: 'test', model: 'test' }
-    }) }, { surfaceOp: 'append' })
-    session.append('step/end', { turn, step: 2 })
-    session.append(ROLEPLAY_OUTPUT_EVENT, { turn, replySeq: reply.seq, toolBacked: true, nativeText: true }, { ignorable: true })
+    if (format === 'legacy') {
+      session.append('step/start', { turn, step: 2 })
+      reply = session.append('assistant/message', { turn, step: 2, stream: [], message: createAssistantMessage({
+        content: [{ type: 'text', text: '<合成发言甲>门开了。</合成发言甲>\n<合成发言乙>来了。</合成发言乙>' }], source: { provider: 'test', model: 'test' }
+      }) }, { surfaceOp: 'append' })
+      session.append('step/end', { turn, step: 2 })
+    }
+    session.append(ROLEPLAY_OUTPUT_EVENT, { turn, replySeq: reply.seq, toolBacked: true, ...marker }, { ignorable: true })
     session.append('turn/end', { turn, reason: { kind: 'completed' } })
   }
   if (seeded) {
@@ -196,23 +202,26 @@ describe('DSH message edit', { timeout: 30_000 }, () => {
     expect(readFileSync(path, 'utf8')).toBe(before)
   })
 
-  it('saves texts for the original reply blocks without rewriting its tool result or any other event', async () => {
-    const { root, sessionId, readSession } = await fixture('multipart')
+  it.each(['multipart', 'mixed'] as const)('saves the selected original reply in a %s log without rewriting tool results', async mode => {
+    const { root, sessionId, readSession } = await fixture(mode)
     const { events: before } = await readSession()
-    const { addressSeq, event } = roleplayReplyMessages(before)[0]!
-    const edits = [{ id: 'speakers:0', text: '门开了。' }, { id: 'speakers:1', text: '我进来了。' }]
+    const oldReplies = roleplayReplyMessages(before)
+    expect(oldReplies).toHaveLength(mode === 'mixed' ? 2 : 1)
+    const { addressSeq, event } = oldReplies.at(-1)!
+    const turn = event.data.turn
+    const edits = [{ id: 'speakers-' + turn + ':0', text: '门开了。' }, { id: 'speakers-' + turn + ':1', text: '我进来了。' }]
     editDshSessionMessage(root, sessionId, addressSeq, 'assistant', edits)
     const { events: after } = await readSession()
-    expect(roleplayReplyMessages(after)[0]?.content).toBe('合成发言甲：门开了。\n\n合成发言乙：我进来了。')
+    expect(roleplayReplyMessages(after).at(-1)?.content).toBe('合成发言甲：门开了。\n\n合成发言乙：我进来了。')
     expect(after).toEqual(before.map(item => item === event ? {
       ...event, data: { ...event.data, editedText: '合成发言甲：门开了。\n\n合成发言乙：我进来了。', editedBlocks: edits }
     } : item))
     deleteDshSessionMessagesFrom(root, sessionId, addressSeq, 'assistant')
     const { events: deleted } = await readSession()
-    expect(roleplayReplyMessages(deleted)).toHaveLength(0)
-    expect(deleted.filter(event => !('turn' in event.data) || event.data.turn !== 3)).toEqual(
-      before.filter(event => !('turn' in event.data) || event.data.turn !== 3))
-    expect(deleted.some(event => event.type === 'assistant/message' && event.data.turn === 3)).toBe(false)
+    expect(roleplayReplyMessages(deleted)).toEqual(oldReplies.slice(0, -1))
+    expect(deleted.filter(event => !('turn' in event.data) || event.data.turn !== turn)).toEqual(
+      before.filter(event => !('turn' in event.data) || event.data.turn !== turn))
+    expect(deleted.some(event => event.type === 'assistant/message' && event.data.turn === turn)).toBe(false)
   })
 
   it('edits the delegated speaker in the main log and deletes from its displayed position', async () => {

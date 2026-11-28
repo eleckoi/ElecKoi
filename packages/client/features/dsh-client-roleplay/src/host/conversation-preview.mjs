@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { projectionCacheDomainSpec } from '@deepseek-ai/dsh-session-projection-cache'
 import { isDelegatedRoleplayReply, roleplayReplyBlocks } from '@eleckoi/dsh-product-api'
-import { ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_TOOL, roleplayReplyResult } from './roleplay-reply-tool.mjs'
+import { ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_TOOL, roleplayReplyResult, roleplayReplyPreview as toPreview } from './roleplay-reply-tool.mjs'
 
 const schema = z.string().max(480)
 const previewStateSchema = z.object({
@@ -12,7 +12,6 @@ const previewStateSchema = z.object({
   selection: z.object({ step: z.number(), names: z.array(z.string()) }).optional(),
 })
 const activitySchema = z.number().int().nonnegative()
-const toPreview = text => [...text.trim()].slice(0, 240).join('')
 const replyBody = blocks => Array.isArray(blocks)
   ? blocks.map(block => typeof block?.text === 'string' ? block.text.trim() : '').filter(Boolean).join('\n\n')
   : ''
@@ -44,6 +43,12 @@ export const conversationPreviewProjection = {
     if (state.turn && event.data?.turn === state.turn) {
       const selection = roleplayReplyResult(event)
       if (selection) {
+        if (typeof selection.preview === 'string') {
+          const reply = toPreview([state.reply, selection.preview].filter(Boolean).join('\n\n'))
+          return { ...state, reply, preview: reply }
+        }
+        // RETIRE WHEN: the previous next-step reply format is retired from Session display and import.
+        // Remove the selection state and assistant text branch with its old-format fixture.
         const step = event.data.step + 1
         const names = state.selection?.step === step ? [] : selection.speakers.map(speaker => speaker.speakerName)
         return { ...state, selection: { step, names } }
@@ -60,7 +65,7 @@ export const conversationPreviewProjection = {
       }
       if (event.type === ROLEPLAY_OUTPUT_EVENT) {
         if (event.data.replySeq === undefined) return { ...state, roleplay: true }
-        if (event.data.toolBacked && typeof event.data.editedText === 'string') {
+        if (event.data.toolBacked && (Array.isArray(event.data.editedBlocks) || typeof event.data.editedText === 'string')) {
           const reply = toPreview(Array.isArray(event.data.editedBlocks) ? replyBody(event.data.editedBlocks) : event.data.editedText)
           return { ...state, reply, preview: reply }
         }

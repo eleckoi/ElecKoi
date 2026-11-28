@@ -1,4 +1,4 @@
-type Speaker = { speakerName: string; speakerId?: string }
+type Speaker = { speakerName: string; speakerId?: string; field?: string }
 
 export type RoleplayReplyBlock = Speaker & { id: string; kind: 'speech'; text: string }
 
@@ -8,8 +8,19 @@ export function roleplayReplySpeakers(meta: unknown): Speaker[] {
   // speaker read fallback and its regression coverage together. Reads preserve the stored speaker identity.
   return (Array.isArray(speakers) ? speakers : [speaker]).flatMap(value => {
     if (typeof value?.speakerName !== 'string') return []
-    return [{ speakerName: value.speakerName, ...(typeof value.speakerId === 'string' ? { speakerId: value.speakerId } : {}) }]
+    return [{ speakerName: value.speakerName, ...(typeof value.speakerId === 'string' ? { speakerId: value.speakerId } : {}),
+      ...(typeof value.field === 'string' ? { field: value.field } : {}) }]
   })
+}
+
+/** Read the confirmed speaker fields from the original DSH tool call. */
+export function submittedRoleplayBlocks(speakers: readonly Speaker[], callId: string, readText: (field: string) => unknown): RoleplayReplyBlock[] {
+  const blocks: RoleplayReplyBlock[] = []
+  for (const { field, ...speaker } of speakers) {
+    const text = readText(field ?? speaker.speakerName)
+    if (typeof text === 'string' && text.trim()) blocks.push({ id: callId + ':' + blocks.length, kind: 'speech', ...speaker, text })
+  }
+  return blocks
 }
 
 /** Read ordinary DSH assistant text in the order its speaker tags arrive. */

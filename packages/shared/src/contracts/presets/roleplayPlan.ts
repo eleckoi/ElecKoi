@@ -2,11 +2,15 @@ import { z } from 'zod'
 
 export const DEFAULT_ROLEPLAY_PLAN_STEPS = [
   '使用可用的设定库和变量工具，确认这轮扮演需要的设定和状态。',
-  '前置任务完成后，调用 eleckoi_roleplay_reply 一次选出本轮发言角色，下一步按工具给出的格式直接输出正文。'
+  '前置任务完成后，调用 eleckoi_roleplay_reply 提交本轮扮演正文。'
 ] as const
 
 function compactSteps(steps: string[]): string[] {
+  // RETIRE WHEN: supported preset storage and imports no longer contain the previous built-in next-step instruction.
+  // Remove the exact-match replacement and its regression while retaining normal trimming.
+  const previous = '前置任务完成后，调用 eleckoi_roleplay_reply 一次选出本轮发言角色，下一步按工具给出的格式直接输出正文。'
   return steps.map((step) => step.trim()).filter(Boolean)
+    .map(step => step === previous ? DEFAULT_ROLEPLAY_PLAN_STEPS[1] : step)
 }
 
 export const roleplayPlanSettingsSchema = z.object({

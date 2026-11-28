@@ -25,7 +25,7 @@ export function illustrationInstructions(settings) {
   return [
     '当前角色对话已启用每轮自动配图。共同构思正文与画面，将分镜放入 eleckoi_roleplay_reply 的 frames 参数。',
     settings.automaticImageCount ? `本轮选择 ${min} 到 ${max} 个不同的剧情瞬间。` : `本轮必须输出恰好 ${min} 个分镜。`,
-    '在普通回复的正文中，将 [[IMAGE:n]] 单独写成一行，每张图出现一次。frames 按正文顺序排列，id 从 1 开始连续编号。',
+    '在回复工具的角色正文字段中，将 [[IMAGE:n]] 单独写成一行，每张图出现一次。frames 按正文顺序排列，id 从 1 开始连续编号。',
     '在同一次输出中提交正文和工具调用。分镜在后台生成。',
     '以下编译规则只约束每个画面的提示词，不改变上述格式、数量和顺序：',
     settings.promptCompilerInstruction.trim() || DEFAULT_NOVELAI_COMPILER_INSTRUCTION

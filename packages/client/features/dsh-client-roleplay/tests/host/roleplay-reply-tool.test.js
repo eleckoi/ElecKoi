@@ -33,7 +33,7 @@ async function runTurn(responses, enabled = true, readCast = () => cast, collabo
       const blocks = typeof response === 'string' ? [{ type: 'text', text: response }] : [
         ...(response.body ? [{ type: 'text', text: response.body }] : []),
         { type: 'tool-call', id: `call-${requests}`, name: response.lookup ? 'lookup_scene' : ROLEPLAY_REPLY_TOOL,
-          arguments: JSON.stringify(response.lookup ? {} : { names: response.names ?? [response.name] }) }
+          arguments: JSON.stringify(response.lookup ? {} : response.fields) }
       ]
       for (const [index, block] of blocks.entries()) {
         yield { type: 'block-start', index, blockType: block.type }
@@ -73,101 +73,54 @@ async function runTurn(responses, enabled = true, readCast = () => cast, collabo
     outcome: events.findLast(event => event.type === 'turn/end')?.data.reason }
 }
 
-it('binds the next native assistant step to the selected role', async () => {
+it('commits one call containing outer strings and ends the turn without another model request', async () => {
   const text = '他说 "开始。"\n\n路径 C:\\新目录。'
-  const labeled = `<合成角色甲>${text}</合成角色甲>`
-  const { requests, frames, reply, events, outcome, modelInputs, replySchemas, catalogPreview } = await runTurn(
-    [{ name: '合成角色甲' }, labeled], true, () => cast.slice(0, 1))
-  expect(requests).toBe(2)
+  const { requests, frames, reply, events, outcome, replySchemas, catalogPreview } = await runTurn(
+    [{ fields: { 合成角色甲: text } }], true, () => cast.slice(0, 1))
+  expect(requests).toBe(1)
   expect(outcome).toEqual({ kind: 'completed' })
+  expect(replySchemas[0].parameters.properties).toEqual({ 合成角色甲: { type: 'string' } })
   expect(frames.some(frame => frame.chunk?.type === 'tool-call-delta')).toBe(true)
   const results = events.filter(event => event.type === 'tool/result')
   expect(results).toHaveLength(1)
   expect(results[0].data.meta.speakers).toEqual([{ kind: 'speech', speakerId: 'speaker-a', speakerName: '合成角色甲' }])
-  expect(Object.keys(replySchemas[0].parameters.properties)).toEqual(['names'])
-  expect(replySchemas[0].parameters.properties.names).toMatchObject({ type: 'array', items: { enum: ['合成角色甲'] } })
-  const receipt = modelInputs[1].at(-1)
-  expect(receipt.role).toBe('tool')
-  expect(frames.find(frame => frame.chunk?.type === 'text-delta').chunk.text).toBe(labeled)
-  expect(roleplayReplyMessages(events)).toMatchObject([{ content: `合成角色甲：${text}`, event: { data: { toolBacked: true, replySeq: reply.seq } } }])
+  expect(roleplayReplyMessages(events)).toMatchObject([{ content: '合成角色甲：' + text, event: { data: { toolBacked: true, replySeq: reply.seq } } }])
   expect(catalogPreview).toBe(text)
-  const modelEvents = events.filter(event => event.type === 'assistant/message')
-  expect(modelEvents).toHaveLength(requests)
-  expect(modelEvents[0].data.message.content).toMatchObject([{ type: 'tool-call', name: ROLEPLAY_REPLY_TOOL }])
-  expect(modelEvents[0].data.step).toBe(results[0].data.step)
-  expect(modelEvents[1].data.message.content).toEqual([{ type: 'text', text: labeled }])
-  expect(reply.seq).toBe(modelEvents[1].seq)
+  expect(reply.data.step).toBe(results[0].data.step)
   const official = officialChatFixture().replace(events)
   const tail = [...official.nodes.values()].find(node => node.kind === 'turn-tail')
   expect(tail.data.turn).toBe(reply.data.turn)
 })
 
-it('combines consecutive same-speaker submissions with an intervening lookup', async () => {
-  const { requests, events, reply, outcome, modelInputs, catalogPreview, replySchemas, messages } = await runTurn([
-    { name: '合成卡片' }, { lookup: true, body: '<合成卡片>第一段。</合成卡片>' }, { name: '合成卡片' }, '<合成卡片>第二段。</合成卡片>'
-  ], true, () => [])
-  expect(requests).toBe(4)
-  expect(outcome).toEqual({ kind: 'completed' })
-  expect(replySchemas[0].parameters.properties.names.items.enum).toEqual(['合成卡片'])
-  expect(JSON.stringify(modelInputs[2])).toContain('设定查阅结果')
-  const replies = roleplayReplyMessages(events)
-  expect(replies).toMatchObject([{ content: '合成卡片：第一段。\n\n第二段。' }])
-  expect(catalogPreview).toBe('第一段。\n\n第二段。')
-  expect(reply.data.message.content[0]).toEqual({ type: 'text', text: '<合成卡片>第二段。</合成卡片>' })
-  const retainedId = reply.data.message.id
-  const prefix = projectRoleplayDialogue(messages.filter(message => message.id !== retainedId), replies)
-  expect(prefix.filter(message => message.role === 'assistant').flatMap(message => message.content)).toEqual([
-    { type: 'text', text: '合成卡片：第一段。' }
-  ])
-  expect(prefix.some(message => message.role === 'tool')).toBe(false)
-  const blocksByMessage = new Map()
-  const retained = projectRoleplayDialogue(messages.filter(message => message.id === retainedId), replies, Infinity, blocksByMessage)
-  expect(retained[0].content).toEqual([{ type: 'text', text: '合成卡片：第二段。' }])
-  expect(blocksByMessage.get(retainedId)).toMatchObject([{ text: '第二段。' }])
-})
-
-it('selects several speakers at once and preserves the native text order in chat, preview and history', async () => {
-  const text = 'ScenePartner：我来调低音量。\n\n合成角色甲：我来按回放。\n\nScenePartner：可以了。'
-  const { replySchemas, events, advertisedTools, rawReplies, requests, modelInputs, messages, catalogPreview } = await runTurn([
-    { names: ['合成角色甲', 'ScenePartner'] }, '<ScenePartner>我来调低音量。</ScenePartner>\n<合成角色甲>我来按回放。</合成角色甲>\n<ScenePartner>可以了。</ScenePartner>'
+it('uses the submitted field order and exact string contents in preview and history', async () => {
+  const first = '他说 "好"。\n\nconst path = "C:\\\\test";'
+  const second = '<div class="speech">我来按回放。</div>'
+  const { replySchemas, events, advertisedTools, requests, messages, catalogPreview } = await runTurn([
+    { fields: { ScenePartner: first, 合成角色甲: second } }
   ], true, () => [...cast, { name: '未出场角色', id: 'absent' }])
-  expect(requests).toBe(2)
+  expect(requests).toBe(1)
   expect(advertisedTools[0].filter(name => name === ROLEPLAY_REPLY_TOOL)).toEqual([ROLEPLAY_REPLY_TOOL])
-  expect(JSON.stringify(replySchemas[0])).not.toMatch(/speakerId|speaker-a|searcher/)
-  expect(replySchemas[0].description).toMatch(/一次选择.*一位或多位.*下一步.*<角色名>对应的角色扮演内容<\/角色名>.*由剧情和设定决定/)
-  expect(replySchemas[0].parameters.required).toEqual(['names'])
-  expect(replySchemas[0].parameters.properties.names.items.enum).toEqual(['合成角色甲', 'ScenePartner', '未出场角色'])
-  expect(modelInputs[1].at(-1)?.content[0]?.text.match(/<角色名>/g)).toHaveLength(1)
-  expect(modelInputs[1].at(-1)?.content[0]?.text).not.toMatch(/合成角色甲|ScenePartner|未出场角色|再次调用|消息末尾/)
-  expect(rawReplies).toEqual([{ names: ['合成角色甲', 'ScenePartner'] }])
+  expect(replySchemas[0].description).toMatch(/每轮必须至少调用一次.*玩家看不到/)
+  expect(Object.keys(replySchemas[0].parameters.properties)).toEqual(['合成角色甲', 'ScenePartner', '未出场角色'])
   const replies = roleplayReplyMessages(events)
-  expect(replies).toMatchObject([{ content: text, blocks: [{ speakerId: 'searcher' }, { speakerId: 'speaker-a' }, { speakerId: 'searcher' }] }])
+  const text = 'ScenePartner：' + first + '\n\n合成角色甲：' + second
+  expect(replies).toMatchObject([{ content: text, blocks: [{ speakerId: 'searcher', text: first }, { speakerId: 'speaker-a', text: second }] }])
   expect(projectRoleplayDialogue(messages, replies).filter(message => message.role === 'assistant').flatMap(message => message.content))
     .toEqual([{ type: 'text', text }])
-  expect(catalogPreview).toBe('我来调低音量。\n\n我来按回放。\n\n可以了。')
+  expect(projectRoleplayDialogue(messages, replies).some(message => message.role === 'tool')).toBe(false)
+  expect(catalogPreview).toBe(first + '\n\n' + second)
 })
 
-it('refreshes the published roster through DSH before resolving the next step', async () => {
+it('refreshes the roster and accepts a name containing numbers', async () => {
   let roster = cast.slice(0, 1)
-  const { replySchemas, events } = await runTurn([{ lookup: true }, { name: '新角色' }, '<新角色>新角色发言。</新角色>'], true,
+  const { replySchemas, events } = await runTurn([{ lookup: true }, { fields: { 合成角色123: '角色发言。' } }], true,
     () => {
       const current = roster
-      roster = [{ id: 'new', name: '新角色' }]
+      roster = [{ id: 'new', name: '合成角色123' }]
       return current
     })
-  expect(replySchemas[0].parameters.properties.names.items.enum).toEqual(['新角色'])
-  expect(roleplayReplyMessages(events)).toMatchObject([{ content: '新角色：新角色发言。' }])
-})
-
-it('tells the selected role how to format the next reply and keeps ordinary text visible if it omits the label', async () => {
-  const { rawReplies, modelInputs, events } = await runTurn([{ name: '合成角色甲' }, '下一步的正文。'], true, () => cast.slice(0, 1))
-  expect(rawReplies).toEqual([{ names: ['合成角色甲'] }])
-  const receipt = modelInputs[1].at(-1)
-  expect(receipt).toMatchObject({ role: 'tool', content: [
-    { type: 'text', text: expect.stringContaining('<角色名>对应的角色扮演内容</角色名>') }
-  ] })
-  expect(receipt.isError).not.toBe(true)
-  expect(roleplayReplyMessages(events)).toMatchObject([{ content: '合成角色甲：下一步的正文。' }])
+  expect(replySchemas[0].parameters.properties).toEqual({ 合成角色123: { type: 'string' } })
+  expect(roleplayReplyMessages(events)).toMatchObject([{ content: '合成角色123：角色发言。' }])
 })
 
 it.each([false, true])('keeps unbound text in the trace and out of dialogue (collaboration=%s)', async collaboration => {

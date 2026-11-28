@@ -12,7 +12,7 @@ import { readSessionInspection } from './sessionInspection.js'
 import { isDelegatedRoleplayReply, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from './roleplayReplyMessages.js'
 export { delegatedRoleplayReplyBlocks, DELEGATED_ROLEPLAY_REPLY_EVENT, isDelegatedRoleplayReply, isToolBackedRoleplayReply,
   roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE } from './roleplayReplyMessages.js'
-export { appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers } from './roleplayReplyText.js'
+export { appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers, submittedRoleplayBlocks } from './roleplayReplyText.js'
 import { SESSION_MODEL_PARAMETERS_EVENT, sessionModelParameterKey, sessionModelParameterPatchSchema, sessionModelParametersProjection } from './sessionModelParameters.js'
 import type { SessionModelParameterPatch, SessionModelParameterState } from './sessionModelParameters.js'
 import { importedSession, type DshSessionArchive } from './sessionArchive.js'

@@ -11,6 +11,7 @@ describe('DSH roleplay plan tool', () => {
     expect(result.plan.map(item => item.step)).toEqual(steps)
     const ready = await definition.execute({ plan: steps.map(step => ({ step, status: 'completed' })) })
     expect(ready.message).toContain('本轮必须至少调用一次 eleckoi_roleplay_reply')
+    expect(ready.message).toContain('子代理已提交的正文计入本轮要求')
   })
 
   it('stays registered when the active preset has no plan steps', async () => {

@@ -1,6 +1,6 @@
 import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
-import { hasRoleplayReplyResult, streamRoleplayReply, streamNextRoleplayReply } from '../helpers/tool-call.js'
+import { streamRoleplayReply } from '../helpers/tool-call.js'
 import { createVariableIdentities } from '../../packages/shared/src/foundation/variables/identity'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -83,10 +83,6 @@ describe('DSH subagent runtime context inheritance', () => {
         async resolveModel(provider, id) { return { provider, id, name: id } }
         async *stream(options) {
           requests.push(options)
-          if (hasRoleplayReplyResult(options)) {
-            yield* streamNextRoleplayReply(options)
-            return
-          }
           const step = (counts.get(options.sessionId) ?? 0) + 1
           counts.set(options.sessionId, step)
           if (options.sessionId === rootId) {
@@ -184,8 +180,8 @@ describe('DSH subagent runtime context inheritance', () => {
         expect(roleplayReplyMessages(events).flatMap(result => result.blocks.map(block => block.text)))
           .not.toContain('Synthetic child closing result')
         const [selection, publication] = events.filter(event => event.type === DELEGATED_ROLEPLAY_REPLY_EVENT)
-        expect(selection.data).toMatchObject({ childSessionId: childId, childStep: 3, status: 'waiting',
-          speakers: [{ speakerId: 'speaker-b' }, { speakerId: 'speaker-a' }] })
+        expect(selection.data).toMatchObject({ childSessionId: childId, childStep: 2, status: 'waiting',
+          toolFields: { 合成角色乙: { speakerId: 'speaker-b' }, 合成角色甲: { speakerId: 'speaker-a' } } })
         expect(publication.data).toMatchObject({ id: selection.data.id, anchorSeq: selection.seq,
           status: 'complete', blocks: [{ speakerId: 'speaker-b', text: 'Synthetic child closing result' },
             { speakerId: 'speaker-a', text: 'Synthetic second speaker' }] })
@@ -197,8 +193,8 @@ describe('DSH subagent runtime context inheritance', () => {
         const final = requests.filter(request => request.sessionId === rootId).at(-1)
         expect(final.messages.find(message => message.source.kind === 'agent-message')?.content)
           .toContainEqual({ type: 'text', text: 'Synthetic delivered result' })
-        expect(final.messages.find(message => message.source.kind === 'subagent-settled')?.content)
-          .toContainEqual({ type: 'text', text: '<合成角色乙>Synthetic child closing result</合成角色乙>\n\n<合成角色甲>Synthetic second speaker</合成角色甲>' })
+        expect(final.messages.find(message => message.source.kind === 'plugin:eleckoi-delegated-roleplay-reply')?.content)
+          .toContainEqual({ type: 'text', text: '以下子代理角色正文已在对话中显示。\n<合成角色乙>Synthetic child closing result</合成角色乙>\n\n<合成角色甲>Synthetic second speaker</合成角色甲>' })
       }
       expect(ctx.agents.list().filter(agent => agent.session.header.origin === 'subagent')).toHaveLength(0)
       await root.dispose()

@@ -6,7 +6,7 @@ const memberDescriptions: Record<string, string> = {
   eleckoi_call_capability: '执行创作操作，并续读或搜索创作能力的完整工具结果',
 }
 
-const roleplayReplyGroup = group(ROLEPLAY_REPLY_GROUP_ID, '角色扮演回复', '选择发言角色，下一步输出该角色的扮演正文', ['eleckoi_roleplay_reply'])
+const roleplayReplyGroup = group(ROLEPLAY_REPLY_GROUP_ID, '角色扮演回复', '按发言顺序提交各角色的扮演正文', ['eleckoi_roleplay_reply'])
 
 export const AGENT_TOOL_GROUPS: ReadonlyArray<Omit<AgentToolGroup, 'enabled' | 'included'>> = [
   roleplayReplyGroup,

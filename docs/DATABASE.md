@@ -204,6 +204,10 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 
 #### 旧格式导入、读取及清理
 
+旧聊天中先选角、再发普通正文的记录继续由 [Host 历史投影](../packages/host/product-api/src/roleplayReplyMessages.ts)、[Client 展示](../packages/client/features/dsh-client-conversations/src/client.js)和[会话摘要](../packages/client/features/dsh-client-roleplay/src/host/conversation-preview.mjs)读取。等正式支持的会话、备份和导入都不再包含该格式时，一起移除旧选角状态、正文分支和对应回归。新版只生成正文随工具调用提交的记录。
+
+[扮演计划](../packages/shared/src/contracts/presets/roleplayPlan.ts)读取旧预设时更新精确匹配的旧默认收尾步骤，用户自定义步骤仍按原文使用。等支持的预设、保存版本和导入不再包含该旧默认步骤时，删掉替换分支与专项回归。
+
 Agent 聊天显示的旧默认尺寸由 [DSH 显示偏好读取](../packages/shared/src/contracts/settings/schemas.ts)识别。当未登记版本的 Agent 配置仍匹配旧 48px 头像、16px 名字及其余默认参数时，仅更新这两个尺寸，独立保存的气泡开关继续有效。读取只生成规范快照，下一次正常保存带上该版本标记。停止支持仍可能携带未标记旧配置的安装和备份后，同步删除旧默认对象、读取分支、版本标记和专项回归。SQLite 结构不变。
 
 | 入口 | 何时可以清理 | 必须一起处理的范围 |

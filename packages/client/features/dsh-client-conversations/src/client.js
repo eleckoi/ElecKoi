@@ -3,7 +3,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     // 边界⑥ 的信封拆解只有一份实现（@eleckoi/dsh-product-api 的 client 面）。
-    const { unwrapOrFail, internalFailure, failureAlreadyPublished, rejectionIsAwaitedElsewhere, bestEffort, productFailure, ELECKOI_FAILURE_CODES, appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers } = require('@eleckoi/dsh-product-api')
+    const { unwrapOrFail, internalFailure, failureAlreadyPublished, rejectionIsAwaitedElsewhere, bestEffort, productFailure, ELECKOI_FAILURE_CODES, appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers, submittedRoleplayBlocks } = require('@eleckoi/dsh-product-api')
     /**
      * 载体不是产品失败（例如 LLM 的 `LlmFailure`：`{ message, code, status }`）时的折法：
      * 折成兜底码，provider 的 message 当诊断（不写 `details.what`，所以它仍能给用户看），
@@ -177,6 +177,16 @@ window.__ModuleLoader__.load({
     const roleplayReplyTool = 'eleckoi_roleplay_reply'
     const delegatedReplyEvent = 'eleckoi/delegated-roleplay-reply'
     const delegatedReplyNode = 'eleckoi-delegated-roleplay-reply'
+
+    function streamedRoleplayBlocks(root, fields, callId) {
+      const args = root?.args
+      if (!args) return []
+      return args.keys().flatMap(field => {
+        if (!Object.hasOwn(fields, field)) return []
+        const text = args.text(field)
+        return text !== undefined && (!args.complete(field) || text.trim()) ? [{ ...fields[field], text }] : []
+      }).map((block, index) => ({ ...block, id: callId + ':' + index, kind: 'speech' }))
+    }
     const delegatedReplyDefinition = {
       kind: delegatedReplyNode,
       target: 'chat',
@@ -194,12 +204,12 @@ window.__ModuleLoader__.load({
     function delegatedAssistant(node, runtimeSessionId, delegatedStreams) {
       const { seq, time, data } = node.data
       const stream = delegatedStreams.get(node.key)
-      if (data.status === 'waiting' && (data.mainSessionId !== runtimeSessionId || stream?.closed && !stream.text)) return []
+      if (data.status === 'waiting' && (data.mainSessionId !== runtimeSessionId || stream?.closed && !stream.text && !stream.blocks?.length)) return []
       const blocks = []
       const speakers = roleplayReplySpeakers({ speakers: data.speakers, speaker: data })
       // RETIRE WHEN: supported Session histories and imports always store completed delegated reply blocks.
       // Remove the stored text fallback and its regression coverage. Keep the live child text projection.
-      const source = data.blocks ?? roleplayReplyBlocks(data.text ?? stream?.text ?? '', speakers, data.id,
+      const source = data.blocks ?? stream?.blocks ?? roleplayReplyBlocks(data.text ?? stream?.text ?? '', speakers, data.id,
         data.status === 'waiting' && !stream?.closed && stream?.streaming !== false)
       for (const block of source) appendRoleplayReplyBlock(blocks, { ...block })
       if (!blocks.length) return []
@@ -238,17 +248,19 @@ window.__ModuleLoader__.load({
 
     function roleplayOutputByTurn(nodes, markers) {
       const outputs = new Map()
-      for (const { seq, time, data: { turn, replySeq, toolBacked, nativeText, editedText, editedBlocks } } of markers) {
+      for (const { seq, time, data: { turn, replySeq, toolBacked, nativeText, toolFields, editedText, editedBlocks } } of markers) {
         if (replySeq !== undefined && !toolBacked && outputs.has(turn)) continue
-        outputs.set(turn, { markerSeq: seq, time, replySeq, toolBacked, nativeText, editedText, editedBlocks, steps: new Map() })
+        outputs.set(turn, { markerSeq: seq, time, replySeq, toolBacked, nativeText, toolFields, editedText, editedBlocks, steps: new Map() })
       }
       for (const node of nodes) {
         const output = outputs.get(nodeTurn(node))
-        if (!output?.nativeText) continue
+        if (!output || !output.nativeText && !output.toolFields) continue
         if (node.kind !== 'assistant-step' && node.kind !== 'tool-call') continue
         const sourceStep = node.kind === 'assistant-step' ? node.data?.step : node.location?.step?.step
         if (!Number.isSafeInteger(sourceStep)) continue
-        const step = node.kind === 'tool-call' ? sourceStep + 1 : sourceStep
+        // RETIRE WHEN: supported Sessions and imported chats no longer contain the previous next-step reply format.
+        // Remove the nativeText projection and its legacy presentation fixtures with the Host history reader.
+        const step = node.kind === 'tool-call' && !output.toolFields ? sourceStep + 1 : sourceStep
         let part = output.steps.get(step)
         if (!part) output.steps.set(step, part = { selections: [] })
         if (node.kind === 'assistant-step') {
@@ -263,6 +275,14 @@ window.__ModuleLoader__.load({
           const confirmed = root?.kind === 'tool-result'
           if (confirmed && (root.isError || root.meta?.source !== roleplayResultSource)) continue
           if (!confirmed && (output.replySeq !== undefined || root?.name !== roleplayReplyTool)) continue
+          if (output.toolFields) {
+            const reply = confirmed
+              ? submittedRoleplayBlocks(roleplayReplySpeakers(root.meta), root.callId, field => root.args?.text(field))
+              : streamedRoleplayBlocks(root, output.toolFields, root.callId)
+            const submissions = part.submissions ??= []
+            submissions.push(...reply)
+            continue
+          }
           const names = !confirmed && root.args?.value('names')
           const speakers = confirmed ? roleplayReplySpeakers(root.meta)
             : Array.isArray(names) ? [...new Set(names)].filter(name => typeof name === 'string' && name.trim())
@@ -274,6 +294,14 @@ window.__ModuleLoader__.load({
         const blocks = []
         const bodyNodeKeys = []
         for (const [, part] of [...output.steps].sort(([left], [right]) => left - right)) {
+          if (output.toolFields) {
+            if (part.submissions?.length) {
+              if (part.nodeKey) bodyNodeKeys.push(part.nodeKey)
+              if (part.seq !== undefined) output.bodySeq = part.seq
+              for (const block of part.submissions) appendRoleplayReplyBlock(blocks, block)
+            }
+            continue
+          }
           if (part.selections.length !== 1) continue
           const [{ callId, speakers }] = part.selections
           const reply = roleplayReplyBlocks(part.text ?? '', speakers, callId,
@@ -1753,13 +1781,19 @@ window.__ModuleLoader__.load({
           })
         }
         return new Map(waiting.map(node => {
-          const { childSessionId, childTurn, childStep } = node.data.data
+          const { childSessionId, childTurn, childStep, toolCallId, toolFields } = node.data.data
           const source = this.delegatedReplySources.get(childSessionId)
-          const assistant = orderedChatNodes(source?.target?.getSnapshot()).findLast(candidate =>
+          const childNodes = orderedChatNodes(source?.target?.getSnapshot())
+          const closed = source?.failed === true || source?.session?.getSnapshot().running === false
+          if (toolCallId && toolFields) {
+            const call = childNodes.find(candidate => candidate.kind === 'tool-call' && candidate.data?.root?.callId === toolCallId)
+            return [node.key, { blocks: streamedRoleplayBlocks(call?.data.root, toolFields, node.data.data.id), closed }]
+          }
+          const assistant = childNodes.findLast(candidate =>
             candidate.kind === 'assistant-step' && nodeTurn(candidate) === childTurn && candidate.data?.step === childStep)
           const text = assistant && assistant.data.status !== 'interrupted' ? assistantText(assistant.data.blocks) : ''
           return [node.key, { text, streaming: assistant ? assistant.data.status === 'running' : undefined,
-            closed: source?.failed === true || source?.session?.getSnapshot().running === false }]
+            closed }]
         }))
       }
 
@@ -1848,7 +1882,11 @@ window.__ModuleLoader__.load({
         return left?.runtimeSessionId === right?.runtimeSessionId
           && left?.hasMore === right?.hasMore
           && left?.delegatedStreams?.size === right?.delegatedStreams?.size
-          && (!left?.delegatedStreams || [...left.delegatedStreams].every(([key, value]) => sameRecord(value, right.delegatedStreams.get(key))))
+          && (!left?.delegatedStreams || [...left.delegatedStreams].every(([key, value]) => {
+            const next = right.delegatedStreams.get(key)
+            return next && value.closed === next.closed && value.text === next.text && value.streaming === next.streaming
+              && sameRoleplayBlocks(value.blocks, next.blocks)
+          }))
           && sameReferences(left?.roleplayOutputMarkers, right?.roleplayOutputMarkers)
           && left?.inputContinuations?.length === right?.inputContinuations?.length
           && left.inputContinuations.every((item, index) => sameRecord(item, right.inputContinuations[index]))

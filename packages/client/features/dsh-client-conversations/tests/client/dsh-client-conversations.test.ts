@@ -359,7 +359,7 @@ describe('DSH ElecKoi conversation client model', () => {
     } finally { mounted.dispose() }
   })
 
-  it('shows a delegated speaker before streaming its child DSH step into the main chat', async () => {
+  it.each(['tool fields', 'legacy tagged text'])('streams a delegated speaker using %s into the main chat', async format => {
     const publishable = () => {
       const fixture = officialChatFixture()
       let snapshot = fixture.replace([])
@@ -391,7 +391,9 @@ describe('DSH ElecKoi conversation client model', () => {
         binding: (binding: unknown) => ({ target: () => binding === mainBinding ? main.target : child.target }) }
     })
     const catalog = mounted.catalog as any
-    const source = { id: 'selection', mainSessionId: 'root', childSessionId: 'child', childTurn: 2, childStep: 3, speakerName: '合成角色乙', speakerId: 'actor-b' }
+    const speaker = { speakerName: '合成角色乙', speakerId: 'actor-b' }
+    const source = { id: 'selection', mainSessionId: 'root', childSessionId: 'child', childTurn: 2, childStep: 3,
+      ...(format === 'tool fields' ? { toolCallId: 'child-call', toolFields: { 合成角色乙: speaker } } : speaker) }
     const read = () => catalog.getDetailsSnapshot().details.messages
     try {
       await settle()
@@ -403,21 +405,31 @@ describe('DSH ElecKoi conversation client model', () => {
       main.append('eleckoi/delegated-roleplay-reply', 1, { ...source, status: 'waiting' })
       await settle()
       expect(catalog.sessions.retain).toHaveBeenCalledWith('child', { source: 'eleckoiDelegatedRoleplayReply' })
+      child.append('turn/start', 1, { turn: 2 })
+      child.append('step/start', 2, { turn: 2, step: 3 })
+      if (format === 'tool fields') {
+        expect(read()).toEqual([])
+        child.append('assistant/live-chunk', 2.1, { turn: 2, step: 3, attemptId: 'child-attempt',
+          chunk: { type: 'tool-call-delta', index: 0, id: 'child-call', name: 'eleckoi_roleplay_reply', argumentsDelta: '{"合成角色乙":"' } })
+      }
       const waiting = read()[0]
       expect(waiting).toMatchObject({ status: 'streaming', roleplayBlocks: [{ speakerId: 'actor-b', text: '' }] })
       const node = main.target.getSnapshot().nodes.get(waiting.dshNodeKey)
       expect(selectRoleplayChatSeat(read(), 'root', node)?.item.id).toBe(waiting.id)
-      child.append('turn/start', 1, { turn: 2 })
-      child.append('step/start', 2, { turn: 2, step: 3 })
-      const chunk = (seq: number, text: string) => child.append('assistant/live-chunk', seq,
-        { turn: 2, step: 3, attemptId: 'child-attempt', chunk: { type: 'text-delta', index: 0, text } })
-      chunk(2.1, '<合成')
-      expect(read()[0].roleplayBlocks[0].text).toBe('')
-      chunk(2.2, '角色乙>先显示')
+      const chunk = (seq: number, text: string) => child.append('assistant/live-chunk', seq, { turn: 2, step: 3, attemptId: 'child-attempt',
+        chunk: format === 'tool fields' ? { type: 'tool-call-delta', index: 0, id: 'child-call', argumentsDelta: text }
+          : { type: 'text-delta', index: 0, text } })
+      if (format === 'legacy tagged text') {
+        chunk(2.1, '<合成')
+        expect(read()[0].roleplayBlocks[0].text).toBe('')
+      }
+      chunk(2.2, format === 'tool fields' ? '先显示' : '角色乙>先显示')
       expect(read()[0].roleplayBlocks[0].text).toBe('先显示')
-      chunk(2.3, '这一段。</合成')
+      chunk(2.3, format === 'tool fields' ? '这一段。"}' : '这一段。</合成')
       expect(read()[0].roleplayBlocks[0].text).toBe('先显示这一段。')
-      main.append('eleckoi/delegated-roleplay-reply', 3, { ...source, status: 'complete', anchorSeq: 1, text: '先显示这一段。' })
+      const blocks = [{ id: 'selection:0', kind: 'speech', ...speaker, text: '先显示这一段。' }]
+      main.append('eleckoi/delegated-roleplay-reply', 3, { ...source, status: 'complete', anchorSeq: 1, text: '先显示这一段。',
+        ...(format === 'tool fields' ? { blocks } : {}) })
       expect(read()).toHaveLength(1)
       expect(read()[0]).toMatchObject({ id: waiting.id, status: 'complete', sessionEventSeq: 3,
         roleplayBlocks: [{ speakerId: 'actor-b', text: '先显示这一段。' }] })
@@ -735,7 +747,7 @@ describe('DSH ElecKoi conversation client model', () => {
     } finally { mounted.dispose() }
   })
 
-  it('shows the selected speaker before native text and keeps multiple speakers in one reply', async () => {
+  it.each(['tool fields', 'legacy tagged text'])('shows each speaker as their %s starts and keeps the speakers in one reply', async format => {
     const animationFrames = new Map<number, () => void>()
     let nextFrame = 0
     vi.stubGlobal('requestAnimationFrame', (callback: () => void) => { animationFrames.set(++nextFrame, callback); return nextFrame })
@@ -794,12 +806,53 @@ describe('DSH ElecKoi conversation client model', () => {
       await catalog.bindOfficialSession('synthetic-chat', 'synthetic-session')
       append('turn/start', 1, { turn: 1 })
       append('user/message', 2, { id: 'user', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '你好' }] }, 'append')
-      append('eleckoi/roleplay-output', 3, { turn: 1, nativeText: true })
+      const toolFields = Object.fromEntries(['合成发言甲', '合成发言乙', '合成发言丙'].map(speakerName => [speakerName, { speakerName }]))
+      const marker = format === 'tool fields' ? { toolFields } : { nativeText: true }
+      append('eleckoi/roleplay-output', 3, { turn: 1, ...marker })
       append('step/start', 4, { turn: 1, step: 1 })
-      const names = ['合成发言乙', '合成发言甲', '合成发言丙']
-      liveSpeakers(4.1, 1, 'batch', names)
       const first = { id: 'batch:0', kind: 'speech', speakerName: '合成发言甲' }
       const second = { id: 'batch:1', kind: 'speech', speakerName: '合成发言乙' }
+      if (format === 'tool fields') {
+        const replies = { 合成发言甲: '他说 "继续"。', 合成发言乙: '第二段。\n\n~~~js\nconst value = "代码";\n~~~' }
+        const raw = JSON.stringify(replies)
+        const chunks = ['{"合成发言甲":"', '他说 \\', '"继续\\"。","合成发言乙":"', raw.slice(raw.indexOf('第二段。'))]
+        expect(chunks.join('')).toBe(raw)
+        const call = { type: 'tool-call', id: 'batch', name: 'eleckoi_roleplay_reply', arguments: raw }
+        expect(latest()?.roleplayBlocks ?? []).toEqual([])
+        chunks.forEach((argumentsDelta, index) => {
+          append('assistant/live-chunk', 4.1 + index / 10, { turn: 1, step: 1, attemptId: 'attempt-1',
+            chunk: { type: 'tool-call-delta', index: 0, id: call.id, ...(index === 0 ? { name: call.name } : {}), argumentsDelta } })
+          paint()
+          const progress = [
+            [{ ...first, text: '' }],
+            [{ ...first, text: '他说 ' }],
+            [{ ...first, text: replies.合成发言甲 }, { ...second, text: '' }],
+            [{ ...first, text: replies.合成发言甲 }, { ...second, text: replies.合成发言乙 }],
+          ]
+          expect(latest()?.roleplayBlocks).toEqual(progress[index])
+        })
+        append('assistant/message', 5, { turn: 1, step: 1, stream: [], message: { id: 'assistant-1', role: 'assistant',
+          source: { kind: 'model', provider: 'synthetic', model: 'synthetic' }, content: [call] } }, 'append')
+        append('tool/call', 6, { turn: 1, step: 1, callId: call.id, name: call.name, arguments: raw })
+        append('tool/result', 7, { turn: 1, step: 1, meta: { source: 'eleckoi-roleplay-reply', speakers: [first, second] },
+          message: { id: 'result-batch', role: 'tool', toolCallId: call.id, source: { kind: 'tool', callId: call.id },
+            content: [{ type: 'text', text: '角色正文已显示。' }] } }, 'append')
+        append('step/end', 8, { turn: 1, step: 1 })
+        append('eleckoi/roleplay-output', 9, { turn: 1, replySeq: 5, toolBacked: true, ...marker })
+        running = false
+        append('turn/end', 10, { turn: 1, reason: { kind: 'completed' } })
+        expect(catalog.getDetailsSnapshot().details.messages).toHaveLength(2)
+        expect(latest()).toMatchObject({ status: 'complete', sessionEventSeq: 9,
+          roleplayBlocks: [{ ...first, text: replies.合成发言甲 }, { ...second, text: replies.合成发言乙 }] })
+        expect(catalog.getStreamSnapshot().status).toBe('idle')
+        const durable = eventEntries.filter(entry => entry.type === 'event').map(entry => entry.event)
+        const reopened = officialChatFixture().replace(durable)
+        const history = catalog.projectOfficialMessages(reopened, { messages: [] }, 'synthetic-session', [], false)
+        expect(history.at(-1)).toMatchObject({ status: 'complete', sessionEventSeq: 9, roleplayBlocks: latest().roleplayBlocks })
+        return
+      }
+      const names = ['合成发言乙', '合成发言甲', '合成发言丙']
+      liveSpeakers(4.1, 1, 'batch', names)
       paint()
       expect(latest()?.roleplayBlocks ?? []).toEqual([])
       message(5, 1, '', 'batch', names)

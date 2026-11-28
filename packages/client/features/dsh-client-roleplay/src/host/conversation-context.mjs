@@ -8,7 +8,7 @@ import { requiredSettingCache } from './required-setting-cache.mjs'
 import { resolvePlacedSettingTemplates } from './setting-library-tools.mjs'
 import { INPUT_CONTINUATIONS_PROJECTION } from './input-continuations-projection.mjs'
 import { delegatedRoleplayReplyBlocks, isDelegatedRoleplayReply, productFailure, ELECKOI_FAILURE_CODES, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
-import { roleplayReplyEnabled } from './roleplay-reply-tool.mjs'
+import { DELEGATED_REPLY_NOTICE, roleplayReplyEnabled } from './roleplay-reply-tool.mjs'
 
 export const name = 'eleckoi-conversation-context'
 export const projectionPlugin = 'eleckoi-request-projection'
@@ -107,6 +107,10 @@ export async function readRoleplayReplies(ctx, sessionId, signal) {
 
 /** Project finished replies at their surviving positions in the official request surface. */
 export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Infinity, roleplayBlocks) {
+  const currentInput = beforeTurn === Infinity ? messages.length : messages.findLastIndex(isDirectUserMessage)
+  if (messages.some((message, index) => index < currentInput && message.source?.kind === DELEGATED_REPLY_NOTICE)) {
+    messages = messages.filter((message, index) => index >= currentInput || message.source?.kind !== DELEGATED_REPLY_NOTICE)
+  }
   if (!replies.length) return messages
   const presentIds = new Set(messages.map(message => message.id))
   const bodies = new Map(), processIds = new Set()

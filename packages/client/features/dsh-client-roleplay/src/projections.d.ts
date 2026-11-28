@@ -29,13 +29,15 @@ export interface RoleplayInputContinuationsState extends RoleplayInputContinuati
 
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
-    'eleckoi/roleplay-output': { turn: number; replySeq?: number; toolBacked?: true; nativeText?: true; editedText?: string; editedBlocks?: Array<{ id: string; text: string }> }
+    'eleckoi/roleplay-output': { turn: number; replySeq?: number; toolBacked?: true; nativeText?: true; toolFields?: Record<string, { speakerName: string; speakerId?: string }>; editedText?: string; editedBlocks?: Array<{ id: string; text: string }> }
     'eleckoi/delegated-roleplay-reply': {
       id: string
       mainSessionId: string
       childSessionId: string
       childTurn: number
       childStep: number
+      toolCallId?: string
+      toolFields?: Record<string, { speakerName: string; speakerId?: string }>
       speakerName?: string
       speakerId?: string
       speakers?: Array<{ speakerName: string; speakerId?: string }>

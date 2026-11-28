@@ -22,7 +22,7 @@ import {
 } from '../../packages/host/product-api/src/client/invalidResponse'
 import { failureOrInvalidResponse, unwrapOrFail } from '../../packages/host/product-api/src/client/unwrapFailure'
 import { productFailure } from '../../packages/host/product-api/src/productFailure'
-import { appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers } from '../../packages/host/product-api/src/roleplayReplyText'
+import { appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers, submittedRoleplayBlocks } from '../../packages/host/product-api/src/roleplayReplyText'
 import { ELECKOI_FAILURE_CODES } from '../../packages/host/product-api/src/errorCodes.generated'
 
 /** 测试用的 `require`：只认 bundle 真的会取的那几个模块，其余一律报错（防止悄悄新增依赖）。 */
@@ -39,7 +39,7 @@ export function dshClientRequire(name: string): any {
       MISSING_ERROR_ISSUE_PATH,
       MISSING_RESULT_ISSUE_PATH,
       productFailure,
-      appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers,
+      appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers, submittedRoleplayBlocks,
       ELECKOI_FAILURE_CODES,
       failureAlreadyPublished: () => {},
       rejectionIsAwaitedElsewhere: () => {},

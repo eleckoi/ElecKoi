@@ -1,7 +1,7 @@
 import SessionQuery from '@deepseek-ai/dsh-session-query'
 import * as NativeToolExecutor from '@deepseek-ai/dsh-tool-executor-native'
 import { runtimeContextsFor } from '../helpers/runtime-contexts.js'
-import { hasRoleplayReplyResult, streamRoleplayReply, streamNextRoleplayReply } from '../helpers/tool-call.js'
+import { streamRoleplayReply } from '../helpers/tool-call.js'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
@@ -95,10 +95,6 @@ async function fixture({ stream, withoutSnapshot = false, character } = {}) {
   class Adapter extends LlmAdapter {
     async resolveModel(provider, id) { return { provider, id, name: id } }
     async *stream(options) {
-      if (hasRoleplayReplyResult(options)) {
-        yield* streamNextRoleplayReply(options)
-        return
-      }
       if (stream) { yield* stream(options); return }
       yield* streamRoleplayReply('合成正文', options)
     }
@@ -143,7 +139,6 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     const newMember = { id: 'new-speaker', name: '新角色', portraitAssetId: null, circleAssetId: null, squareAssetId: null, crop: null }
     const nextBlocks = [{ name: newMember.name, text: '合成新增角色发言' }]
     const f = await fixture({ withoutSnapshot: true, character, async *stream(options) {
-      if (hasRoleplayReplyResult(options)) return yield* streamNextRoleplayReply(options);
       requests.push(options);
       yield* streamRoleplayReply(requests.length === 1 ? blocks : nextBlocks);
     } });
@@ -155,24 +150,24 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId));
     expect(requests).toHaveLength(1);
     const tool = requests[0].tools.find(tool => tool.name === 'eleckoi_roleplay_reply')
-    expect(tool.parameters.properties.names.items.enum).toEqual(members.map(member => member.name))
+    expect(Object.keys(tool.parameters.properties)).toEqual(members.map(member => member.name))
     const systemText = request => request.messages.filter(message => message.role === 'system')
       .flatMap(message => message.content.map(block => block.text)).join('\n')
     expect(systemText(requests[0])).not.toMatch(/合成角色甲|合成角色乙/)
-    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(2);
+    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(1);
     const { events } = readDshSessionLog(join(f.root, 'sessions'), f.conversationId)
     expect(roleplayReplyMessages(events)).toMatchObject([{ blocks:
       blocks.map(({ name, text }, index) => ({ kind: 'speech', text, speakerName: name, speakerId: members[index].id })) }])
     expect(events.at(-1)).toMatchObject({ type: 'turn/end', data: { reason: { kind: 'completed' } } });
     await f.ctx.eleckoiPresetRegistrar.selectForSession(f.conversationId);
-    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(2);
+    expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(1);
     f.ctx.eleckoiProductData.updateCharacter({ id: character.id, cast: [...character.cast, newMember] });
     await f.ctx.eleckoiRoleplaySessions.preparePrompt(f.conversationId, 'Synthetic next input');
     await run(f);
     await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId));
     expect(requests).toHaveLength(2);
     const nextTool = requests[1].tools.find(tool => tool.name === 'eleckoi_roleplay_reply');
-    expect(nextTool.parameters.properties.names.items.enum).toEqual([...members, newMember].map(member => member.name));
+    expect(Object.keys(nextTool.parameters.properties)).toEqual([...members, newMember].map(member => member.name));
     expect(systemText(requests[1])).not.toMatch(/合成角色甲|合成角色乙|新角色/);
     expect(roleplayReplyMessages(readDshSessionLog(join(f.root, 'sessions'), f.conversationId).events).at(-1)?.blocks)
       .toMatchObject([{ kind: 'speech', text: nextBlocks[0].text, speakerName: newMember.name, speakerId: newMember.id }]);
@@ -209,7 +204,6 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
       { name: names[1], text: '另一角色。' }]
     const requests = []
     const f = await fixture({ withoutSnapshot: true, character, async *stream(options) {
-      if (hasRoleplayReplyResult(options)) return yield* streamNextRoleplayReply(options)
       requests.push(options.messages)
       yield* streamRoleplayReply(blocks)
     } })

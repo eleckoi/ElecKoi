@@ -7,10 +7,6 @@ tool_phase:
   plot_variables:
     lookup: "核对本轮相关变量。已有结果直接使用，需要时查询；没有相关变量时此项完成。"
 reply_phase:
-  output: "发送扮演正文前，必须至少调用一次 eleckoi_roleplay_reply 工具选出本轮发言角色，下一步按 eleckoi_roleplay_reply 给出的格式直接输出正文。"
-  delegated_reply: >-
-    若本轮调用了 subagent 工具，按回执处理。
-    回执以 <角色名>正文</角色名> 提交扮演正文时，该段正文已显示，视为满足本轮调用要求。无需为该段再次调用 eleckoi_roleplay_reply 工具或重发正文。
-    回执未按此格式提交扮演正文时，发送扮演正文前必须至少调用一次 eleckoi_roleplay_reply 工具。
-    本轮未调用 subagent 工具时，发送扮演正文前必须至少调用一次 eleckoi_roleplay_reply 工具。
+  output: "每轮必须至少调用一次 eleckoi_roleplay_reply 提交扮演正文。直接发普通正文，玩家看不到。单人填一个角色字段，多人按发言顺序填各自的字段，角色和顺序由剧情与设定决定。"
+  delegated_reply: "本轮子代理已通过回复工具提交并显示的正文计入本轮调用要求，无需重复提交。"
 </roleplay_output_protocol>
