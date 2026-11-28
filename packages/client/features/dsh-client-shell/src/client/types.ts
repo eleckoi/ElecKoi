@@ -28,6 +28,26 @@ export interface ElecKoiWindowOwner {
   readonly [property: string]: unknown
 }
 
+export interface PluginListEntry {
+  readonly kind: 'item' | 'package'
+  readonly id: string
+  readonly name: string
+  readonly icon: string
+  readonly group: 'official' | 'eleckoi' | 'installed'
+}
+
+export interface PluginPageListOwner {
+  fallback: ReactNode
+  query: string
+  entries: readonly PluginListEntry[]
+  selectedKey: string
+  status: 'idle' | 'loading' | 'ready' | 'error' | 'unavailable'
+  error: string
+  onQueryChange(query: string): void
+  onSelect(kind: PluginListEntry['kind'], id: string): void
+  onAdd(): void
+}
+
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotFactoryMap {
     /** Product display seats hosted by the actual registered native ConversationRoot. */
@@ -51,6 +71,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface SlotMap {
     'sidebar.update': { kind: 'single'; scope: 'root'; owner: Record<string, never> }
     'eleckoi.shell.window': { kind: 'chain'; scope: 'root'; owner: ElecKoiWindowOwner }
+    'eleckoi.plugin.page.list': { kind: 'chain'; scope: 'root'; owner: PluginPageListOwner }
   }
 }
 

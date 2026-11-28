@@ -253,7 +253,8 @@ window.__ModuleLoader__.load({
                  usePanels: select => props.usePanels(rows => select(rows.filter(({ id }) =>
                    android ? id === 'schedules' : workspacePanels.has(id)))),
                 ...(android ? { useEntryActions: noEntryActions } : {
-                  // RETIRE WHEN: DSH can keep specified panel rows fixed.
+                  // RETIRE WHEN: the locked DSH sidebar can keep schedules fixed via a public option.
+                  // Remove this option, its patch and fixed-row assertions together.
                   fixedPanelIds: WORKSPACE_FIXED_PANELS,
                 }),
                 startSession: visibility.startSession,
@@ -268,7 +269,9 @@ window.__ModuleLoader__.load({
                       requestSessionRename: (id, title) => { visibility.assertVisible(id); face.requestSessionRename(id, title) },
                       unarchiveSession: id => { visibility.assertVisible(id); return face.unarchiveSession(id) }
                     }, renderOptions)
-                  })() : props.renderSlot(key, owner, renderOptions)
+                  })() : key === 'sidebar.footer.action' && !android
+                    ? React.createElement('div', { className: 'workspace-plugin-footer' }, props.renderSlot(key, owner, renderOptions))
+                    : props.renderSlot(key, owner, renderOptions)
               })
                return React.createElement(React.Suspense, { fallback: null }, renderShellPart('OfficialFrameSidebar',
                  { ...props, renderSidebarSlot: productSlot, workspaceSidebar }))
@@ -666,8 +669,9 @@ window.__ModuleLoader__.load({
           slots, subscribeSlots, frontendConnection,
           conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, appearance, settingsSections, rightbar,
           navigation: {
-            items: navigationItems.filter(item => (androidNavigation || item.productRail)
-              && (!hasSidebarEntryActions || !unpinnedPanels.includes(item.id))),
+            items: navigationItems.filter(item => androidNavigation
+              ? !hasSidebarEntryActions || !unpinnedPanels.includes(item.id)
+              : item.productRail),
             hasSidebarEntryActions,
             renderSidebarEntryActions: (renderSidebarSlot, onDismiss) => renderSidebarSlot('sidebar.panellist.actions', {
               entries: navigationItems.filter(item => !item.action && item.id !== 'plugins').map(item => ({
@@ -865,6 +869,8 @@ window.__ModuleLoader__.load({
             'eleckoi.character.library.group.menu.actions': { kind: 'list', scope: 'root' },
             'eleckoi.character.manager': { kind: 'chain', scope: 'root' },
             'eleckoi.conversation.list': { kind: 'chain', scope: 'root' },
+            'eleckoi.model.page.list': { kind: 'chain', scope: 'root' },
+            'eleckoi.plugin.page.list': { kind: 'chain', scope: 'root' },
             'eleckoi.preset.editor.profile': { kind: 'chain', scope: 'root' },
             'eleckoi.preset.editor.introduction': { kind: 'chain', scope: 'root' },
             'eleckoi.preset.editor.prompts': { kind: 'chain', scope: 'root' },

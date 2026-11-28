@@ -4,7 +4,7 @@
 
 本表从桌面运行清单与各 bundle 的 `package.json.eleckoi.developerInterfaces` 生成。DSH 基准为 `0.2.2-rc.5`，提交 `9c2670d3bce5275e0d1610272958121af87787bb`。
 
-当前共 **17 个 bundle、136 个开发接口**：87 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
+当前共 **17 个 bundle、138 个开发接口**：89 个界面插槽、21 个服务、0 个事件、6 个贡献点、22 个 Remote 合同。
 
 接口标题和说明用于插件中心展示；真实调用合同以对应类型导出和实现为准。完整参数、返回值和数据字段见 [Client 参考](api-client.md)、[Host 参考](api-host.md) 与 [Remote 调用声明](api-remote.md)。使用方法见 [界面插槽](ui-slots.md)、[服务接口](services.md) 与 [能力贡献](contributions.md)。
 
@@ -17,11 +17,11 @@
 | `@eleckoi/dsh-client-conversations` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-creator-studio` | 2 | 1 | 0 | 0 | 0 | 3 |
 | `@eleckoi/dsh-client-display-preferences` | 0 | 1 | 0 | 0 | 0 | 1 |
-| `@eleckoi/dsh-client-models` | 0 | 1 | 0 | 0 | 0 | 1 |
+| `@eleckoi/dsh-client-models` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-persona` | 1 | 1 | 0 | 0 | 0 | 2 |
 | `@eleckoi/dsh-client-presets` | 16 | 1 | 0 | 0 | 0 | 17 |
 | `@eleckoi/dsh-client-web-search` | 0 | 1 | 0 | 0 | 0 | 1 |
-| `@eleckoi/dsh-client-shell` | 10 | 1 | 0 | 4 | 0 | 15 |
+| `@eleckoi/dsh-client-shell` | 11 | 1 | 0 | 4 | 0 | 16 |
 | `@eleckoi/dsh-client-roleplay` | 33 | 1 | 0 | 0 | 0 | 34 |
 | `@eleckoi/dsh-auto-illustration` | 0 | 1 | 0 | 0 | 0 | 1 |
 | `@eleckoi/dsh-client-author` | 0 | 2 | 0 | 0 | 0 | 2 |
@@ -120,6 +120,7 @@
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoi.model.page.list` | 模型配置列表 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换模型配置页的目录，使用现有搜索、新建、选择和删除确认操作。 | — |
 | `eleckoiModels` | 模型目录服务 | 服务 | 提供 | `call` | `client` | 读取模型目录、管理独立提供商配置和密钥，以及读取模型。 | `getSnapshot`、`subscribe`、`refresh`、`save`、`saveModelParameters`、`deleteConfig`、`discover`、`revealApiKey`、`sessionParameters`、`readSessionModelParameters`、`saveSessionModelParameters` |
 
 ## `@eleckoi/dsh-client-persona`
@@ -177,6 +178,7 @@
 
 | ID | 名称 | 类型 | 关系 | 模式 | 作用域 | 说明 | 公开成员/所属合同 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `eleckoi.plugin.page.list` | 插件列表 | 界面插槽 | 提供 | `replace` | `root` | 包装或替换 PC 插件中心的左侧目录，使用现有搜索、打开详情和添加插件操作。 | — |
 | `eleckoi.shell.window` | 窗口呈现 | 界面插槽 | 提供 | `replace` | `root` | 按运行平台呈现产品页面；owner.nativeFrame 保留官方布局根、控制器及原有插槽。 | — |
 | `layout` | 桌面布局服务 | 服务 | 提供 | `call` | `client` | 通过同版本官方 LayoutController 切换主面板、导航及侧栏，不提供平行布局服务。 | `selectPanel`、`beginNavigation`、`toggleSidebar`、`openRightbar`、`closeRightbar` |
 | `sidebar.brand.mark` | 品牌图标 | 贡献点 | 接入 | `replace` | `root` | 向官方侧边栏提供品牌图标。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |

@@ -63,6 +63,7 @@
 
 - [测试与日常验证](TESTING.md)：测试分组、并发、目录归属及扩大验证的条件。
 
+- [v0.3.10 更新说明](releases/v0.3.10.md)
 - [v0.3.9 更新说明](releases/v0.3.9.md)
 - [v0.3.8 Windows 预发布说明](releases/v0.3.8.md)
 - [v0.3.3 发布说明](releases/v0.3.3.md)

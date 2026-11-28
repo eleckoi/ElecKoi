@@ -43,6 +43,15 @@
   "eleckoi": {
     "developerInterfaces": [
       {
+        "id": "eleckoi.plugin.page.list",
+        "kind": "ui-slot",
+        "title": "插件列表",
+        "description": "包装或替换 PC 插件中心的左侧目录，使用现有搜索、打开详情和添加插件操作。",
+        "mode": "replace",
+        "scope": "root",
+        "relation": "provides"
+      },
+      {
         "id": "eleckoi.shell.window",
         "kind": "ui-slot",
         "title": "窗口呈现",

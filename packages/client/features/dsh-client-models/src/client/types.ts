@@ -1,4 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
+import type { ReactNode } from 'react'
+import type {} from '@deepseek-ai/dsh-client-ui-slots'
 
 export interface ClientModelOption {
   id: string; name: string; description?: string; inputModalities?: readonly ('text' | 'image')[];
@@ -108,3 +110,28 @@ declare module '@deepseek-ai/cordis' {
 /** Client 插件入口。 */
 export declare function apply(ctx: Context): void
 export declare const inject: string[]
+
+export interface ModelListProvider {
+  readonly id: string
+  readonly label: string
+  readonly section: 'general' | 'image'
+}
+
+export interface ModelPageListOwner {
+  fallback: ReactNode
+  query: string
+  ready: boolean
+  activeConfigId: string
+  items: readonly (ModelListProvider & { readonly providerId?: string; readonly modelId?: string })[]
+  creatableProviders: readonly ModelListProvider[]
+  onQueryChange(query: string): void
+  onSelect(configId: string): void
+  onCreate(providerId: string): void
+  onRequestDelete(configId: string, trigger?: HTMLElement): void
+}
+
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface SlotMap {
+    'eleckoi.model.page.list': { kind: 'chain'; scope: 'root'; owner: ModelPageListOwner }
+  }
+}

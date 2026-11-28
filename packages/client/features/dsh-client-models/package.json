@@ -32,6 +32,15 @@
   "eleckoi": {
     "developerInterfaces": [
       {
+        "id": "eleckoi.model.page.list",
+        "kind": "ui-slot",
+        "title": "模型配置列表",
+        "description": "包装或替换模型配置页的目录，使用现有搜索、新建、选择和删除确认操作。",
+        "mode": "replace",
+        "scope": "root",
+        "relation": "provides"
+      },
+      {
         "id": "eleckoiModels",
         "kind": "service",
         "title": "模型目录服务",

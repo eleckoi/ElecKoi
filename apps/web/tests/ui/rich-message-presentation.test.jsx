@@ -84,4 +84,26 @@ describe('settled rich message presentation', () => {
     expect([...container.querySelectorAll('iframe')]).toEqual(frames);
     expect(frames.map(frame => frame.style.height)).toEqual(['80px', '90px']);
   });
+
+  it.each(['roleplay', 'agent'])('shows a settled speaker’s storyboard image in the %s layout', async layoutMode => {
+    const text = '[分镜:开错路]';
+    const assetId = '00000000-0000-4000-8000-000000000001';
+    const characterId = 'synthetic-character';
+    const segment = { id: 'roleplay-tool-call:0', speakerName: '合成发言甲', kind: 'speech', text };
+    const result = decorateRichDisplayReplacement(`<figure style="margin:8px 0 10px"><img src="asset://${assetId}" alt="合成分镜"></figure>`);
+    const reply = { ...message, characterId, content: '合成发言甲：' + text, roleplayReply: true, roleplayBlocks: [segment] };
+    const draw = value => act(() => root.render(<MessageBubble message={value} layoutMode={layoutMode} />));
+    await draw({ ...reply, pending: true, status: 'streaming' });
+    expect(container.textContent).toContain(text);
+    expect(container.querySelector('iframe')).toBeNull();
+    await draw({ ...reply, roleplayGroups: [{ id: segment.id, sourceText: text, displayText: result }] });
+    const frame = container.querySelector('iframe');
+    expect(frame).not.toBeNull();
+    const frameDocument = new DOMParser().parseFromString(frame.srcdoc, 'text/html');
+    expect(frameDocument.querySelector('figure img')?.getAttribute('src')).toContain(`/eleckoi/character-assets/${characterId}/${assetId}`);
+    await signal(frame, 'eleckoi:frontend-ready');
+    await signal(frame, 'eleckoi:rich-height', { height: 80 });
+    expect(container.textContent).not.toContain(text);
+    expect(frame.closest('.rich-message-staging').style.visibility).not.toBe('hidden');
+  });
 });

@@ -72,7 +72,7 @@ export interface ClientModelConfig {
 }
 ```
 
-源码：[packages/client/features/dsh-client-models/src/client/types.ts:10](../../packages/client/features/dsh-client-models/src/client/types.ts#L10)
+源码：[packages/client/features/dsh-client-models/src/client/types.ts:12](../../packages/client/features/dsh-client-models/src/client/types.ts#L12)
 
 ## ClientModelOption
 
@@ -97,7 +97,7 @@ export interface ClientModelOption {
 }
 ```
 
-源码：[packages/client/features/dsh-client-models/src/client/types.ts:3](../../packages/client/features/dsh-client-models/src/client/types.ts#L3)
+源码：[packages/client/features/dsh-client-models/src/client/types.ts:5](../../packages/client/features/dsh-client-models/src/client/types.ts#L5)
 
 ## ClientModelParameterPatch
 
@@ -117,7 +117,7 @@ export interface ClientModelParameterPatch {
 }
 ```
 
-源码：[packages/client/features/dsh-client-models/src/client/types.ts:19](../../packages/client/features/dsh-client-models/src/client/types.ts#L19)
+源码：[packages/client/features/dsh-client-models/src/client/types.ts:21](../../packages/client/features/dsh-client-models/src/client/types.ts#L21)
 
 ## ClientModelProvider
 
@@ -131,7 +131,7 @@ export interface ClientModelProvider {
 }
 ```
 
-源码：[packages/client/features/dsh-client-models/src/client/types.ts:18](../../packages/client/features/dsh-client-models/src/client/types.ts#L18)
+源码：[packages/client/features/dsh-client-models/src/client/types.ts:20](../../packages/client/features/dsh-client-models/src/client/types.ts#L20)
 
 ## ConfigurationSnapshot
 
@@ -531,7 +531,7 @@ export interface ModelCatalogSnapshot {
 }
 ```
 
-源码：[packages/client/features/dsh-client-models/src/client/types.ts:26](../../packages/client/features/dsh-client-models/src/client/types.ts#L26)
+源码：[packages/client/features/dsh-client-models/src/client/types.ts:28](../../packages/client/features/dsh-client-models/src/client/types.ts#L28)
 
 ## NativeAuthorChatHandlers
 

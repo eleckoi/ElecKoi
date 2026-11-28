@@ -12,6 +12,7 @@ import { ChevronRightIcon } from "../../../../ui/icons/index.jsx";
 import { SidebarSectionHeader } from "../../../../ui/ui/SidebarSectionHeader.jsx";
 import { useSidebarListScroll } from "../../../../ui/hooks/useSidebarListScroll.js";
 import { SidebarScrollArea } from "../../../../ui/ui/SidebarScrollArea.jsx";
+import { useCatalogSlots } from "../../../../ui/ui/CatalogSlotsContext.jsx";
 import { useSidebarGroupCollapse } from "../../../../ui/hooks/useSidebarGroupCollapse.js";
 import { LIST_COLLAPSE_AREAS, usePersistentCollapseState } from "../../../../modules/settings/index.js";
 import "../styles/plugin-center.css";
@@ -44,6 +45,7 @@ export { applySidebarListWheel as applyPluginListWheel } from "../../../../ui/ho
 
 export function PluginListPanel({ onNotify }) {
   const tUi = useProductTranslation();
+  const { render } = useCatalogSlots();
   const [entries, setEntries] = useState([]);
   const [keyword, setKeyword] = useState("");
   const [collapsed, setCollapsed, collapseStateReady] = usePersistentCollapseState(
@@ -52,7 +54,7 @@ export function PluginListPanel({ onNotify }) {
     GROUP_IDS,
   );
   const [selectedId, setSelectedId] = useState("");
-  const [error, setError] = useState("");
+  const [status, setStatus] = useState("loading");
   const scrollRef = useSidebarListScroll();
   const keepCollapsedHeading = useSidebarGroupCollapse(collapsed);
 
@@ -60,7 +62,7 @@ export function PluginListPanel({ onNotify }) {
     const receive = (event) => {
       setEntries(event.detail?.entries || []);
       setSelectedId(event.detail?.selected || "");
-      setError(event.detail?.status === "error" ? tUi("插件列表加载失败") : "");
+      setStatus(event.detail?.status || "loading");
     };
     window.addEventListener("eleckoi:dsh-plugins:state", receive);
     window.dispatchEvent(new Event("eleckoi:dsh-plugins:request"));
@@ -88,7 +90,8 @@ export function PluginListPanel({ onNotify }) {
     else onNotify("error", result.error || tUi("添加插件入口暂时无法打开"));
   }
 
-  return <aside className="character-list-panel plugin-list-panel" aria-label={tUi("插件列表")}>
+  const error = status === "error" ? tUi("插件列表加载失败") : "";
+  const fallback = <aside className="character-list-panel plugin-list-panel" aria-label={tUi("插件列表")}>
     <SidebarSectionHeader title={tUi("插件")} value={keyword} onValueChange={setKeyword} placeholder={tUi("搜索插件名称")}
       createLabel={tUi("添加插件")} onCreate={add} />
     <SidebarScrollArea ref={scrollRef} className="character-list-scroll preset-list-scroll">
@@ -114,6 +117,15 @@ export function PluginListPanel({ onNotify }) {
       {error ? <p className="preset-list-state is-error">{error}</p> : null}
     </SidebarScrollArea>
   </aside>;
+  return render('eleckoi.plugin.page.list', {
+    query: keyword, onQueryChange: setKeyword,
+    entries: filtered.map(({ id, kind, name, icon, group }) => ({ id, kind, name, icon, group })),
+    selectedKey: selectedId, status, error, onAdd: add,
+    onSelect: (kind, id) => {
+      const item = entries.find(item => item.kind === kind && item.id === id);
+      if (item) select(item);
+    },
+  }, fallback);
 }
 
 export function PluginCenterSurface({ children }) {

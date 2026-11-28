@@ -19,16 +19,16 @@ export function WorkspaceSidebarSurface({ collapsed, children, renderSidebarSlot
 
 export function SidebarContent({ expanded = false, collapsed, onCollapse, sidePanel, workspaceSidebar, workspaceCollapsed = false, hasFooterActions, renderSidebarSlot, desktopMenu = false, ...railProps }) {
   const tUi = useProductTranslation();
-  const footerActions = hasFooterActions ? renderSidebarSlot?.('sidebar.footer.action', { wide: true }) : null;
+  const footerActions = expanded && hasFooterActions ? renderSidebarSlot?.('sidebar.footer.action', { wide: true }) : null;
   const rail = <SidebarRail {...railProps} expanded={expanded} onCollapse={onCollapse}
-    renderSidebarSlot={renderSidebarSlot} footerActions={expanded ? footerActions : null} />;
+    renderSidebarSlot={renderSidebarSlot} footerActions={footerActions} />;
   if (expanded) return rail;
   return <>
     <section className="navigation-rail-shell" aria-label={tUi("功能导航栏")}>
       <div className="navigation-rail-title" data-tauri-drag-region />
       {rail}
     </section>
-    {workspaceSidebar ? <WorkspaceSidebarSurface collapsed={workspaceCollapsed} renderSidebarSlot={renderSidebarSlot}>{workspaceSidebar}</WorkspaceSidebarSurface> : <SidePanelShell collapsed={collapsed} onCollapse={onCollapse} renderSidebarSlot={renderSidebarSlot} footerActions={footerActions} desktopMenu={desktopMenu}>
+    {workspaceSidebar ? <WorkspaceSidebarSurface collapsed={workspaceCollapsed} renderSidebarSlot={renderSidebarSlot}>{workspaceSidebar}</WorkspaceSidebarSurface> : <SidePanelShell collapsed={collapsed} onCollapse={onCollapse} renderSidebarSlot={renderSidebarSlot} desktopMenu={desktopMenu}>
       {renderSidebarSlot?.('sidebar.workspaces', { wide: true, content: sidePanel }) || sidePanel}
     </SidePanelShell>}
   </>;

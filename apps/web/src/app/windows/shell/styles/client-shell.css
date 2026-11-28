@@ -89,6 +89,7 @@
 
 .navigation-rail-shell {
   grid-column: 1;
+  grid-template-columns: minmax(0, 1fr);
   background: var(--rail);
   z-index: 3;
 }
@@ -231,24 +232,16 @@
 .side-panel-footer-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
   min-width: 0;
   min-height: 40px;
   padding: 4px 10px;
-  overflow-x: auto;
-  overflow-y: hidden;
   background: var(--list);
-  scrollbar-width: thin;
-}
-
-.side-panel-footer-actions > * {
-  flex: none;
 }
 
 .sidebar-update-seat { display: flex; align-items: center; margin-inline-start: auto; min-width: 0; max-width: 100%; -webkit-app-region: no-drag; }
 .sidebar-update-seat:empty { display: none; }
 .sidebar-update-seat button { min-height: 32px; color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l3); background: var(--dsw-alias-interactive-bg-hover); }
-.side-panel-footer-actions.is-update-only:has(> .sidebar-update-seat:empty) { display: none; }
+.side-panel-footer-actions:has(> .sidebar-update-seat:empty) { display: none; }
 .workspace-update-footer { display: flex; align-items: center; min-height: 40px; padding: 4px 12px; background: var(--rail); }
 .workspace-update-footer:has(> .sidebar-update-seat:empty) { display: none; }
 .native-workspace-sidebar:has(> .workspace-update-footer > .sidebar-update-seat:not(:empty)) { grid-template-rows: var(--window-caption-height, 40px) minmax(0, 1fr) auto; }
@@ -337,6 +330,13 @@
   min-width: 0;
   min-height: 0;
   overflow: visible;
+}
+
+.native-workspace-body .workspace-plugin-footer {
+  width: 100%;
+  min-width: 0;
+  max-block-size: 30dvh;
+  overflow: auto;
 }
 
 /* Anchor the caption toggle without rebasing fixed workspace overlays. */

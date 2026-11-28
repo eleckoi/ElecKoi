@@ -9,7 +9,7 @@ app.whenReady().then(async () => {
   const run = source => win.webContents.executeJavaScript(source);
   const pause = ms => new Promise(resolve => setTimeout(resolve,ms));
   const rows=[], errors=[];
-  let pinning;
+  let pinning, placement;
   win.webContents.on('console-message', event => { if(event.level==='error') errors.push(event.message); });
   try {
     for(const width of [1440,900,700]) for(const dark of [false,true]) {
@@ -49,7 +49,7 @@ app.whenReady().then(async () => {
         await run(`document.querySelector(${JSON.stringify(unpin)}).click()`);
         await pause(50);
         const hidden = await run(`!document.querySelector(${JSON.stringify(unpin)})`);
-        const more = 'button[data-plugin-entry-more=sidebar]';
+        const more = '.native-workspace-sidebar button[aria-label="更多"]';
         const focused = await run(`document.activeElement === document.querySelector(${JSON.stringify(more)})`);
         await run(`document.querySelector(${JSON.stringify(more)}).click()`);
         const menuRow = `Array.from(document.querySelectorAll('[role=menuitem]')).find(row => row.textContent.trim() === '固定合成插件')`;
@@ -58,8 +58,35 @@ app.whenReady().then(async () => {
         await pause(50);
         const visible = await run(`!!document.querySelector(${JSON.stringify(unpin)})`);
         pinning = { ...before, hidden, focused, visible };
+        placement = await run(`(() => {
+          const rail = document.querySelector('.qq-rail').getBoundingClientRect();
+          const railButton = document.querySelector('[data-navigation-id=presets]');
+          const box = railButton.getBoundingClientRect();
+          const footer = document.querySelector('[data-synthetic-footer]');
+          const footerArea = footer.parentElement;
+          return {
+            railWidth: rail.width,
+            railButtonVisible: railButton.contains(document.elementFromPoint(box.x+box.width/2, box.y+box.height/2)),
+            workspaceEntries: [...document.querySelectorAll('.native-workspace-sidebar nav button')].map(button => button.textContent.trim()).filter(Boolean),
+            footerCount: document.querySelectorAll('[data-synthetic-footer]').length,
+            wide: footer.dataset.wide,
+            footerScrollable: footerArea.scrollHeight > footerArea.clientHeight && getComputedStyle(footerArea).overflowY === 'auto',
+          };
+        })()`);
+        await run('document.querySelector("[data-navigation-id=presets]").click()'); await pause(50);
+        placement.productPage = await run(`({
+          showList: !!document.querySelector('.official-product-sidebar-target'),
+          showMore: !!document.querySelector('button[aria-label="更多"]'),
+          footerCount: document.querySelectorAll('[data-synthetic-footer]').length
+        })`);
+        await run('document.querySelector(".qq-rail [data-navigation-id=plugins]").click()'); await pause(50);
+        placement.pluginPage = await run(`({
+          active: document.querySelector('.qq-rail [data-navigation-id=plugins]').getAttribute('aria-current') === 'page',
+          showList: !!document.querySelector('.official-product-sidebar-target'),
+          footerCount: document.querySelectorAll('[data-synthetic-footer]').length
+        })`);
       }
     }
-    writeFileSync(report,JSON.stringify({rows,errors,pinning})); win.destroy();app.exit(0);
+    writeFileSync(report,JSON.stringify({rows,errors,pinning,placement})); win.destroy();app.exit(0);
   }catch(error){console.error(error,errors);win.destroy();app.exit(1);}
 });

@@ -19,9 +19,13 @@ it('lets the official workspace tooltip escape the product sidebar while retaini
     await writeFile(html,`<!doctype html><html><head><meta charset="utf-8"><style>${browserThemeCss()}</style><link rel="stylesheet" href="fixture.css"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>`);
     const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
     await promisify(execFile)(require('electron'),[resolve('apps/web/tests/browser/workspace-tooltips.probe.cjs'),html,report],{env,timeout:30000,windowsHide:true});
-    const {rows,errors,pinning}=JSON.parse(await readFile(report,'utf8'));
+    const {rows,errors,pinning,placement}=JSON.parse(await readFile(report,'utf8'));
     expect(errors).toEqual([]); expect(rows).toHaveLength(6);
-    expect(pinning).toEqual({ fixedButton: false, nativeMore: false, hidden: true, focused: true, visible: true });
+    expect(pinning).toEqual({ fixedButton: false, nativeMore: true, hidden: true, focused: true, visible: true });
+    expect(placement).toEqual({ railWidth: 51, railButtonVisible: true, workspaceEntries: ['自动化任务', '合成插件', '更多'],
+      footerCount: 1, wide: 'true', footerScrollable: true,
+      productPage: { showList: true, showMore: false, footerCount: 0 },
+      pluginPage: { active: true, showList: true, footerCount: 0 } });
     for(const row of rows){const detail=JSON.stringify(row);
       expect(row.before.visible,detail).toBe(true); expect(row.before.rightHit,detail).toBe(true);
       expect(row.clippedBefore,detail).toBe(true);

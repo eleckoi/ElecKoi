@@ -45,7 +45,7 @@ patchedDependencies:
     hash: 4ec8284b5a1be22b81717c3e2918c9d19b2aea11e2e2fccd2ee2299998cb872c
     path: patches/@deepseek-ai__dsh-client-ui-settings-general@0.2.2-rc.5.patch
   '@deepseek-ai/dsh-client-ui-sidebar@0.2.2-rc.5':
-    hash: 710abc23ddd3a78159bdf64a467a0235d0a365f5ab2a4900734e2bb005ea9312
+    hash: d4a5c07b722c52ab3c89a15f8164c2ef706310baa76849a2dd99de5d86bfcb11
     path: patches/@deepseek-ai__dsh-client-ui-sidebar@0.2.2-rc.5.patch
   '@deepseek-ai/dsh-client-ui-theme@0.2.2-rc.5':
     hash: eb46f4cefd721f7498c307146ebf47edd1bd22b0a91f7fefa27c6137051baeab
@@ -435,7 +435,7 @@ importers:
         version: 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar':
         specifier: 0.2.2-rc.5
-        version: 0.2.2-rc.5(patch_hash=710abc23ddd3a78159bdf64a467a0235d0a365f5ab2a4900734e2bb005ea9312)(@deepseek-ai/cordis@4.1.0)
+        version: 0.2.2-rc.5(patch_hash=d4a5c07b722c52ab3c89a15f8164c2ef706310baa76849a2dd99de5d86bfcb11)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar-browser':
         specifier: 0.2.2-rc.5
         version: 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
@@ -2009,7 +2009,7 @@ importers:
         version: 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar':
         specifier: 0.2.2-rc.5
-        version: 0.2.2-rc.5(patch_hash=710abc23ddd3a78159bdf64a467a0235d0a365f5ab2a4900734e2bb005ea9312)(@deepseek-ai/cordis@4.1.0)
+        version: 0.2.2-rc.5(patch_hash=d4a5c07b722c52ab3c89a15f8164c2ef706310baa76849a2dd99de5d86bfcb11)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar-browser':
         specifier: 0.2.2-rc.5
         version: 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
@@ -3519,7 +3519,7 @@ importers:
         version: 0.2.2-rc.5(patch_hash=a4bf3ab111de5b126d5bbb12a56a84c60d9ce902ea9b9a23c03ba4291c869b19)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar':
         specifier: 0.2.2-rc.5
-        version: 0.2.2-rc.5(patch_hash=710abc23ddd3a78159bdf64a467a0235d0a365f5ab2a4900734e2bb005ea9312)(@deepseek-ai/cordis@4.1.0)
+        version: 0.2.2-rc.5(patch_hash=d4a5c07b722c52ab3c89a15f8164c2ef706310baa76849a2dd99de5d86bfcb11)(@deepseek-ai/cordis@4.1.0)
 
   packages/client/features/dsh-client-trajectory:
     dependencies:
@@ -4028,7 +4028,7 @@ importers:
         version: 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar':
         specifier: 0.2.2-rc.5
-        version: 0.2.2-rc.5(patch_hash=710abc23ddd3a78159bdf64a467a0235d0a365f5ab2a4900734e2bb005ea9312)(@deepseek-ai/cordis@4.1.0)
+        version: 0.2.2-rc.5(patch_hash=d4a5c07b722c52ab3c89a15f8164c2ef706310baa76849a2dd99de5d86bfcb11)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar-browser':
         specifier: 0.2.2-rc.5
         version: 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
@@ -14619,7 +14619,7 @@ snapshots:
     dependencies:
       '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
 
-  '@deepseek-ai/dsh-client-ui-sidebar@0.2.2-rc.5(patch_hash=710abc23ddd3a78159bdf64a467a0235d0a365f5ab2a4900734e2bb005ea9312)(@deepseek-ai/cordis@4.1.0)':
+  '@deepseek-ai/dsh-client-ui-sidebar@0.2.2-rc.5(patch_hash=d4a5c07b722c52ab3c89a15f8164c2ef706310baa76849a2dd99de5d86bfcb11)(@deepseek-ai/cordis@4.1.0)':
     dependencies:
       '@deepseek-ai/cordis': 4.1.0(@deepseek-ai/cordis-plugin-include@1.1.0)(@deepseek-ai/cordis-plugin-loader@1.1.0)
 
@@ -17229,7 +17229,7 @@ snapshots:
       '@deepseek-ai/dsh-client-ui-settings-subagent': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-settings-web-search': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-shortcuts': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
-      '@deepseek-ai/dsh-client-ui-sidebar': 0.2.2-rc.5(patch_hash=710abc23ddd3a78159bdf64a467a0235d0a365f5ab2a4900734e2bb005ea9312)(@deepseek-ai/cordis@4.1.0)
+      '@deepseek-ai/dsh-client-ui-sidebar': 0.2.2-rc.5(patch_hash=d4a5c07b722c52ab3c89a15f8164c2ef706310baa76849a2dd99de5d86bfcb11)(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar-browser': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar-documentpreview': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)
       '@deepseek-ai/dsh-client-ui-sidebar-files': 0.2.2-rc.5(@deepseek-ai/cordis@4.1.0)

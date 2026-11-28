@@ -9,6 +9,7 @@ import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
+import { SessionQueryEngine } from '@deepseek-ai/dsh-session-query'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineTool } from '@deepseek-ai/dsh-tools'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
@@ -16,12 +17,15 @@ import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import * as deepSeek from '@deepseek-ai/dsh-llm-deepseek-api-key'
 import * as piAi from '@deepseek-ai/dsh-llm-pi-ai'
+import { DELEGATED_ROLEPLAY_REPLY_EVENT } from '@eleckoi/dsh-product-api'
 import { describe, expect, it, vi } from 'vitest'
 import { materializeAgentPreset, requestSnapshot } from '../../src/host/session-runtime.mjs'
 import { currentRequestSnapshot, refreshSessionModelSnapshot } from '../../src/host/model-request-snapshot.mjs'
 import { writeSessionSnapshot } from '../../src/host/session-snapshot.mjs'
-import { installConversationContext } from '../../src/host/conversation-context.mjs'
+import { installConversationContext, readRoleplayReplies } from '../../src/host/conversation-context.mjs'
 import { inputContinuationsProjection } from '../../src/host/input-continuations-projection.mjs'
+import { installRequestConfig } from '../../src/host/request-config.mjs'
+import { installRoleplayReply, ROLEPLAY_REPLY_SOURCE, ROLEPLAY_REPLY_TOOL } from '../../src/host/roleplay-reply-tool.mjs'
 import { runtimeContextsFor } from '../../../../../../tests/helpers/runtime-contexts.js'
 
 describe('model request parameters', () => {
@@ -155,7 +159,7 @@ describe('model request parameters', () => {
     }
   }, 30_000)
 
-  it('keeps an 11% roleplay request below threshold and compacts when its current tool result crosses the threshold', async () => {
+  it('keeps an 11% roleplay request below threshold and summarizes every submitted speaker after crossing it', async () => {
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-projected-compaction-'))
     const ctx = new Context()
     const sessionId = SessionId('synthetic-roleplay-compaction')
@@ -165,10 +169,16 @@ describe('model request parameters', () => {
     const oldResult = 'Old result. ' + 'o'.repeat(2_520_000)
     const anotherOldResult = 'Another old result. ' + 'p'.repeat(1_900_000)
     const currentResult = 'Current result. ' + 'c'.repeat(2_460_000)
+    const speeches = { Raven: 'The silver key is under the bridge.', Finch: 'I will meet you there at dawn.' }
+    const submittedText = 'Raven：' + speeches.Raven + '\n\nFinch：' + speeches.Finch
+    const delegatedText = 'I will guard the trail.'
+    const delegatedLine = 'Owl：' + delegatedText
+    const checkpoint = 'Synthetic checkpoint. ' + Object.values(speeches).join(' ')
+    const messageTexts = request => request.messages.flatMap(message => message.content.flatMap(block => block.type === 'text' ? [block.text] : []))
     const threshold = 1_048_576 - 256_000 - 65_536
     let toolResult = oldResult
     try {
-      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, TokenMeter]) {
+      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SessionQueryEngine, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, TokenMeter]) {
         await ctx.plugin(plugin)
       }
       await ctx.sessionProjections.register(inputContinuationsProjection)
@@ -184,12 +194,18 @@ describe('model request parameters', () => {
           const isCompaction = request.purpose === 'compaction'
           const inputTokens = ctx.tokenMeter.measureRequest(request)
           if (isCompaction && inputTokens + request.maxTokens > 1_048_576) throw new Error('Synthetic summary exceeds the model window')
-          if (!isCompaction && wantsTool && request.messages.at(-1).source?.kind !== 'tool') {
-            yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-            yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'lookup-' + requests.length, name: 'lookup_scene', arguments: '{}' } }
-          } else {
+          if (isCompaction) {
+            const text = messageTexts(request).includes(submittedText) ? checkpoint : 'Synthetic checkpoint.'
             yield { type: 'block-start', index: 0, blockType: 'text' }
-            yield { type: 'block-end', index: 0, block: { type: 'text', text: isCompaction ? 'Synthetic checkpoint.' : 'Synthetic reply.' } }
+            yield { type: 'block-end', index: 0, block: { type: 'text', text } }
+          } else {
+            const lookup = wantsTool && request.messages.at(-1).source?.kind !== 'tool'
+            const firstTurn = user?.content[0]?.text?.startsWith('First turn.')
+            const block = { type: 'tool-call', id: 'tool-' + requests.length, name: lookup ? 'lookup_scene' : ROLEPLAY_REPLY_TOOL,
+              arguments: JSON.stringify(lookup ? {} : firstTurn ? speeches : { Finch: 'We continue the scene.' }) }
+            yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+            yield { type: 'tool-call-delta', index: 0, id: block.id, name: block.name, argumentsDelta: block.arguments }
+            yield { type: 'block-end', index: 0, block }
           }
           yield { type: 'usage', usage: { inputTokens, outputTokens: 12 } }
           yield { type: 'finish', reason: { kind: 'stop' } }
@@ -202,7 +218,12 @@ describe('model request parameters', () => {
       const contexts = runtimeContextsFor(sessionId, { conversationContext: { historyMode: 'prefix', history: [] } })
       writeSessionSnapshot(root, sessionId, { conversationId: 'synthetic-roleplay-chat' })
       const capture = vi.fn()
-      installConversationContext(agent, root, { capture }, contexts)
+      const readHistory = (id, signal) => readRoleplayReplies(ctx, id, signal)
+      installRoleplayReply(agent, () => true, () => ({ cast: [
+        { id: 'raven', name: 'Raven' }, { id: 'finch', name: 'Finch' }
+      ] }))
+      installRequestConfig(agent.ctx, root, sessionId, readHistory)
+      installConversationContext(agent, root, { capture }, contexts, readHistory)
       agent.ctx.tools.register(defineTool({ name: 'lookup_scene', description: 'Synthetic scene lookup', parameters: {},
         output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
         async execute() { return toolResult } }))
@@ -215,6 +236,12 @@ describe('model request parameters', () => {
         message.source?.kind === 'tool' && message.content.some(block => block.text === text))
 
       await send(visibleHistory)
+      const anchor = agent.session.deriveMessages().find(message => message.source.kind === 'user')
+      agent.session.append(DELEGATED_ROLEPLAY_REPLY_EVENT, {
+        id: 'delegated-owl', mainSessionId: sessionId, childSessionId: 'synthetic-delegate', childTurn: 1, childStep: 1,
+        anchorMessageId: anchor.id, status: 'complete', text: delegatedText,
+        blocks: [{ id: 'delegated-owl:0', kind: 'speech', speakerId: 'owl', speakerName: 'Owl', text: delegatedText }]
+      }, { ignorable: true })
       expect(ctx.tokenMeter.measure(agent.session).totalTokens).toBeGreaterThan(threshold)
       const beforeSecond = requests.length
       await send('Second turn.')
@@ -222,6 +249,8 @@ describe('model request parameters', () => {
       const second = requests[beforeSecond]
       expect(Math.round(ctx.tokenMeter.measureRequest(second) / 1_048_576 * 100)).toBe(11)
       expect(hasToolResult(second, oldResult)).toBe(false)
+      expect(messageTexts(second)).toContain(submittedText)
+      expect(messageTexts(second)).toContain(delegatedLine)
       expect(agent.session.snapshotEvents().filter(event => event.type === 'compaction/start')).toHaveLength(0)
 
       toolResult = anotherOldResult
@@ -234,8 +263,11 @@ describe('model request parameters', () => {
       await send('Fourth turn.')
       expect(requests.slice(beforeFourth).map(request => request.purpose)).toEqual([undefined, 'compaction', undefined])
       const summary = requests[beforeFourth + 1]
-      expect(hasToolResult(summary, oldResult)).toBe(false)
-      expect(hasToolResult(summary, anotherOldResult)).toBe(false)
+      expect(messageTexts(summary).filter(text => text === submittedText)).toEqual([submittedText])
+      expect(messageTexts(summary).filter(text => text === delegatedLine)).toEqual([delegatedLine])
+      expect(summary.messages.flatMap(message => message.content).some(block => ['tool-call', 'tool-result'].includes(block.type))).toBe(false)
+      expect(messageTexts(summary)).not.toContain(oldResult)
+      expect(messageTexts(summary)).not.toContain(anotherOldResult)
       const final = requests.at(-1)
       const events = agent.session.snapshotEvents()
       const compactionErrors = events.filter(event => event.type === 'compaction/end').flatMap(event => event.data.error ?? [])
@@ -244,11 +276,14 @@ describe('model request parameters', () => {
       expect(ctx.tokenMeter.measureRequest(final) + ctx.tokenMeter.measureRequest(second)).toBeGreaterThan(threshold)
       expect(hasToolResult(final, currentResult)).toBe(true)
       expect(hasToolResult(final, oldResult)).toBe(false)
-      expect(final.messages.some(message => message.content.some(block => block.text?.includes('Synthetic checkpoint.')))).toBe(true)
+      expect(messageTexts(final)).toContain(checkpoint)
       expect(capture.mock.calls.at(-1)[1].messages).toBe(final.messages)
       expect(events.filter(event => event.type === 'compaction/summary')).toHaveLength(1)
-      expect(events.filter(event => event.type === 'tool/result').map(event => event.data.message.content[0].text.length))
+      expect(events.filter(event => event.type === 'tool/result' && event.data.meta?.source !== ROLEPLAY_REPLY_SOURCE)
+        .map(event => event.data.message.content[0].text.length))
         .toEqual([oldResult.length, anotherOldResult.length, currentResult.length])
+      await send('Continue from the checkpoint.')
+      expect(messageTexts(requests.at(-1))).toContain(checkpoint)
     } finally {
       await ctx.fiber.dispose()
       rmSync(root, { recursive: true, force: true })

@@ -111,6 +111,9 @@ describe('ElecKoi DSH client navigation', () => {
         expect(root.children[entry.id], entry.id).toEqual({ kind: entry.mode === 'append' ? 'list' : 'chain', scope: 'root' })
       }
     }
+    for (const id of ['eleckoi.model.page.list', 'eleckoi.plugin.page.list']) {
+      expect(root.children[id], id).toEqual({ kind: 'chain', scope: 'root' })
+    }
     const panels = slots.entriesOfSlot('main').map(entry => entry.options.key)
     const railItems = slots.entriesOfSlot('sidebar.panellist').map(entry => entry.options.id)
     expect(railItems).toEqual(['creatorStudio', 'community', 'messages', 'character', 'presets', 'model'])
@@ -176,6 +179,9 @@ describe('ElecKoi DSH client navigation', () => {
     expect(renderNativeSlot).toHaveBeenCalledWith('sidebar.workspaces', expect.objectContaining({ wide: true,
       open: expect.any(Function), searchSessions: expect.any(Function) }), undefined)
     expect(face.renderSidebarSlot('sidebar.workspaces', { content: 'original product list' })).toBe('original product list')
+    const footer = workspace.props.renderSlot('sidebar.footer.action', { wide: true })
+    expect(renderNativeSlot).toHaveBeenLastCalledWith('sidebar.footer.action', { wide: true }, undefined)
+    if (platform === 'desktop') expect(footer.props.className).toBe('workspace-plugin-footer')
     expect(slots.entriesOfSlot('sidebar.panellist').filter(entry => entry.options.id === 'community')).toHaveLength(1)
     // Geometry is reported by the actual Frame sidebar owner, not guessed from panel identity.
     layout.reportSidebar({ shown: true, width: 280, drawer: platform === 'android' })
@@ -338,7 +344,6 @@ describe('ElecKoi DSH client navigation', () => {
       return renderSlot.mock.calls[0]?.[1]
     }
     expect(renderMenu().entries.map(({ id, pinned }: any) => [id, pinned])).toEqual([['messages', true], ['extension-page', true]])
-    // The native workspace row and the product More menu share the native pin store.
     setPinned('extension-page', false)
     expect(render().navigation.items.map((item: any) => item.id)).toEqual(['messages', 'plugins'])
     const menu = renderMenu()

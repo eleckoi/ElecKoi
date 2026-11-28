@@ -7,13 +7,13 @@ import type {} from '@eleckoi/dsh-client-character-configuration/client'
 import type {} from '@eleckoi/dsh-client-conversations/client'
 import type {} from '@eleckoi/dsh-client-creator-studio/client'
 import type {} from '@eleckoi/dsh-client-display-preferences/client'
-import type {} from '@eleckoi/dsh-client-models/client'
+import type { ModelPageListOwner } from '@eleckoi/dsh-client-models/client'
 import type {} from '@eleckoi/dsh-client-persona/client'
 import type {} from '@eleckoi/dsh-client-presets/client'
 import type {} from '@eleckoi/dsh-client-presets/slots'
 import type {} from '@eleckoi/dsh-client-roleplay/slots'
 import type {} from '@eleckoi/dsh-client-web-search/client'
-import type { ILayout } from '@eleckoi/dsh-client-shell/client'
+import type { ILayout, PluginPageListOwner } from '@eleckoi/dsh-client-shell/client'
 import type { SettingLibrary, SettingLibraryEntry, RegexRule, PersonaProfile } from '@eleckoi/dsh-product-api/types'
 
 type Same<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false
@@ -23,6 +23,8 @@ type RemoteValue<T extends (...args: any[]) => any> = SuccessValue<Awaited<Retur
 
 export type CharacterEditorSlotIsReplaceable = Assert<Same<SlotMap['eleckoi.character.editor.card']['kind'], 'chain'>>
 export type PresetManagerSlotIsReplaceable = Assert<Same<SlotMap['eleckoi.preset.manager']['kind'], 'chain'>>
+export type ModelListSlot = Assert<Same<SlotMap['eleckoi.model.page.list'], { kind: 'chain'; scope: 'root'; owner: ModelPageListOwner }>>
+export type PluginListSlot = Assert<Same<SlotMap['eleckoi.plugin.page.list'], { kind: 'chain'; scope: 'root'; owner: PluginPageListOwner }>>
 export type CharacterEditorToolbarCanSave = Assert<Same<SlotMap['eleckoi.character.editor.toolbar']['owner']['onSave'], () => Promise<boolean>>>
 export type CharacterMenuIsAppendable = Assert<Same<SlotMap['eleckoi.character.library.item.menu.actions']['kind'], 'list'>>
 export type PresetPreviewCanActivate = Assert<Same<SlotMap['eleckoi.preset.page.preview']['owner']['onActivate'], () => Promise<void>>>

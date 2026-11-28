@@ -65,9 +65,9 @@ ctx.slots.inject('main', () => ctx.slots.register({
 
 通常还要向 `sidebar.panellist` 注册同 ID 的导航入口。key 必须唯一。
 
-在 PC 上，插件的入口由 DSH 工作区侧栏呈现，位于「新会话」和「工作区」之间。`order` 决定排列顺序，官方「自动化任务」的 `order` 为 `10`。在 Android 上，插件入口仍由产品导航呈现。
+在 PC 上，官方 DSH 接口注册的插件页面入口由创作工作区的 DSH 侧栏呈现，位于「新会话」和「工作区」之间。`order` 决定排列顺序，官方「自动化任务」的 `order` 为 `10`。在 Android 上，插件入口仍由产品导航呈现。
 
-在 PC 工作区侧栏取消固定插件入口后，可以在最左侧导航的「更多」打开它，或把它固定回工作区侧栏。固定状态由 DSH 管理，在侧栏插件重新加载时重置。插件贡献菜单操作时使用 `sidebar.panellist.actions` 提供的 `entries`、`onOpen`、`onPinnedChange` 和 `onDismiss`。
+在 PC 工作区侧栏取消固定插件入口后，可以在同一栏的「更多」打开它，或把它固定回原位置。固定状态由 DSH 管理，在侧栏插件重新加载时重置。插件贡献菜单操作时使用 `sidebar.panellist.actions` 提供的 `entries`、`onOpen`、`onPinnedChange` 和 `onDismiss`。最左侧图标导航的「插件」打开 ElecKoi 插件中心。
 
 ## 类型使用
 
@@ -92,7 +92,7 @@ type CardProps = PropsRuntime<'eleckoi.character.editor.card'>
 | `sidebar.panellist` | list / root | `SidebarPanelIconOwnerProps`；options 使用 `id/order/label` | 主导航入口 |
 | `sidebar.workspaces` | single / root | `SidebarSectionOwnerProps` | 工作区区域 |
 | `sidebar.settings` | single / root | `SidebarSettingsOwnerProps` | 设置入口 |
-| `sidebar.footer.action` | list / root | `SidebarFooterActionOwnerProps` | 侧栏底部操作 |
+| `sidebar.footer.action` | list / root | `SidebarFooterActionOwnerProps` | PC 创作工作区侧栏底部，沿 DSH 传入实际 `wide`；Android 沿现有抽屉 |
 | `sidebar` | single / root | `SidebarOwnerProps` | 替换整列侧栏 |
 | `main` | keyed / root | options 使用 `key` | 注册主页面 |
 | `rightbar` | single / root | `RightbarOwnerProps` | 右侧面板 |
@@ -154,6 +154,15 @@ PC 和安卓共用编辑器的分区、素材库、导航及工具栏。工具�
 | Slot ID | kind / scope | owner 类型 | 关键数据与操作 |
 | --- | --- | --- | --- |
 | `eleckoi.conversation.list` | chain / root | `ConversationListOwner` | 搜索词、聊天列表、置顶、打开、隐藏和跳转角色聊天 |
+
+## 模型配置与插件列表
+
+| Slot ID | kind / scope | 公开类型入口 | 可用内容与操作 |
+| --- | --- | --- | --- |
+| `eleckoi.model.page.list` | chain / root | `ModelPageListOwner`，`@eleckoi/dsh-client-models/client` | 模型配置页侧栏。提供按当前搜索词过滤的配置摘要、选中 ID、加载就绪状态和可新建的提供商。使用 `onQueryChange`、`onSelect`、`onCreate` 和 `onRequestDelete` 调用原有流程。删除先打开确认。列表只传配置摘要。 |
+| `eleckoi.plugin.page.list` | chain / root | `PluginPageListOwner`，`@eleckoi/dsh-client-shell/client` | PC 插件中心左栏。提供按当前搜索词过滤的条目、当前选中键和加载状态。通过 `onSelect(kind, id)` 打开 DSH 原详情，`onAdd()` 打开原安装入口。选中键格式为 `item:<id>` 或 `package:<id>`，空字符串表示未选中。 |
+
+两个都是产品列表的 `chain` 插槽。将 `owner.fallback` 渲染进组件可以保留原列表，也可以使用同一个 owner 提供的数据和回调呈现自己的列表。插件自身的配置表单继续使用官方 `plugins.bundle.config`。
 
 ## 用户资料入口（1）
 

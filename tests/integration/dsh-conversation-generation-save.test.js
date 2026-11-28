@@ -195,13 +195,15 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     expect(f.handle.agent.session.seq).toBe(seq)
   })
 
-  it('applies AI reply prompt rules to merged historical roleplay text in previews and actual requests', async () => {
+  it('applies AI reply display and prompt rules independently to text submitted in the reply tool', async () => {
     const names = ['合成发言甲', '合成发言乙']
+    const storyboard = '[分镜:开错路]'
+    const figure = '<figure style="margin:8px 0 10px"><img src="asset://00000000-0000-4000-8000-000000000001" alt="合成分镜"></figure>'
     const character = { id: 'synthetic-regex-character', name: '合成角色卡',
       cast: names.map((name, index) => ({ id: `speaker-${index}`, name, portraitAssetId: null,
         circleAssetId: null, squareAssetId: null, crop: null })) }
     const blocks = [{ name: names[0], text: '原文前半。' }, { name: names[0], text: '原文后半。' },
-      { name: names[1], text: '另一角色。' }]
+      { name: names[1], text: storyboard }]
     const requests = []
     const f = await fixture({ withoutSnapshot: true, character, async *stream(options) {
       requests.push(options.messages)
@@ -213,7 +215,12 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
       displayOnly: false, promptOnly: true, runOnEdit: false, minDepth: 1, maxDepth: 1 }
     const displayRule = { ...rule, id: 'synthetic-reply-display', name: '合成回复显示', replacement: '界面中的正文。',
       displayOnly: true, promptOnly: false, minDepth: 0, maxDepth: 0 }
-    f.ctx.eleckoiProductData.saveRegexLibrary({ ...library, rules: [rule, displayRule] }, [rule.id, displayRule.id])
+    const imageRule = { ...displayRule, id: 'synthetic-storyboard', name: '合成分镜 · 开错路',
+      pattern: '/\\[分镜:开错路\\]/g', replacement: figure, order: 1 }
+    const inputRule = { ...rule, id: 'synthetic-user-input', name: '合成用户输入', targets: ['UserInput'],
+      pattern: '^第二次输入$', replacement: '发送给模型的用户输入', minDepth: 0, maxDepth: 0 }
+    const rules = [rule, displayRule, imageRule, inputRule]
+    f.ctx.eleckoiProductData.saveRegexLibrary({ ...library, rules }, rules.map(({ id }) => id))
     f.ctx.sessionController.resolveAgent = async () => ({ agent: f.handle.agent })
     const send = async text => {
       await f.ctx.eleckoiRoleplaySessions.preparePrompt(f.conversationId, text)
@@ -223,27 +230,36 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     }
     await send('第一次输入')
     const originalReply = roleplayReplyMessages(readDshSessionLog(join(f.root, 'sessions'), f.conversationId).events)[0]
-    expect(f.ctx.eleckoiProductData.projectConversationMessages(f.conversationId, [{
+    const message = {
       id: String(originalReply.addressSeq), role: 'assistant', roleplayReply: true, content: originalReply.content,
       status: 'complete', variableStateJson: '{}', createdAt: new Date(originalReply.event.time).toISOString(),
       roleplayBlocks: originalReply.blocks
-    }])).toMatchObject([{ roleplayGroups: [
+    }
+    expect(f.ctx.eleckoiProductData.projectConversationMessages(f.conversationId, [{ ...message, status: 'streaming' }]))
+      .toMatchObject([{ displayContent: message.content }])
+    expect(f.ctx.eleckoiProductData.projectConversationMessages(f.conversationId, [message])).toMatchObject([{ roleplayGroups: [
       { sourceText: '原文前半。\n\n原文后半。', displayText: displayRule.replacement },
-      { sourceText: '另一角色。', displayText: '另一角色。' }
+      { sourceText: storyboard, displayText: expect.stringContaining(figure) }
     ] }])
     const seq = f.handle.agent.session.seq
     const preview = await f.ctx.eleckoiRoleplaySessions.previewPrompt(f.conversationId, '第二次输入')
     expect(f.handle.agent.session.seq).toBe(seq)
-    const expected = '合成发言甲：供模型续写的正文。\n\n合成发言乙：另一角色。'
+    const expected = '合成发言甲：供模型续写的正文。\n\n合成发言乙：' + storyboard
     const replyText = messages => messages.filter(message => message.role === 'assistant')
       .flatMap(message => message.content.map(block => block.text))
+    const latestInput = messages => messages.findLast(message => message.source.kind === 'user').content
     expect(replyText(preview.messages)).toEqual([expected])
+    expect(latestInput(preview.messages)).toEqual([{ type: 'text', text: inputRule.replacement }])
     await send('第二次输入')
     expect(requests).toHaveLength(2)
     expect(replyText(requests[1])).toEqual([expected])
+    expect(latestInput(requests[1])).toEqual([{ type: 'text', text: inputRule.replacement }])
     const { events } = readDshSessionLog(join(f.root, 'sessions'), f.conversationId)
-    expect(roleplayReplyMessages(events)[0]).toMatchObject({ content: '合成发言甲：原文前半。\n\n原文后半。\n\n合成发言乙：另一角色。',
-      blocks: [{ speakerName: '合成发言甲', text: '原文前半。\n\n原文后半。' }, { speakerName: '合成发言乙', text: '另一角色。' }] })
+    expect(events.findLast(event => event.type === 'user/message' && event.data.source.kind === 'user').data.content)
+      .toEqual([{ type: 'text', text: '第二次输入' }])
+    expect(roleplayReplyMessages(events)[0]).toMatchObject({ content: '合成发言甲：原文前半。\n\n原文后半。\n\n合成发言乙：' + storyboard,
+      blocks: [{ speakerName: '合成发言甲', text: '原文前半。\n\n原文后半。' }, { speakerName: '合成发言乙', text: storyboard }] })
+    expect(JSON.stringify(events)).not.toContain('asset://')
     expect(JSON.stringify(events)).not.toContain(rule.replacement)
   })
 

@@ -110,10 +110,14 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
       expect(ctx.slots.spec('sidebar.workspaces')).toMatchObject({ kind: 'single', scope: 'root' });
       expect(ctx.slots.entriesOfSlot('main').find(entry => entry.options.key === 'messages').registrant).toBe('@eleckoi/dsh-client-mobile');
       expect(ctx.slots.entriesOfSlot('main').find(entry => entry.options.key === 'settings').registrant).toBe('@eleckoi/dsh-client-mobile');
+      const catalogSeats = ['eleckoi.model.page.list', 'eleckoi.plugin.page.list'];
       const extension = await ctx.plugin({ name: 'synthetic-extension', inject: ['slots'], apply(owner) {
         owner.slots.inject('settings.section', () => owner.slots.register({ name: 'settings.section', id: 'synthetic-settings', order: 30, label: '合成扩展设置' }, () => null));
         owner.slots.inject('sidebar.panellist', () => owner.slots.register({ name: 'sidebar.panellist', id: 'synthetic-extension', label: '合成扩展' }, () => null));
         owner.slots.inject('sidebar.footer.action', () => owner.slots.register({ name: 'sidebar.footer.action', id: 'synthetic-footer' }, () => null));
+        for (const name of catalogSeats) {
+          owner.slots.inject(name, () => owner.slots.register({ name, select: props => props }, () => null));
+        }
         owner.slots.register({ name: 'main', key: 'synthetic-extension' }, () => null);
       } });
       expect(ctx.slots.entriesOfSlot('sidebar.panellist').some(entry => entry.options.id === 'synthetic-extension')).toBe(true);
@@ -121,7 +125,12 @@ describe('Android composition with the shared PC sidebar and locked DSH slots', 
       ctx.layout.selectPanel('synthetic-extension');
       expect(ctx.layout.panelInfo.getSnapshot().activePanelId).toBe('synthetic-extension');
       expect(ctx.slots.entriesOfSlot('sidebar.footer.action')).toHaveLength(1);
+      for (const name of catalogSeats) {
+        expect(ctx.slots.spec(name)).toMatchObject({ kind: 'chain', scope: 'root' });
+        expect(ctx.slots.entriesOfSlot(name)).toHaveLength(1);
+      }
       await extension.dispose();
+      for (const name of catalogSeats) expect(ctx.slots.entriesOfSlot(name)).toEqual([]);
       expect(ctx.slots.entriesOfSlot('sidebar.panellist').some(entry => entry.options.id === 'synthetic-extension')).toBe(false);
       expect(ctx.slots.entriesOfSlot('sidebar.footer.action')).toEqual([]);
       expect(ctx.slots.entriesOfSlot('settings.section').some(entry => entry.options.id === 'synthetic-settings')).toBe(false);

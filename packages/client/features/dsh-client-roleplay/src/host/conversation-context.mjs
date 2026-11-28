@@ -83,7 +83,10 @@ export function installConversationContext(agent, snapshotRoot, previews, runtim
     return {
       messages,
       retainFrom: currentUser?.id,
-      projectSummary: selected => [...selected.filter(message => message.role === 'system'), ...previousTurnDialogue(selected)],
+      projectSummary: selected => [
+        ...selected.filter(message => message.role === 'system'),
+        ...previousTurnDialogue(projectRoleplayDialogue(selected, replies))
+      ],
       onDispatch: request => previews.capture(session, request, projection.plan, step)
     }
   }
@@ -125,7 +128,7 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
       const { anchorMessageId, messageId, content, blocks } = reply
       priorIds ??= beforeTurn === Infinity ? presentIds
         : new Set(messages.slice(0, Math.max(0, messages.findLastIndex(isDirectUserMessage))).map(message => message.id))
-      if (!priorIds.has(anchorMessageId)) continue
+      if (!priorIds.has(anchorMessageId) || presentIds.has(messageId)) continue
       const anchored = delegatedAt.get(anchorMessageId) ?? []
       anchored.push(historyReply(messageId, content))
       delegatedAt.set(anchorMessageId, anchored)
@@ -163,8 +166,10 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
   }
   if (!processIds.size && !delegatedAt.size) return messages
   return messages.flatMap(message => {
-    const content = bodies.get(message.id)
     const delegated = delegatedAt.get(message.id) ?? []
+    // The summary request middleware can receive dialogue already restored before tool filtering.
+    if (message.source?.kind === 'plugin:eleckoi-product-history') return [message, ...delegated]
+    const content = bodies.get(message.id)
     if (content !== undefined) return [historyReply(message.id, content), ...delegated]
     return processIds.has(message.id) ? delegated : [message, ...delegated]
   })

@@ -156,13 +156,13 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 
 - [Windows 完整安装包续传适配](../apps/desktop/src/main/modules/updates/full-installer-resume.ts) 在完整包下载中，把尚未下完的安装包和校验信息存到更新缓存根目录的 `resume/`，与 `pending/` 并列。完整包校验通过后交回更新器。确认目标已替换、切换渠道或已有可安装的更新时，清理续传缓存。锁定的上游 Windows 完整包下载能在中断和重启后续传，并通过替换目标、完整校验和清理回归后，先清理仍支持升级的安装中残留的旧 `resume/`，再移除此适配、下载和协调器接入、适配专用回归及本条登记。保留更新全流程回归。
 
-- [角色聊天压缩计量适配](../packages/client/features/dsh-client-roleplay/src/host/conversation-context.mjs) 在角色会话发包前，按最终请求估算自动压缩压力，选段时保护当前轮。会话事件格式和旧工具轨迹保持原样。锁定上游可对产品投影后的请求计量、保护当前轮并在摘要后重新生成请求时，迁移投影注册入口，删除三个依赖补丁中的对应段与登记，更新锁文件，保留在上游入口运行的阈值和轨迹回归。
+- [角色聊天压缩计量适配](../packages/client/features/dsh-client-roleplay/src/host/conversation-context.mjs) 在角色会话发包前，按最终请求估算自动压缩压力，选段时保护当前轮，生成摘要前从已确认的提交还原角色正文。会话事件格式和旧工具轨迹保持原样。锁定上游可对产品投影后的请求计量、保护当前轮、投影摘要内容并在摘要后重新生成请求时，迁移投影注册入口，删除三个依赖补丁中的对应段与登记，更新锁文件，保留在上游入口运行的阈值、多人发言和轨迹回归。
 
 - [酒馆 V1 角色卡导入](../packages/host/product-data/src/domain/characterTransfer/characterCardFormats.ts) 在解析独立 JSON 或 PNG 内嵌角色卡时识别根层角色字段，以共用转换流程生成当前角色、设定和开场白。停止支持 SillyTavern V1 JSON 和 PNG 导入后，删除根层识别、V1 作者备注映射及专项回归。
 
 - [Android 输入框退格补丁](../patches/@deepseek-ai__dsh-client-ui-conversation@0.2.2-rc.5.patch) 只修正会话输入框收到普通 Chromium Android 退格时的事件处理，不转换存档。锁定的官方输入组件可在文字中间和全角括号内各删除一字并保留正确光标后，移除对应补丁段、登记说明和专项回归，再刷新锁文件哈希。符号节点、选区与输入法组字仍沿官方路径。
 
-- [PC 侧栏入口固定适配](../patches/@deepseek-ai__dsh-client-ui-sidebar@0.2.2-rc.5.patch) 在工作区侧栏使用官方固定状态，把「更多」放在产品最左导航，并保留「自动化任务」固定入口。状态只在当前侧栏生命周期内保留。锁定上游支持外置「更多」和指定固定项并通过同一操作回归后，移除两个适配参数、补丁及锁文件登记。
+- [PC 侧栏入口固定适配](../patches/@deepseek-ai__dsh-client-ui-sidebar@0.2.2-rc.5.patch) 在创作工作区的官方侧栏固定「自动化任务」。插件入口的固定状态只在当前侧栏生命周期内保留。锁定上游可指定固定项，并通过工作区入口及「更多」的操作回归后，移除 `fixedPanelIds` 适配、专项固定断言、补丁和锁文件登记。保留原生菜单操作回归。
 
 - [会话关闭时的附件引用清理补丁](../patches/@deepseek-ai__dsh-file-reference-local@0.2.2-rc.5.patch) 在 Agent 释放时处理已经释放的提示词作用域，继续记录真实的清理异常，不改写会话日志。锁定上游能在同一 PC／Android profile 关闭回归中正常清理后，移除补丁及锁文件登记。
 

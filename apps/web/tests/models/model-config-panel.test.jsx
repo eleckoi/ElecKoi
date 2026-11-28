@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModelConfigPanel } from '../../src/modules/models/components/ModelConfigPanel.jsx';
 import { MobileModelConfigDetail } from '../../src/mobile/MobileModelConfigDetail.jsx';
+import { CatalogSlotsContext } from '../../src/ui/ui/CatalogSlotsContext.jsx';
 import { initialConfigForProvider, modelParameterState } from '../../src/modules/models/model/modelConfigDraft.js';
 
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
@@ -39,12 +40,39 @@ async function change(element, value) {
     element.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
-async function mount(props) {
+async function mount(props, slots = null) {
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
-  await act(async () => root.render(<ModelConfigPanel config={draft()} configs={[]} renderLayout={layout} {...props} />));
+  await act(async () => root.render(<CatalogSlotsContext.Provider value={slots}>
+    <ModelConfigPanel config={draft()} configs={[]} renderLayout={layout} {...props} />
+  </CatalogSlotsContext.Provider>));
 }
+
+it('replaces the model config list through its public slot and uses the original model actions', async () => {
+  let owner;
+  const config = draft();
+  const alternate = { ...draft(), id: 'second-example', name: 'Second Example', api_key: 'synthetic-key' };
+  const render = vi.fn((name, state, fallback) => {
+    if (name !== 'eleckoi.model.page.list') return fallback;
+    owner = state;
+    return <aside aria-label="自定义模型列表">{state.items.map(item => <span key={item.id}>{item.label}</span>)}</aside>;
+  });
+  const onDelete = vi.fn();
+  await mount({ config, configs: [config, alternate], onDelete }, { render });
+  expect(container.querySelector('[aria-label="自定义模型列表"]').textContent).toBe('ExampleSecond Example');
+  expect(owner.items).toEqual([
+    { id: config.id, providerId: 'custom', modelId: '', label: 'Example', section: 'general' },
+    { id: alternate.id, providerId: 'custom', modelId: '', label: 'Second Example', section: 'general' },
+  ]);
+  await act(async () => owner.onQueryChange('Second'));
+  expect(owner.items.map(item => item.id)).toEqual([alternate.id]);
+  await act(async () => owner.onSelect(alternate.id));
+  expect(owner.activeConfigId).toBe(alternate.id);
+  await act(async () => owner.onRequestDelete(alternate.id));
+  expect(document.body.querySelector('[role="dialog"]').textContent).toContain('Second Example');
+  expect(onDelete).not.toHaveBeenCalled();
+});
 
 describe('model configuration form', () => {
   it.each([false, true])('keeps request-header validation inline (mobile: %s)', async mobile => {

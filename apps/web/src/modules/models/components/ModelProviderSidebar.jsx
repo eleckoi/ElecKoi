@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { ChevronRightIcon, TrashIcon } from "../../../ui/icons/index.jsx";
 import { SidebarSectionHeader } from "../../../ui/ui/SidebarSectionHeader.jsx";
 import { SidebarScrollArea } from "../../../ui/ui/SidebarScrollArea.jsx";
+import { useCatalogSlots } from "../../../ui/ui/CatalogSlotsContext.jsx";
 import { useSidebarGroupCollapse } from "../../../ui/hooks/useSidebarGroupCollapse.js";
 import { builtinProviderItems, filterProviderItems, modelProviderSections } from "../model/modelProviderCatalog.js";
 import { ProviderLogo } from "./ProviderLogo.jsx";
@@ -22,6 +23,7 @@ export function ModelProviderSidebar({
   builtinProviders = [],
 }) {
   const tUi = useProductTranslation();
+  const { render } = useCatalogSlots();
   const [query, setQuery] = useState("");
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [providerMenu, setProviderMenu] = useState(null);
@@ -68,7 +70,7 @@ export function ModelProviderSidebar({
     });
   }
 
-  return (
+  const fallback = (
     <aside className="model-config-sidebar">
       <div className="model-sidebar-tools" ref={createMenuRef}>
         <SidebarSectionHeader title={tUi("模型")} value={query} onValueChange={setQuery}
@@ -176,6 +178,28 @@ export function ModelProviderSidebar({
       ) : null}
     </aside>
   );
+  const creatableProviders = [
+    ...createProviderItems.map(({ id, label, section }) => ({ id, label, section })),
+    ...builtinProviderItems(builtinProviders).map(({ provider, displayName }) => ({
+      id: provider, label: displayName || provider, section: 'general',
+    })),
+  ];
+  return render('eleckoi.model.page.list', {
+    query, onQueryChange: setQuery, activeConfigId: activeProviderId,
+    ready: collapseStateReady,
+    items: visibleItems.map(({ id, label, section, config }) => ({
+      id, label, section, providerId: config.provider, modelId: config.model,
+    })),
+    creatableProviders,
+    onSelect,
+    onCreate: providerId => {
+      if (creatableProviders.some(item => item.id === providerId)) onCreate(providerId);
+    },
+    onRequestDelete: (id, trigger) => {
+      const item = providerItems.find(item => item.id === id && item.fixed === false);
+      if (item) onRequestDelete?.(item, trigger);
+    },
+  }, fallback);
 }
 
 function ModelProviderContextMenu({ menu, onClose, onDelete }) {

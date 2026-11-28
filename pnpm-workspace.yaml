@@ -50,7 +50,7 @@ patchedDependencies:
   '@deepseek-ai/dsh-client-ui-plugin-manager@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-plugin-manager@0.2.2-rc.5.patch
   # RETIRE WHEN: official settings exposes reusable, reopenable sidebar updates with portal tooltips and a language-only section sharing its LocaleRuntime.
   '@deepseek-ai/dsh-client-ui-settings-general@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-settings-general@0.2.2-rc.5.patch
-  # RETIRE WHEN: upstream supports placing More in host navigation and keeping specific panel rows fixed; remove this patch, the shell options and the lock hash together.
+  # RETIRE WHEN: upstream can keep specified panel rows fixed; remove fixedPanelIds, this patch, its lock hash and the adapter-specific assertion together.
   '@deepseek-ai/dsh-client-ui-sidebar@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-sidebar@0.2.2-rc.5.patch
   # RETIRE WHEN: official theme exposes an always-expanded font settings group; use that option and remove this patch, registration and lock entry.
   '@deepseek-ai/dsh-client-ui-theme@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-theme@0.2.2-rc.5.patch

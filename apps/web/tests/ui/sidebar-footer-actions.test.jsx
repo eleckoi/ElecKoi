@@ -11,15 +11,14 @@ beforeEach(() => vi.stubGlobal('React', React));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('sidebar footer actions', () => {
-  it('keeps plugin actions after the scrollable side panel content', () => {
-    const html = renderToStaticMarkup(
-      <SidePanelShell footerActions={<button type="button">插件操作</button>}>
-        <div>聊天列表</div>
-      </SidePanelShell>,
-    );
-    expect(html).toContain('has-footer-actions');
-    expect(html.indexOf('聊天列表')).toBeLessThan(html.indexOf('侧边栏插件操作'));
-    expect(html).toContain('<button type="button">插件操作</button>');
+  it.each(['messages', 'presets', 'model', 'plugins', 'settings'])('keeps the official footer out of the PC %s list', activeSection => {
+    const view = { chat: { activeSection }, navigation: { productPanelIds: [activeSection], hasSidebarFooterActions: true } };
+    const renderSidebarSlot = vi.fn(name => <button>{name}</button>);
+    const html = renderToStaticMarkup(<MainPageContext.Provider value={view}>
+      <OfficialFrameSidebar width={328} renderSidebarSlot={renderSidebarSlot} />
+    </MainPageContext.Provider>);
+    expect(html).toContain('official-product-sidebar-target');
+    expect(renderSidebarSlot.mock.calls.map(([name]) => name)).toEqual(['sidebar.brand.name', 'sidebar.update']);
   });
 
   it('does not reserve footer space without plugin actions', () => {
@@ -59,6 +58,6 @@ describe('sidebar footer actions', () => {
     expect(html).not.toContain('rail-desktop-update');
     expect(html).toContain('class="sidebar-update-seat"><button>47%</button>');
     expect(html.indexOf('sidebar-update-seat')).toBeGreaterThan(html.indexOf('</aside>'));
-    expect(html).toContain(workspace ? 'workspace-update-footer' : 'side-panel-footer-actions is-update-only');
+    expect(html).toContain(workspace ? 'workspace-update-footer' : 'side-panel-footer-actions');
   });
 });
