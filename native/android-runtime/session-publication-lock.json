@@ -4,7 +4,7 @@
   "package": "@deepseek-ai/dsh-session-persistence-jsonl",
   "version": "0.2.2-rc.5",
   "file": "lib/index.js",
-  "sourceSha256": "3670eba2e7a5cfd5847317f44f27a5e6ca30b97d63449268c5a6bc5e9991ecda",
+  "sourceSha256": "473b85d9687a782b5720d8cef476e8af9363f816f293c860393365718abaad44",
   "helper": "android-file-publication.mjs",
   "replacements": [
     {
