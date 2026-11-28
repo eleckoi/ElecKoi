@@ -10,6 +10,13 @@ export const DELEGATED_REPLY_NOTICE = 'plugin:eleckoi-delegated-roleplay-reply'
 export const roleplayReplyEnabled = snapshot => !snapshot?.disabledToolGroupIds?.includes(ROLEPLAY_REPLY_GROUP_ID)
 export const roleplayReplyPreview = text => [...text.trim()].slice(0, 240).join('')
 
+export function withRoleplayReplyProtocolReminder(definition) {
+  return {
+    ...definition,
+    description: `${ROLEPLAY_REPLY_TOOL} 可用时，务必按 <roleplay_output_protocol> 判断本轮是否需要调用该工具，严禁绕过该工具直接输出任何有关角色的回复内容。\n\n${definition.description}`
+  }
+}
+
 export function roleplayReplyResult(event) {
   if (event.type !== 'tool/result' || event.data.message.isError) return undefined
   const meta = event.data.meta
@@ -137,9 +144,15 @@ function replyFields(cast, cardName) {
 }
 
 function defineRoleplayReply(agent, fields, allowFrames, readOutput) {
+  const speakerNames = Object.values(fields).map(({ speakerName }) => speakerName)
   return defineTool({
     name: ROLEPLAY_REPLY_TOOL,
-    description: '每轮必须至少调用一次本工具提交扮演正文，直接发送的正文玩家看不到。单人填一个角色字段，多人按发言顺序填写各自的字段。字段值直接写该角色正文。',
+    description: [
+      '提交角色扮演正文。',
+      `当前可发言的角色名单：${JSON.stringify(speakerNames)}。`,
+      '只填写本轮发言角色对应的参数字段。多人发言时，按发言顺序填写。',
+      '字段值直接从台词、动作或叙述开始，开头不要加「角色名：」或历史中的发言者标签。'
+    ].join(''),
     parameters: {
       ...Object.fromEntries(Object.entries(fields).map(([field, { speakerName }]) => [
         field, { type: 'string', ...(field !== speakerName ? { description: speakerName + '的正文' } : {}) }

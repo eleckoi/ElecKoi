@@ -147,18 +147,43 @@ export function messageFloorNumber(messages, index) {
   return index;
 }
 
-export function roleplayFloorNumbers(messages) {
-  let nextBase = messages[0]?.id === 'opening' ? 0 : messageFloorNumber(messages, 0);
-  let extra = 0;
-  const numbers = messages.map(message => {
+const floorProgress = new WeakMap();
+const replyFloorCounts = new WeakMap();
+
+function replyFloorCount(message) {
+  const blocks = messageRoleplayBlocks(message);
+  if (!blocks?.length) return 0;
+  let counts = replyFloorCounts.get(blocks);
+  if (!counts) replyFloorCounts.set(blocks, counts = {});
+  const phase = message.pending ? 'pending' : 'complete';
+  return counts[phase] ??= groupRoleplayReplyBlocks(blocks, message.pending).length;
+}
+
+export function roleplayFloorNumbers(messages, previous) {
+  const firstFloor = messages[0]?.id === 'opening' ? 0 : messageFloorNumber(messages, 0);
+  const cached = floorProgress.get(previous);
+  let prefix = 0;
+  if (cached?.firstFloor === firstFloor) {
+    while (prefix < messages.length && messages[prefix] === previous[prefix]) prefix++;
+    if (prefix === messages.length && prefix === previous.length) {
+      floorProgress.set(messages, cached);
+      return cached.result;
+    }
+  }
+  const steps = prefix ? cached.steps.slice(0, prefix) : [];
+  const numbers = prefix ? cached.result.numbers.slice(0, prefix) : [];
+  let { nextBase, extra } = steps.at(-1) ?? { nextBase: firstFloor, extra: 0 };
+  for (let index = prefix; index < messages.length; index++) {
+    const message = messages[index];
     const base = Number.isSafeInteger(message.messageIndex) ? Math.max(nextBase, message.messageIndex) : nextBase;
-    const number = base + extra;
+    numbers.push(base + extra);
     if (message.kind !== 'turn-error') {
       nextBase = base + 1;
-      const groups = groupRoleplayReplyBlocks(messageRoleplayBlocks(message), message.pending).length;
-      extra += Math.max(0, groups - 1);
+      extra += Math.max(0, replyFloorCount(message) - 1);
     }
-    return number;
-  });
-  return { numbers, next: nextBase + extra };
+    steps.push({ nextBase, extra });
+  }
+  const result = { numbers, next: nextBase + extra };
+  floorProgress.set(messages, { firstFloor, steps, result });
+  return result;
 }

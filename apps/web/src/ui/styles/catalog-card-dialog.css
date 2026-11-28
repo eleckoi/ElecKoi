@@ -42,24 +42,10 @@ body > [role="presentation"]:has(> .catalog-card-dialog) > [aria-hidden="true"]:
 }
 
 .catalog-card-dialog .catalog-card-dialog-close {
-  position: fixed;
-  inset-block-start: var(--catalog-card-block-edge);
-  inset-inline-start: var(--catalog-card-edge);
-  z-index: 2;
+  flex: none;
   width: 40px;
   height: 40px;
   padding: 0;
-  border-radius: 50%;
-  corner-shape: round;
-  background: var(--dsw-alias-button-floating-fill);
-  color: var(--dsw-alias-label-primary);
-  pointer-events: auto;
-}
-
-@media (hover: hover) {
-  .catalog-card-dialog .catalog-card-dialog-close:hover:not(:disabled) {
-    background: var(--dsw-alias-button-floating-hover);
-  }
 }
 
 .catalog-card-dialog[data-closing="true"] .catalog-card-dialog-close {
@@ -73,14 +59,6 @@ body > [role="presentation"]:has(> .catalog-card-dialog) > [aria-hidden="true"]:
 .catalog-card-dialog[data-closing="true"] [data-catalog-card-art] {
   position: relative;
   z-index: 1;
-}
-
-@media (max-width: 940px) {
-  .catalog-card-dialog .catalog-card-dialog-close {
-    position: absolute;
-    inset-block-start: 12px;
-    inset-inline-start: 12px;
-  }
 }
 
 @media (max-width: 620px) {

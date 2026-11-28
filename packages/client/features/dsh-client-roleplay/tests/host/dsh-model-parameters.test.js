@@ -22,7 +22,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { materializeAgentPreset, requestSnapshot } from '../../src/host/session-runtime.mjs'
 import { currentRequestSnapshot, refreshSessionModelSnapshot } from '../../src/host/model-request-snapshot.mjs'
 import { writeSessionSnapshot } from '../../src/host/session-snapshot.mjs'
-import { installConversationContext, readRoleplayReplies } from '../../src/host/conversation-context.mjs'
+import { installConversationContext } from '../../src/host/conversation-context.mjs'
+import { createRoleplayHistoryReader } from '../../src/host/roleplay-history.mjs'
 import { inputContinuationsProjection } from '../../src/host/input-continuations-projection.mjs'
 import { installRequestConfig } from '../../src/host/request-config.mjs'
 import { installRoleplayReply, ROLEPLAY_REPLY_SOURCE, ROLEPLAY_REPLY_TOOL } from '../../src/host/roleplay-reply-tool.mjs'
@@ -170,9 +171,9 @@ describe('model request parameters', () => {
     const anotherOldResult = 'Another old result. ' + 'p'.repeat(1_900_000)
     const currentResult = 'Current result. ' + 'c'.repeat(2_460_000)
     const speeches = { Raven: 'The silver key is under the bridge.', Finch: 'I will meet you there at dawn.' }
-    const submittedText = 'Raven：' + speeches.Raven + '\n\nFinch：' + speeches.Finch
+    const submittedText = '【发言者 "Raven"】\n' + speeches.Raven + '\n\n【发言者 "Finch"】\n' + speeches.Finch
     const delegatedText = 'I will guard the trail.'
-    const delegatedLine = 'Owl：' + delegatedText
+    const delegatedLine = '【发言者 "Owl"】\n' + delegatedText
     const checkpoint = 'Synthetic checkpoint. ' + Object.values(speeches).join(' ')
     const messageTexts = request => request.messages.flatMap(message => message.content.flatMap(block => block.type === 'text' ? [block.text] : []))
     const threshold = 1_048_576 - 256_000 - 65_536
@@ -215,13 +216,12 @@ describe('model request parameters', () => {
       await ctx.plugin(BasicCompactionEngine, { thresholdRatio: 0.8, retainTokens: 0, maxTokens: 8192, compactionRetries: 1 })
       await ctx.plugin(AgentLoop, { agents: [] })
       const { agent } = await ctx.agentLoop.createAgent(ctx, { sessionId, agentOptions: selection })
-      const contexts = runtimeContextsFor(sessionId, { conversationContext: { historyMode: 'prefix', history: [] } })
+      const cast = [{ id: 'raven', name: 'Raven' }, { id: 'finch', name: 'Finch' }]
+      const contexts = runtimeContextsFor(sessionId, { conversationContext: { historyMode: 'prefix', history: [], cast } })
       writeSessionSnapshot(root, sessionId, { conversationId: 'synthetic-roleplay-chat' })
       const capture = vi.fn()
-      const readHistory = (id, signal) => readRoleplayReplies(ctx, id, signal)
-      installRoleplayReply(agent, () => true, () => ({ cast: [
-        { id: 'raven', name: 'Raven' }, { id: 'finch', name: 'Finch' }
-      ] }))
+      const readHistory = createRoleplayHistoryReader(ctx)
+      installRoleplayReply(agent, () => true, () => ({ cast }))
       installRequestConfig(agent.ctx, root, sessionId, readHistory)
       installConversationContext(agent, root, { capture }, contexts, readHistory)
       agent.ctx.tools.register(defineTool({ name: 'lookup_scene', description: 'Synthetic scene lookup', parameters: {},

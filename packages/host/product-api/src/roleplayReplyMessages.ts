@@ -26,12 +26,23 @@ export function isToolBackedRoleplayReply(event: unknown): event is Extract<Sess
 }
 
 type TurnEnd = Extract<SessionEvent, { type: 'turn/end' }>
+type ProcessOnly = { event: TurnEnd; processMessageIds: string[] }
+type RoleplayReply = {
+  event: Extract<SessionEvent, { type: typeof ROLEPLAY_OUTPUT_EVENT }>
+  messageId: string
+  content: string
+  blocks: RoleplayReplyBlock[]
+  bodyParts: { messageId: string; blockId: string; text: string }[]
+  addressSeq: number
+  processMessageIds: string[]
+}
 
 // DSH shares durable tool blocks between observations of an open Session.
 // A replaced invocation gets a new key. Edits to the reply are applied below.
 const parsedReplyArgs = new WeakMap<ToolCallBlock, { raw: string; fields: Record<string, unknown> }>()
 
-export function roleplayReplyMessages(events: readonly SessionEvent[], processOnly?: Array<{ event: TurnEnd; processMessageIds: string[] }>) {
+/** Fold committed events in order, keeping only unfinished turns between calls. */
+export function createRoleplayReplyAccumulator() {
   const turns = new Map<number, {
     blocks: RoleplayReplyBlock[]
     bodyParts: { messageId: string; blockId: string; text: string }[]
@@ -40,28 +51,27 @@ export function roleplayReplyMessages(events: readonly SessionEvent[], processOn
     calls: Map<string, { block: ToolCallBlock; messageId: string }>
     selections: Map<number, Array<{ callId: string; speakers: ReturnType<typeof roleplayReplySpeakers> }>>
   }>()
-  const replies = []
-  for (const event of events) {
+  return (event: SessionEvent): RoleplayReply | ProcessOnly | undefined => {
     if (event.type === ROLEPLAY_OUTPUT_EVENT && event.data.replySeq === undefined) {
       turns.set(event.data.turn, { blocks: [], bodyParts: [], processMessageIds: [], calls: new Map(),
         toolFields: event.data.toolFields !== undefined, selections: new Map() })
     } else if (event.type === 'assistant/message') {
       const turn = turns.get(event.data.turn)
-      if (!turn) continue
+      if (!turn) return
       turn.processMessageIds.push(event.data.message.id)
-      if (event.data.interrupted) continue
+      if (event.data.interrupted) return
       if (turn.toolFields) {
         for (const block of event.data.message.content) {
           if (block.type === 'tool-call' && block.name === 'eleckoi_roleplay_reply') {
             turn.calls.set(block.id, { block, messageId: event.data.message.id })
           }
         }
-        continue
+        return
       }
       // RETIRE WHEN: supported Sessions and chat imports no longer contain role selection followed by assistant text.
       // Remove this legacy text branch and step selections below, the corresponding Client read and old-format fixtures.
       const selections = turn.selections.get(event.data.step)
-      if (selections?.length !== 1) continue
+      if (selections?.length !== 1) return
       const { callId, speakers } = selections[0]!
       const raw = event.data.message.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('')
       for (const part of roleplayReplyBlocks(raw, speakers, callId)) {
@@ -71,17 +81,17 @@ export function roleplayReplyMessages(events: readonly SessionEvent[], processOn
       }
     } else if (event.type === 'tool/result') {
       const turn = turns.get(event.data.turn)
-      if (!turn) continue
+      if (!turn) return
       turn.processMessageIds.push(event.data.message.id)
       const meta = event.data.meta
       if (event.data.message.isError || !meta || typeof meta !== 'object' || Array.isArray(meta)
-        || meta.source !== ROLEPLAY_REPLY_SOURCE) continue
+        || meta.source !== ROLEPLAY_REPLY_SOURCE) return
       const speakers = roleplayReplySpeakers(meta)
-      if (!speakers.length) continue
+      if (!speakers.length) return
       if (turn.toolFields) {
         const callId = event.data.message.source.callId
         const call = turn.calls.get(callId)
-        if (!call) continue
+        if (!call) return
         const raw = call.block.arguments
         let args = parsedReplyArgs.get(call.block)
         if (args?.raw !== raw) {
@@ -93,7 +103,7 @@ export function roleplayReplyMessages(events: readonly SessionEvent[], processOn
           const block = appendRoleplayReplyBlock(turn.blocks, part)
           turn.bodyParts.push({ messageId: call.messageId, blockId: block.id, text: part.text })
         }
-        continue
+        return
       }
       const bodyStep = event.data.step + 1
       const selections = turn.selections.get(bodyStep) ?? []
@@ -112,16 +122,27 @@ export function roleplayReplyMessages(events: readonly SessionEvent[], processOn
         })
         const content = editedBlocks.map(block => `${block.speakerName}：${block.text}`).join('\n\n')
         if (messageId && content?.trim()) {
-          replies.push({ event, messageId, content, blocks: editedBlocks, bodyParts,
-            addressSeq: Number(event.seq), processMessageIds })
           turns.delete(event.data.turn)
+          return { event, messageId, content, blocks: editedBlocks, bodyParts,
+            addressSeq: Number(event.seq), processMessageIds }
         }
       }
     } else if (event.type === 'turn/end') {
       const turn = turns.get(event.data.turn)
-      if (turn && processOnly) processOnly.push({ event, processMessageIds: turn.processMessageIds })
       turns.delete(event.data.turn)
+      if (turn) return { event, processMessageIds: turn.processMessageIds }
     }
+  }
+}
+
+export function roleplayReplyMessages(events: readonly SessionEvent[], processOnly?: ProcessOnly[]) {
+  const append = createRoleplayReplyAccumulator()
+  const replies: RoleplayReply[] = []
+  for (const event of events) {
+    const reply = append(event)
+    if (!reply) continue
+    if ('messageId' in reply) replies.push(reply)
+    else processOnly?.push(reply)
   }
   return replies
 }

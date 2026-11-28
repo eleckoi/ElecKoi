@@ -936,7 +936,7 @@ export interface ConversationRuntimePreparation {
     characterName: string
     cast?: CharacterCastMember[]
     persona: Record<string, unknown>
-    history: Array<{ role: 'user' | 'assistant'; content: string; speakerName?: string }>
+    history: Array<{ role: 'user' | 'assistant'; content: string; speakerName?: string; promptContent?: string }>
     historyMode: 'prefix'
     currentPromptText: string
     replyPromptRules: RegexRule[]

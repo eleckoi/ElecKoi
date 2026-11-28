@@ -33,18 +33,21 @@ module.exports = async function checkCharacterHome({ window, remoteCall, waitFor
   const run = source => window.webContents.executeJavaScript(source)
   async function checkClosePosition(selector) {
     const position = await run(`(() => {
-      const dialog = document.querySelector('${selector}');
-      const button = dialog.querySelector('.catalog-card-dialog-close');
-      const { x, y, width, height } = button.getBoundingClientRect();
-      const overlay = getComputedStyle(dialog.parentElement);
-      return { x, y, viewport: [innerWidth, innerHeight], dialogTop: dialog.getBoundingClientRect().top,
-        edge: parseFloat(overlay.paddingInlineStart), top: parseFloat(overlay.paddingBlockStart),
-        clickable: button.contains(document.elementFromPoint(x + width / 2, y + height / 2)) };
+      const dialog = document.querySelector(${JSON.stringify(selector)});
+      const buttons = dialog.querySelectorAll('.catalog-card-dialog-close');
+      const button = buttons[0];
+      const header = button?.closest('.character-home-detail-author, .preset-summary');
+      if (!header) return { count: buttons.length, inHeader: false };
+      const rect = button.getBoundingClientRect();
+      const bounds = header.getBoundingClientRect();
+      const inset = parseFloat(getComputedStyle(header).paddingInlineEnd);
+      return { count: buttons.length, inHeader: rect.left >= bounds.left && rect.top >= bounds.top && rect.bottom <= bounds.bottom,
+        rightAligned: Math.abs(bounds.right - rect.right - inset) < 1,
+        clickable: button.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)),
+        focused: document.activeElement === button };
     })()`)
-    if (position.viewport[0] <= 940) return
-    assert.ok(position.clickable && Math.abs(position.x - position.edge) < 1 && Math.abs(position.y - position.top) < 1,
-      `Close button should stay at the window's top-left inset: ${selector} ${JSON.stringify(position)}`)
-    process.stdout.write(`${selector} close button at ${position.x}, ${position.y} in ${position.viewport.join('x')}.\n`)
+    assert.deepEqual(position, { count: 1, inHeader: true, rightAligned: true, clickable: true, focused: true },
+      `Close button should be at the right of the detail header: ${selector}`)
   }
   async function checkCloseStart(selector, key) {
     const state = await run(`(() => {
@@ -162,7 +165,7 @@ module.exports = async function checkCharacterHome({ window, remoteCall, waitFor
   assert.ok(layout.introduction.scroll > layout.introduction.client, 'The long introduction does not scroll independently')
   assert.ok(layout.sidebar.scroll > layout.sidebar.client && layout.sidebar.bottom <= layout.sidebarSlot.bottom + 1,
     `The character list extends past the sidebar without scrolling: ${JSON.stringify(layout)}`)
-  assert.equal(await run(`document.querySelector('${detail} .character-home-detail-author > span:last-child').textContent`), 'Synthetic author')
+  assert.equal(await run(`document.querySelector('${detail} .character-home-detail-author > .avatar + span').textContent`), 'Synthetic author')
   assert.equal(await run(`document.querySelector('${detail} p').textContent`), introduction)
   assert.equal(await run(`document.querySelectorAll('${detail} footer button').length`), 2)
   assert.ok(await run(`(() => {
@@ -338,6 +341,7 @@ module.exports = async function checkCharacterHome({ window, remoteCall, waitFor
   await checkKeyboardRing(presetCard)
   await run(`document.activeElement.click()`)
   await waitFor(`!!document.querySelector('.preset-card-dialog')`, 'Preset dialog did not open')
+  await waitFor(`getComputedStyle(document.querySelector('.preset-card-sheet')).transform === 'none'`, 'Preset opening animation did not finish')
   await checkClosePosition('.preset-card-dialog')
   await checkCloseStart('.preset-card-dialog', 'Escape')
   await waitFor(`!document.querySelector('.preset-card-dialog') && document.activeElement === document.querySelector('${presetCard}')`, 'Preset dialog did not restore its trigger')

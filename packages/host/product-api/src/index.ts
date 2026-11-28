@@ -10,7 +10,7 @@ import { ELECKOI_FAILURE_CODES } from './errorCodes.generated.js'
 import { registerHostApiInspect } from './hostInspect.js'
 import { readSessionInspection } from './sessionInspection.js'
 import { isDelegatedRoleplayReply, isToolBackedRoleplayReply, roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT } from './roleplayReplyMessages.js'
-export { delegatedRoleplayReplyBlocks, DELEGATED_ROLEPLAY_REPLY_EVENT, isDelegatedRoleplayReply, isToolBackedRoleplayReply,
+export { createRoleplayReplyAccumulator, delegatedRoleplayReplyBlocks, DELEGATED_ROLEPLAY_REPLY_EVENT, isDelegatedRoleplayReply, isToolBackedRoleplayReply,
   roleplayReplyMessages, ROLEPLAY_OUTPUT_EVENT, ROLEPLAY_REPLY_SOURCE } from './roleplayReplyMessages.js'
 export { appendRoleplayReplyBlock, roleplayReplyBlocks, roleplayReplySpeakers, submittedRoleplayBlocks } from './roleplayReplyText.js'
 import { SESSION_MODEL_PARAMETERS_EVENT, sessionModelParameterKey, sessionModelParameterPatchSchema, sessionModelParametersProjection } from './sessionModelParameters.js'

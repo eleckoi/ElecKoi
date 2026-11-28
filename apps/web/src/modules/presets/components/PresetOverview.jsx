@@ -36,9 +36,9 @@ export function PresetOverview({ requestedTab, onRequestedTabHandled, onBack, tr
     finally { setActivating(false); }
   }
   const owner = { preset: current, active, activating, error, onEdit, onActivate };
-  const content = <section className={`preset-workspace preset-overview${onBack ? ' preset-home-detail' : ''}`} aria-labelledby={title}>
+  const content = closeButton => <section className={`preset-workspace preset-overview${onBack ? ' preset-home-detail' : ''}`} aria-labelledby={title}>
       <PresetProfileHeader preset={current} headingId={title} active={active} editingAvailable onEdit={onEdit}
-        activating={activating} onActivate={onActivate} showActions={!onBack} />
+        activating={activating} onActivate={onActivate} showActions={!onBack} closeButton={closeButton} />
       <div className="preset-workspace-body is-introduction" tabIndex={onBack ? 0 : undefined}>
         <div className="preset-overview-reading">
           {error && <p className="preset-save-error" role="alert">{error}</p>}
@@ -52,9 +52,11 @@ export function PresetOverview({ requestedTab, onRequestedTabHandled, onBack, tr
   return render('eleckoi.preset.page.preview', owner, onBack ? <CatalogCardDialog title={current.name}
     className="preset-card-dialog" sheetClassName="preset-card-sheet" trigger={trigger} labelledBy={title}
     artworkSelector=".preset-home-card-avatar, .preset-list-avatar" onClose={onBack}>
-    <div className="preset-card-dialog-art" data-catalog-card-art>
-      <Avatar src={current.profile.authorAvatarPath || defaultCover} name={current.name} thumbnail={false} />
-    </div>
-    {content}
-  </CatalogCardDialog> : content);
+    {closeButton => <>
+      <div className="preset-card-dialog-art" data-catalog-card-art>
+        <Avatar src={current.profile.authorAvatarPath || defaultCover} name={current.name} thumbnail={false} />
+      </div>
+      {content(closeButton)}
+    </>}
+  </CatalogCardDialog> : content());
 }

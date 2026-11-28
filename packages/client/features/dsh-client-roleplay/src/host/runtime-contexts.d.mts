@@ -49,4 +49,5 @@ export class RuntimeContexts {
   close(): void
 }
 
-export function restoreRuntimeContext(ctx: Context, session: Session, snapshot: { conversationId: string }): Promise<void>
+export function restoreRuntimeContext(ctx: Context, session: Session, snapshot: { conversationId: string },
+  readHistory: (sessionId: Session['id']) => Promise<readonly unknown[]>): Promise<void>

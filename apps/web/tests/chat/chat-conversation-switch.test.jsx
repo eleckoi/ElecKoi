@@ -113,7 +113,7 @@ describe('conversation switching', async () => {
       data: { turn: 2, step: 1 } };
     const spec = { turn: 2, processStartSeq: 13, answerAnchorSeq: null };
     const nodes = [input, tool, control];
-    fixture.update({ order: nodes.map(node => node.key), nodes: new Map(nodes.map(node => [node.key, node])),
+    fixture.update({ order: [input.key, control.key], nodes: new Map([[input.key, input], [control.key, control]]),
       session: { ...fixture.state.session, running: true } });
     const renderRoleplaySlot = (name, owner) => name === 'eleckoi.roleplay.chat'
       ? <ChatView {...fixture.props} runningStatusTarget={owner.runningStatusTarget}
@@ -137,18 +137,24 @@ describe('conversation switching', async () => {
     const container = document.createElement('div');
     document.body.append(container);
     const root = createRoot(container);
-    const render = (message, chatDisplay) => act(async () => root.render(<WithOfficialMarkdown>
-      <ChatPanel {...props} chatDisplay={{ ...chatDisplay, layout }} messages={[message]} isSending={message.pending} />
+    const render = (message, chatDisplay, ownerSessionId = sessionId) => act(async () => root.render(<WithOfficialMarkdown>
+      <ChatPanel {...props} chatDisplay={{ ...chatDisplay, layout }} messages={message ? [message] : []} isSending={message?.pending}
+        dshComposerOwner={{ sessionId: ownerSessionId, session: fixture.state.session }} />
     </WithOfficialMarkdown>));
     try {
-      await render(pendingReply);
+      await render(undefined, undefined, 'previous-session');
+      const runningSeat = container.querySelector('[data-chat-running-seat]');
+      expect(runningSeat.childElementCount).toBe(0);
+      await render();
       const replySelector = `.message-${layout}.theirs`;
       expect(container.querySelector(replySelector)).toBeNull();
       expect(container.querySelector('[data-chat-running]')).toBeNull();
-      expect(container.querySelector('[data-chat-running-seat]').childElementCount).toBe(0);
+      expect(runningSeat.querySelector('[role="status"]').textContent).toBe('正在分析请求');
+      expect(runningSeat.querySelector('button')).toBeNull();
 
+      await act(async () => fixture.update({ order: nodes.map(node => node.key), nodes: new Map(nodes.map(node => [node.key, node])) }));
       await render({ ...pendingReply, process: [search] });
-      const controlButton = container.querySelector('[data-chat-running-seat] .agent-process-inline');
+      const controlButton = runningSeat.querySelector('button.agent-process-inline');
       expect(controlButton.textContent).toBe('正在读取设定正文 · 录音室');
       expect(container.querySelector('[data-chat-running]')).toBeNull();
       expect(container.querySelector('.chat-transcript-region .agent-process-inline')).toBeNull();

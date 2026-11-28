@@ -3,6 +3,7 @@ import { and, desc, eq } from 'drizzle-orm'
 import type { Conversation, ConversationMetadata, OpeningMessageOption } from '@shared/contracts/entities/chat'
 import { parseJsonObject } from '@shared/foundation/json'
 import { openingSegmentText } from '@shared/foundation/characterOpenings'
+import { formatRoleplayPromptSpeech } from '@shared/foundation/roleplayReplyGroups'
 import { requireCharacter, type CharacterConversationIdentity } from '@product-data/domain/personas'
 import type { ElecKoiDatabase, ElecKoiSqliteStore } from '@product-data/storage/sqlite/SqliteDatabase'
 import {
@@ -99,16 +100,21 @@ export class ConversationRepository {
     return row
   }
 
-  openingText(conversationId: string): string {
+  openingHistory(conversationId: string, showSpeakers = false): { content: string; promptContent: string } {
     const opening = this.store.native.prepare(`SELECT o.content,o.payloadJson FROM agent_openings o
       JOIN agent_conversations c ON c.id=o.conversationId
       JOIN agent_branch_turns p ON p.branchId=c.activeBranchId AND p.turnId=o.turnId
       WHERE o.conversationId=?`).get(conversationId) as { content: string; payloadJson: string } | undefined
-    if (!opening) return ''
+    if (!opening) return { content: '', promptContent: '' }
     const payload = JSON.parse(opening.payloadJson || '{}') as { options?: OpeningMessageOption[]; selectedId?: string }
     const segments = payload.options?.find(option => option.id === payload.selectedId)?.segments
-    return segments ? openingSegmentText(segments.map(segment => segment.kind === 'speech' && segment.speakerName && segment.text.trim()
-      ? { text: `${segment.speakerName}：${segment.text}` } : segment)) : opening.content
+    if (!segments) return { content: opening.content, promptContent: opening.content }
+    const speakers = new Set(segments.filter(segment => segment.kind === 'speech' && segment.text.trim()).map(segment => segment.speakerName))
+    const content = openingSegmentText(segments.map(segment => segment.kind === 'speech' && segment.speakerName && segment.text.trim()
+      ? { text: `${segment.speakerName}：${segment.text}` } : segment))
+    const promptContent = openingSegmentText(segments.map(segment => ({ text: formatRoleplayPromptSpeech(segment.text,
+      segment.kind === 'speech' && (showSpeakers || speakers.size > 1) ? segment.speakerName : undefined) })))
+    return { content, promptContent }
   }
 
   restoreImportedOpening(conversationId: string, opening?: {

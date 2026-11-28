@@ -19,6 +19,7 @@ export function CharacterDetailPanel({ character, trigger, onClose, onStartConve
 
   return <CatalogCardDialog title={name} className="character-home-detail-modal" sheetClassName="character-home-detail"
     trigger={trigger} artworkSelector=".character-card-cover, .sidebar-character-artwork" onClose={onClose} labelledBy={titleId}>
+    {closeButton => <>
       <div className="character-home-detail-art" data-catalog-card-art>
         {cover && cover !== failedCover
           ? <img src={cover} alt={name} onError={() => setFailedCover(cover)} />
@@ -29,6 +30,7 @@ export function CharacterDetailPanel({ character, trigger, onClose, onStartConve
           <Avatar as="span" className="character-home-detail-author-avatar" src={character.authorAvatar} name={author}
             aria-hidden="true" />
           <span>{author}</span>
+          {closeButton}
         </header>
         <div className="character-home-detail-intro" tabIndex={0} aria-label={tUi('简介')}>
           <h1 id={titleId}>{name}</h1>
@@ -41,5 +43,6 @@ export function CharacterDetailPanel({ character, trigger, onClose, onStartConve
             onClick={() => onEditCharacter(character.id)}>{tUi('编辑角色')}</Button>
         </footer>
       </article>
+    </>}
   </CatalogCardDialog>;
 }

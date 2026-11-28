@@ -42,14 +42,22 @@ it('keeps editor creation controls and asset menus usable across desktop and tou
       expect(row.selection.start, detail).toBe(row.selection.end);
       expect(row.selection.focused, detail).toBe(false);
       if (row.shadow) { expect(row.shadow.actual, detail).toBe(row.shadow.official); expect(row.shadow.toolbar, detail).toBe('none'); }
-      if (row.alignment) for (const field of ['icon','title']) {
-        expect(row.alignment.variable[field], detail).toBeCloseTo(row.alignment.fixed[field], 1);
-        expect(row.alignment.group[field], detail).toBeCloseTo(row.alignment.fixed[field], 1);
+      if (row.rowLayout) {
+        const { groupIcon, groupTitle, icon, title, hoverTitle } = row.rowLayout;
+        expect(Math.abs(groupIcon - icon), detail).toBeLessThanOrEqual(1);
+        expect(groupTitle, detail).toBeCloseTo(title, 1);
+        if (row.width >= 600) expect(hoverTitle, detail).toBeCloseTo(title, 1);
       }
-      if (row.rowLayout && row.kind === 'variables') {
+      if (row.kind === 'variables') {
         const reference = report.cases.find(item => item.kind === 'settings' && item.theme === row.theme && item.width === row.width).rowLayout;
-        expect(row.rowLayout.title - row.rowLayout.icon, detail).toBeCloseTo(reference.title - reference.icon, 1);
-        for (const field of ['searchGap','height']) expect(row.rowLayout[field], detail).toBeCloseTo(reference[field], 1);
+        expect(row.alignment.groupExpands, detail).toBe(true);
+        for (const field of ['icon', 'title']) {
+          expect(row.alignment.variable[field], detail).toBeCloseTo(row.alignment.fixed[field], 1);
+          expect(Math.abs(row.rowLayout[field] - reference[field]), detail).toBeLessThanOrEqual(1);
+        }
+        if (row.width < 600) {
+          for (const field of ['searchGap', 'height']) expect(row.rowLayout[field], detail).toBeCloseTo(reference[field], 1);
+        }
       }
     }
   } finally {

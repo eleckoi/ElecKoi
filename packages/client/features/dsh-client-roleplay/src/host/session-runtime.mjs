@@ -12,14 +12,14 @@ import { currentRequestSnapshot, requestSnapshot } from './model-request-snapsho
 import { joinContextSections, renderContextSections, renderPrompt } from '@deepseek-ai/dsh-system-prompt'
 import { createSystemMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { readSessionInspection, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
-import { projectRoleplayDialogue, projectRequestInput, readRoleplayReplies, requestProjectionSnapshot, visibleDialogueHistory } from './conversation-context.mjs'
+import { projectRoleplayDialogue, projectRequestInput, requestProjectionSnapshot, visibleDialogueHistory } from './conversation-context.mjs'
 import { resolvePlacedSettingTemplates } from './setting-library-tools.mjs'
 
 export { requestSnapshot } from './model-request-snapshot.mjs'
 
 export const ACTIVE_RUNTIME_PRESET_ID = 'eleckoi-active'
 
-export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
+export async function installRoleplaySessionRuntime(ctx, presetRegistrar, readHistory) {
   if (!process.env.ELECKOI_PRESET_TEMPLATE_PATH
     || !process.env.ELECKOI_SESSION_BRIDGE_ROOT
     || !process.env.ELECKOI_WORKSPACE_ROOT
@@ -88,9 +88,9 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       || mountedPresetRevision !== requestedPreset.revision
     const historySession = creating ? ctx.sessions.get(runtime.runtimeSessionId)
       : (await requireIdleAgent(ctx, runtime.runtimeSessionId)).session
-    const nextTurn = initialTurn ?? (creating ? 1 : await nextSessionTurn(ctx, runtime.runtimeSessionId))
+    const nextTurn = initialTurn ?? (creating ? 1 : ctx.agents.turnBoundaryOf(historySession).lastTurn + 1)
     const surface = historySession
-      ? projectRoleplayDialogue(historySession.deriveMessages(), await readRoleplayReplies(ctx, historySession.id, signal)) : []
+      ? projectRoleplayDialogue(historySession.deriveMessages(), await readHistory(historySession.id, signal)) : []
     const operationId = creating ? undefined : randomUUID()
     ctx.eleckoiProductData.recordRuntimeBeforeTurn(conversationId, runtime.runtimeSessionId, nextTurn)
     ctx.eleckoiRuntimeContexts.prepare(runtime.runtimeSessionId, runtime,
@@ -160,7 +160,8 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       const state = ctx.eleckoiProductData.runtimeStateAt(sourceConversationId,
         ctx.eleckoiProductData.runtimeSessionId(sourceConversationId), sourceTurn, afterTurn ? 'after' : 'before')
       ctx.eleckoiProductData.restoreConversationRuntime(conversationId, state)
-      const nextTurn = await nextSessionTurn(ctx, ctx.eleckoiProductData.runtimeSessionId(conversationId))
+      const nextTurn = await ctx.sessionQuery.inspectSession(ctx.eleckoiProductData.runtimeSessionId(conversationId),
+        session => ctx.agents.turnBoundaryOf(session).lastTurn + 1)
       const prepared = await prepare(conversationId, '', true, undefined, nextTurn)
       await presetRegistrar.registerForSession(prepared.runtimeSessionId)
       return prepared.runtimeSessionId
@@ -202,9 +203,11 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
       const model = { ...await currentRequestSnapshot(ctx, resolved.agent.model.current(), resolved.agent.session), ...(generationOptions.get(conversationId)?.responseLength
         ? { maxTokens: generationOptions.get(conversationId).responseLength } : {}) }
       const session = resolved.agent.session
-      const roleplayReplies = await readRoleplayReplies(ctx, session.id)
+      const roleplayReplies = await readHistory(session.id)
       const roleplayBlocks = new Map()
-      let surface = projectRoleplayDialogue(session.deriveMessages(), roleplayReplies, Infinity, roleplayBlocks)
+      let surface = projectRoleplayDialogue(session.deriveMessages(), roleplayReplies, Infinity, {
+        showSpeakers: runtime.conversationContext.cast?.length > 1, roleplayBlocks
+      })
       const cutoff = generationOptions.get(conversationId)?.historyCutoffId
       if (cutoff) {
         const index = surface.findIndex(message => message.id === cutoff)
@@ -362,16 +365,6 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     await turnOutcomes.dispose()
     await historyStats.dispose()
   }
-}
-
-async function nextSessionTurn(ctx, sessionId) {
-  const inspection = await readSessionInspection(ctx, sessionId)
-  const lastTurn = inspection.events.reduce((latest, event) => (
-    event?.type === 'turn/start' && Number.isSafeInteger(event.data?.turn)
-      ? Math.max(latest, event.data.turn)
-      : latest
-  ), 0)
-  return lastTurn + 1
 }
 
 async function requireIdleAgent(ctx, sessionId) {

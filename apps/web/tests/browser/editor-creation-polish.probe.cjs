@@ -15,6 +15,21 @@ app.whenReady().then(async () => {
     const code = `[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.textContent.trim()===${JSON.stringify(text)})`;
     await wait(`!!(${code})`); await run(`(${code}).click()`);
   };
+  const parentSelector = kind => `[data-reorder-id="${kind === 'variables' ? 'object' : 'group'}:fixture-parent"]`;
+  const checkDisclosure = async (kind, activate) => {
+    const button = parentSelector(kind) + ' .tree-disclosure-button';
+    const child = `[data-reorder-id="${kind === 'variables' ? 'variable' : 'entry'}:fixture-child"]`;
+    const expanded = value => `document.querySelector(${JSON.stringify(button)})?.getAttribute('aria-expanded') === '${value}' && Boolean(document.querySelector(${JSON.stringify(child)})) === ${value}`;
+    await wait(expanded(false));
+    await activate(button);
+    await wait(expanded(true));
+    const label = kind === 'variables' ? '.variable-tree-label' : '.setting-library-tree-label';
+    const indent = await run(`document.querySelector(${JSON.stringify(child + ' ' + label)}).getBoundingClientRect().left -
+      document.querySelector(${JSON.stringify(parentSelector(kind) + ' ' + label)}).getBoundingClientRect().left`);
+    if (Math.abs(indent - 27) > 0.5) throw Error(`Unexpected ${kind} child indent: ${indent}`);
+    await activate(button);
+    await wait(expanded(false));
+  };
   try {
     const cdp = win.webContents.debugger;
     cdp.attach('1.3');
@@ -26,7 +41,7 @@ app.whenReady().then(async () => {
       }).catch(error => report.errors.push(error.message));
     });
     await cdp.sendCommand('Fetch.enable', { patterns: [{ urlPattern: '*/eleckoi/character-assets/*' }] });
-    await win.loadURL(pathToFileURL(html).href);
+    await win.loadURL(pathToFileURL(html).href + '?directory-alignment');
     await win.webContents.insertCSS('*,*::before,*::after{transition:none!important;animation:none!important}');
     report.anchorSupport = await run('CSS.supports("top", "max(8px, calc(anchor(bottom) + 7px))")');
     for (const theme of ['light','dark']) for (const width of [320,390,1200]) for (const kind of ['settings','variables','prompts']) {
@@ -48,16 +63,40 @@ app.whenReady().then(async () => {
       if (compact) { await run('document.querySelector("[data-fixture-back]").click()'); await wait('!document.querySelector(".editor-page-detail")'); }
       let alignment = null;
       if (kind === 'variables') {
-        alignment = await run(`(()=>{const rows=[...document.querySelectorAll('.variable-tree-row')],at=r=>({icon:r.querySelector('.variable-tree-icon').getBoundingClientRect().left,title:r.querySelector('.variable-tree-label').getBoundingClientRect().left});return {fixed:at(rows.find(r=>r.dataset.reorderFixed==='true')),variable:at(rows.find(r=>r.dataset.reorderFixed!=='true'))}})()`);
+        alignment = await run(`(()=>{const rows=[...document.querySelectorAll('.variable-tree-row')],at=r=>({icon:r.querySelector('.variable-tree-icon').getBoundingClientRect().left,title:r.querySelector('.variable-tree-label').getBoundingClientRect().left});return {fixed:at(rows.find(r=>r.dataset.reorderFixed==='true')),variable:at(rows.find(r=>r.querySelector('.variable-tree-label').textContent==='新建变量'))}})()`);
         await run(`document.querySelector('.variable-tree').dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button:0}))`);
         await textClick(compact ? '.mobile-editor-actions [role=toolbar] button' : '.setting-toolbar-create', '新建');
         await textClick('[role=menu] [role=menuitem]', '变量组');
         await wait('!!document.querySelector("[aria-label=当前变量名称]")');
         if (compact) { await run('document.querySelector("[data-fixture-back]").click()'); await wait('!document.querySelector(".editor-page-detail")'); }
-        alignment.group = await run(`(()=>{const row=[...document.querySelectorAll('.variable-tree-row')].find(r=>r.textContent.includes('新建变量组'));return {icon:row.querySelector('.variable-tree-icon').getBoundingClientRect().left,title:row.querySelector('.variable-tree-label').getBoundingClientRect().left}})()`);
+        alignment.groupExpands = await run(`!![...document.querySelectorAll('.variable-tree-row')].find(r=>r.querySelector('.variable-tree-label').textContent==='新建变量组').querySelector('button[aria-expanded]')`);
         if (theme==='dark' && [390,1200].includes(width)) { await new Promise(resolve => setTimeout(resolve, 80)); writeFileSync(join(dirname(html),`variables-${width}.png`),(await win.webContents.capturePage()).toPNG()); }
       }
-      const rowLayout = compact ? await run(`(()=>{const row=document.querySelector(${JSON.stringify(kind==='variables'?'.variable-tree-row':'.setting-library-tree-row-content')}), icon=row.querySelector(${JSON.stringify(kind==='variables'?'.variable-tree-icon':'.setting-library-tree-entry-icon')}), label=row.querySelector(${JSON.stringify(kind==='variables'?'.variable-tree-label':'.setting-library-tree-label')});const r=row.getBoundingClientRect(),s=document.querySelector('.editor-collection-search').getBoundingClientRect();return {icon:icon.getBoundingClientRect().left-r.left,title:label.getBoundingClientRect().left-r.left,searchGap:r.top-s.bottom,height:r.height}})()`) : null;
+      const rowLayout = kind === 'prompts' ? null : await run(`(() => {
+        const row = document.querySelector('${kind === 'variables' ? '.variable-tree-row[data-reorder-fixed="true"]' : '.setting-library-tree-row-content:has(.setting-library-tree-entry-icon)'}');
+        const icon = row.querySelector('${kind === 'variables' ? '.variable-tree-icon' : '.setting-library-tree-entry-icon svg'}');
+        const labelSelector = '${kind === 'variables' ? '.variable-tree-label' : '.setting-library-tree-label'}';
+        const label = row.querySelector(labelSelector);
+        const folder = document.querySelector(${JSON.stringify(parentSelector(kind))});
+        const bounds = ${kind === 'variables' ? 'row' : 'document.querySelector(".setting-library-tree-row-content")'}.getBoundingClientRect();
+        const search = document.querySelector('${compact ? '.editor-collection-search' : '.setting-directory-search'}').getBoundingClientRect();
+        return {
+          icon: icon.getBoundingClientRect().left, title: label.getBoundingClientRect().left,
+          groupIcon: folder.querySelector('button[aria-expanded]').getBoundingClientRect().left,
+          groupTitle: folder.querySelector(labelSelector).getBoundingClientRect().left,
+          searchGap: bounds.top - search.bottom, height: bounds.height,
+        };
+      })()`);
+      if (rowLayout && !compact) {
+        const parent = JSON.stringify(parentSelector(kind));
+        const point = await run(`(() => { const r=document.querySelector(${parent}).getBoundingClientRect(); return {x:r.left+60,y:r.top+r.height/2}; })()`);
+        await cdp.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point });
+        await wait(`document.querySelector(${parent} + ' .tree-disclosure-arrow').getBoundingClientRect().width > 0`);
+        rowLayout.hoverTitle = await run(`document.querySelector(${parent} + ' ${kind === 'variables' ? '.variable-tree-label' : '.setting-library-tree-label'}').getBoundingClientRect().left`);
+        await checkDisclosure(kind, selector => run(`document.querySelector(${JSON.stringify(selector)}).click()`));
+        await cdp.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 0, y: 0 });
+        await wait(`document.querySelector(${parent} + ' .tree-disclosure-icon').getBoundingClientRect().width > 0`);
+      }
       report.cases.push({ theme, width, kind, selection, shadow, alignment, rowLayout });
     }
     for (const theme of ['light', 'dark']) for (const width of [320, 390, 1200]) {
@@ -125,6 +164,10 @@ app.whenReady().then(async () => {
         }
         await wait('!document.querySelector(".asset-menu-layer, .asset-preview-dialog, .asset-breadcrumbs")');
       }
+    }
+    for (const kind of ['settings', 'variables']) {
+      await run(`document.querySelector('[data-editor="${kind}:character:true"]').click()`);
+      await checkDisclosure(kind, tap);
     }
     report.passed = true;
   } catch(error) { report.failure = error.stack || String(error); report.passed = false; }

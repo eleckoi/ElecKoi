@@ -448,25 +448,8 @@
   line-height: 18px;
 }
 
-.setting-library-tree-expander {
-  display: grid;
-  width: 16px;
-  height: 20px;
-  flex: 0 0 16px;
-  padding: 0;
-  place-items: center;
-  color: var(--tree-chevron-fg);
-  background: transparent;
-  border: 0;
-}
-
 .setting-library-tree-folder {
-  display: grid;
-  width: 16px;
-  height: 20px;
-  flex: 0 0 16px;
   color: var(--tree-folder-fg);
-  place-items: center;
 }
 
 .setting-library-tree-row.is-nested {
@@ -1973,7 +1956,6 @@ html.immersive-editor-open .qq-character-editor-window-shell .window-controls {
 @media (prefers-reduced-motion: reduce) {
   .setting-library-tree-entry-icon,
   .setting-library-tree-folder,
-  .setting-library-tree-arrow,
   .setting-library-tree-label,
   .setting-library-opening-toggle > svg {
     transition: none;

@@ -325,6 +325,10 @@ html:not([data-input-modality="pointer"]) :is(.character-home-sidebar, .preset-h
   flex: 0 0 auto;
 }
 
+.character-home-detail-author > .catalog-card-dialog-close {
+  margin-inline-start: auto;
+}
+
 .character-home-detail-intro {
   overflow: auto;
   overscroll-behavior: contain;
@@ -379,7 +383,7 @@ html:not([data-input-modality="pointer"]) :is(.character-home-sidebar, .preset-h
   }
 
   .character-home-detail-art img { object-position: center; }
-  .character-home-detail-author { min-height: 56px; }
+  .character-home-detail-author { min-height: 56px; padding-block: 8px; }
   .character-home-detail-intro { padding-block: 16px; }
   .character-home-detail-actions { padding-block: 10px; }
 }

@@ -1,5 +1,5 @@
 import { productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
-import { projectRoleplayDialogue, readRoleplayReplies, visibleDialogueHistory } from './conversation-context.mjs'
+import { projectRoleplayDialogue, visibleDialogueHistory } from './conversation-context.mjs'
 import { parseVariableIdentities } from '@eleckoi/dsh-product-data/variables'
 
 /** Host-owned current-turn state. Children share their parent's exact state;
@@ -99,9 +99,9 @@ function parsedState(raw) {
 }
 
 /** Rebuild ephemeral state from its durable owners when an Agent is restored. */
-export async function restoreRuntimeContext(ctx, session, snapshot) {
+export async function restoreRuntimeContext(ctx, session, snapshot, readHistory) {
   if (ctx.eleckoiRuntimeContexts.has(session.id)) return
-  const messages = projectRoleplayDialogue(session.deriveMessages(), await readRoleplayReplies(ctx, session.id))
+  const messages = projectRoleplayDialogue(session.deriveMessages(), await readHistory(session.id))
   const input = messages.findLast(message => message.role === 'user' && message.source?.kind === 'user')
   const text = input?.content.filter(block => block.type === 'text').map(block => block.text).join('\n') ?? ''
   const runtime = ctx.eleckoiProductData.prepareConversationRuntime(snapshot.conversationId, text)

@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
+import AgentRegistry from '@deepseek-ai/dsh-agent'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { LlmRuntime, createAssistantMessage, createSystemMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import * as piAi from '@deepseek-ai/dsh-llm-pi-ai'
@@ -32,6 +33,7 @@ import { installSchema } from '../../packages/host/product-data/src/storage/sqli
 import { readDshSessionLog } from '../../packages/host/runtime/src/trajectory'
 import * as sessionEditPlugin from '../../packages/host/runtime/src/sessionEditPlugin'
 import { installRoleplaySessionRuntime } from '../../packages/client/features/dsh-client-roleplay/src/host/session-runtime.mjs'
+import { createRoleplayHistoryReader } from '../../packages/client/features/dsh-client-roleplay/src/host/roleplay-history.mjs'
 import { writeSessionSnapshot } from '../../packages/client/features/dsh-client-roleplay/src/host/session-snapshot.mjs'
 
 const cleanups = []
@@ -153,16 +155,17 @@ async function fixture(withOpening = true, { failPreparation = false,
     agent = createAgent(Session.create(SessionId(conversationId), log.events, log.header, log.inheritedEventCount))
   }
   await ctx.plugin(SessionProjectionRegistry)
+  await ctx.plugin(AgentRegistry)
+  ctx.agents.get = id => id === conversationId ? agent : undefined
   await ctx.plugin({ name: 'synthetic-generation-services',
-    provide: ['agentDefaultModel', 'agents', 'eleckoiSessionHandles', 'eleckoiConversationChanges',
+    provide: ['agentDefaultModel', 'eleckoiSessionHandles', 'eleckoiConversationChanges',
       'attachments', 'fileUploads', 'fs', 'sessions', 'sessionQuery', 'workspaceRegistry', 'sessionProjectionCache', 'credentials', 'settings'],
     apply(owner) {
       owner.provide('agentDefaultModel', {
         currentSelection: () => ({ ...globalModelSelection }),
         saveSelection: async (selection) => { globalModelSelection = { ...selection } }
       })
-      owner.provide('agents', { get: () => agent })
-      owner.provide('sessions', { get: () => agent.session })
+      owner.provide('sessions', { get: id => id === conversationId ? agent.session : undefined })
       owner.provide('attachments', { imageLimits: { maxImageBytes: 1000000, maxImagesPerMessage: 4,
         maxMessageImageBytes: 4000000, maxImagePixels: 1000000, maxImageDimension: 1000, mediaTypes: ['image/png'] } })
       owner.provide('fileUploads', { registerAgentResolver: () => () => {} })
@@ -206,7 +209,7 @@ async function fixture(withOpening = true, { failPreparation = false,
     selectForSession: async () => {
       if (failPreparation && ++preparationCount === 1) throw new Error('Synthetic preparation failure')
     }
-  }))
+  }, createRoleplayHistoryReader(ctx)))
   cleanups.push(ctx.typert.register(TYPERT))
   const previews = new RequestPreviewStore()
   ctx.provide('eleckoiRequestPreviews', previews)
@@ -312,9 +315,10 @@ describe('old chat request preparation', { timeout: 30_000 }, () => {
     const forkId = 'synthetic-state-fork', forkSession = 'synthetic-fork-session'
     data.importConversationArchive(snapshot, 'synthetic-character', new Map([[f.conversationId, forkSession]]), forkId)
     const sourceInspection = await readSessionInspection(f.ctx, f.conversationId)
-    const originalObserve = f.ctx.sessionQuery.observeSession.bind(f.ctx.sessionQuery)
-    f.ctx.sessionQuery.observeSession = async id => id === forkSession
-      ? queryFromInspection(async () => ({ ...sourceInspection, meta: { ...sourceInspection.meta, id: forkSession } })).observeSession(id) : originalObserve(id)
+    f.ctx.sessionQuery.inspectSession = async (id, read) => {
+      expect(id).toBe(forkSession)
+      return read(Session.create(id, sourceInspection.events, { ...sourceInspection.meta, id }, sourceInspection.inheritedEventCount))
+    }
     await f.ctx.eleckoiRoleplaySessions.adoptFork(forkId, f.conversationId, 1, true)
     expect(JSON.parse(data.snapshotConversationRuntime(forkId).variableStateJson)).toEqual({ score: 2 })
     expect(JSON.parse(data.runtimeStateAt(forkId, forkSession, 1, 'before').variableStateJson)).toEqual({ score: 1 })
@@ -504,6 +508,17 @@ describe('old chat request preparation', { timeout: 30_000 }, () => {
     const retained = readDshSessionLog(f.sessionRoot, f.conversationId).events.find(event => event.seq === f.userEvent.seq)
     expect(retained).toMatchObject({ seq: f.userEvent.seq, time: f.userEvent.time,
       data: { id: f.userEvent.data.id, source: f.userEvent.data.source } })
+  })
+
+  it('prepares turn one after deleting the only input from a Session with an existing turn projection', async () => {
+    const f = await fixture(false, { native: true })
+    f.ctx.eleckoiProductData.recordRuntimeBeforeTurn(f.conversationId, f.conversationId, 1)
+    expect(f.ctx.agents.turnBoundaryOf(f.getAgent().session).lastTurn).toBe(1)
+    await f.ctx.eleckoiConversationsApi.deleteMessagesFrom(f.conversationId, f.userEvent.seq, 'user')
+    await f.ctx.eleckoiRoleplaySessions.preparePrompt(f.conversationId, 'Synthetic input after deletion')
+    const operationId = f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId)
+    expect(f.ctx.eleckoiConversationLifecycle.matches(f.conversationId, operationId, 1)).toBe(true)
+    expect(settingBridge(f).history).toEqual([{ role: 'user', content: 'Synthetic input after deletion' }])
   })
 
   it('rejects an unavailable saved Session model repeatedly without replacing it or discarding messages', async () => {

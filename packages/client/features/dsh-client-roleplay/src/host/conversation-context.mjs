@@ -1,13 +1,13 @@
 import { hasRegexEjsOutput } from '@eleckoi/dsh-product-data/regex'
 import { renderRequestEjs } from './regex-ejs.mjs'
 import { createSystemMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
-import { transformAiReplyPrompt, transformReasoningPrompt } from '@eleckoi/dsh-product-data'
+import { formatRoleplayPromptSpeech, transformAiReplyPrompt, transformReasoningPrompt } from '@eleckoi/dsh-product-data'
 import { createHash } from 'node:crypto'
 import { readSessionSnapshot } from './session-snapshot.mjs'
 import { requiredSettingCache } from './required-setting-cache.mjs'
 import { resolvePlacedSettingTemplates } from './setting-library-tools.mjs'
 import { INPUT_CONTINUATIONS_PROJECTION } from './input-continuations-projection.mjs'
-import { delegatedRoleplayReplyBlocks, isDelegatedRoleplayReply, productFailure, ELECKOI_FAILURE_CODES, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
+import { isDelegatedRoleplayReply, productFailure, ELECKOI_FAILURE_CODES } from '@eleckoi/dsh-product-api'
 import { DELEGATED_REPLY_NOTICE, roleplayReplyEnabled } from './roleplay-reply-tool.mjs'
 
 export const name = 'eleckoi-conversation-context'
@@ -58,7 +58,8 @@ export function installConversationContext(agent, snapshotRoot, previews, runtim
     const [conversationContext, replies] = await Promise.all([prepared, historyReplies])
     const projection = requestProjectionSnapshot(conversationContext)
     const roleplayBlocks = new Map()
-    const surface = projectRoleplayDialogue(options.messages, replies, executionStep.turn, roleplayBlocks)
+    const showSpeakers = conversationContext.cast?.length > 1
+    const surface = projectRoleplayDialogue(options.messages, replies, executionStep.turn, { showSpeakers, roleplayBlocks })
     const currentUser = surface.findLast(isDirectUserMessage)
     const prompt = conversationContext.currentPromptText
     const transform = {
@@ -85,7 +86,7 @@ export function installConversationContext(agent, snapshotRoot, previews, runtim
       retainFrom: currentUser?.id,
       projectSummary: selected => [
         ...selected.filter(message => message.role === 'system'),
-        ...previousTurnDialogue(projectRoleplayDialogue(selected, replies))
+        ...previousTurnDialogue(projectRoleplayDialogue(selected, replies, Infinity, { forPrompt: true, showSpeakers }))
       ],
       onDispatch: request => previews.capture(session, request, projection.plan, step)
     }
@@ -93,23 +94,26 @@ export function installConversationContext(agent, snapshotRoot, previews, runtim
   return () => { agent.projectModelRequest = undefined; disposeInstructions() }
 }
 
-export async function readRoleplayReplies(ctx, sessionId, signal) {
-  const observation = await ctx.sessionQuery.observeSession(sessionId, { projectionMode: 'none', ...(signal ? { signal } : {}) })
-  try {
-    const delegated = observation.events.filter(isDelegatedRoleplayReply)
-      .sort((left, right) => (left.data.anchorSeq ?? left.seq) - (right.data.anchorSeq ?? right.seq))
-    const processOnly = []
-    return [...roleplayReplyMessages(observation.events, processOnly), ...processOnly, ...delegated.map(event => {
-      const blocks = delegatedRoleplayReplyBlocks(event.data)
-      return { event, anchorMessageId: event.data.anchorMessageId,
-        messageId: 'eleckoi-delegated-reply-' + event.data.id, blocks,
-        content: blocks.map(block => `${block.speakerName}：${block.text}`).join('\n\n') }
-    })]
-  } finally { observation[Symbol.dispose]() }
+function roleplayPromptText(blocks, showSpeakers) {
+  return blocks.map(block => formatRoleplayPromptSpeech(block.text, showSpeakers ? block.speakerName : undefined)).join('\n\n')
+}
+
+const dialogueMessages = new WeakMap()
+
+function historyReply(reply, id, text) {
+  const wholeReply = id === reply.messageId && text === reply.content
+  const cached = wholeReply ? dialogueMessages.get(reply) : undefined
+  if (cached?.id === id && cached.content[0].text === text) return cached
+  const message = freezeMessage({
+    id, role: 'assistant', content: [{ type: 'text', text }],
+    source: { kind: 'plugin:eleckoi-product-history' }
+  })
+  if (wholeReply) dialogueMessages.set(reply, message)
+  return message
 }
 
 /** Project finished replies at their surviving positions in the official request surface. */
-export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Infinity, roleplayBlocks) {
+export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Infinity, { forPrompt, showSpeakers, roleplayBlocks } = {}) {
   const currentInput = beforeTurn === Infinity ? messages.length : messages.findLastIndex(isDirectUserMessage)
   if (messages.some((message, index) => index < currentInput && message.source?.kind === DELEGATED_REPLY_NOTICE)) {
     messages = messages.filter((message, index) => index >= currentInput || message.source?.kind !== DELEGATED_REPLY_NOTICE)
@@ -119,10 +123,12 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
   const bodies = new Map(), processIds = new Set()
   const delegatedAt = new Map()
   let priorIds
-  const historyReply = (id, content) => freezeMessage({
-    id, role: 'assistant', content: [{ type: 'text', text: content }],
-    source: { kind: 'plugin:eleckoi-product-history' }
-  })
+  const replyText = (reply, messageId, blocks, content) => {
+    if ((!forPrompt && !roleplayBlocks) || !blocks.length) return content
+    const withNames = Boolean(showSpeakers || reply.blocks.length > 1 || Object.keys(reply.event.data.toolFields ?? {}).length > 1)
+    roleplayBlocks?.set(messageId, { blocks, showSpeakers: withNames })
+    return forPrompt ? roleplayPromptText(blocks, withNames) : content
+  }
   for (const reply of replies) {
     if (isDelegatedRoleplayReply(reply.event)) {
       const { anchorMessageId, messageId, content, blocks } = reply
@@ -130,9 +136,8 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
         : new Set(messages.slice(0, Math.max(0, messages.findLastIndex(isDirectUserMessage))).map(message => message.id))
       if (!priorIds.has(anchorMessageId) || presentIds.has(messageId)) continue
       const anchored = delegatedAt.get(anchorMessageId) ?? []
-      anchored.push(historyReply(messageId, content))
+      anchored.push(historyReply(reply, messageId, replyText(reply, messageId, blocks, content)))
       delegatedAt.set(anchorMessageId, anchored)
-      roleplayBlocks?.set(messageId, blocks)
       continue
     }
     if (reply.event.data.turn >= beforeTurn) continue
@@ -141,8 +146,8 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
     const { bodyParts } = reply
     if (!bodyParts.length || bodyParts.every(part => presentIds.has(part.messageId))) {
       if (!presentIds.has(reply.messageId)) continue
-      bodies.set(reply.messageId, reply.content)
-      roleplayBlocks?.set(reply.messageId, reply.blocks)
+      bodies.set(reply.messageId, historyReply(reply, reply.messageId,
+        replyText(reply, reply.messageId, reply.blocks, reply.content)))
       continue
     }
     // DSH can cut the history between native text messages of the same turn.
@@ -160,8 +165,8 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
       presentBlocks.push({ ...block, text: edited ? block.text : present.map(part => part.text).join('\n\n') })
     }
     if (anchorId) {
-      bodies.set(anchorId, presentBlocks.map(block => `${block.speakerName}：${block.text}`).join('\n\n'))
-      roleplayBlocks?.set(anchorId, presentBlocks)
+      const content = presentBlocks.map(block => `${block.speakerName}：${block.text}`).join('\n\n')
+      bodies.set(anchorId, historyReply(reply, anchorId, replyText(reply, anchorId, presentBlocks, content)))
     }
   }
   if (!processIds.size && !delegatedAt.size) return messages
@@ -169,8 +174,8 @@ export function projectRoleplayDialogue(messages, replies = [], beforeTurn = Inf
     const delegated = delegatedAt.get(message.id) ?? []
     // The summary request middleware can receive dialogue already restored before tool filtering.
     if (message.source?.kind === 'plugin:eleckoi-product-history') return [message, ...delegated]
-    const content = bodies.get(message.id)
-    if (content !== undefined) return [historyReply(message.id, content), ...delegated]
+    const reply = bodies.get(message.id)
+    if (reply !== undefined) return [reply, ...delegated]
     return processIds.has(message.id) ? delegated : [message, ...delegated]
   })
 }
@@ -280,9 +285,8 @@ export function requestProjectionSnapshot(context) {
     reasoningPromptRules: Array.isArray(context?.reasoningPromptRules) ? context.reasoningPromptRules : [],
     regexPromptMacros: context?.regexPromptMacros,
     history: (Array.isArray(context?.history) ? context.history : [])
-      .flatMap((item) => isProductHistoryEntry(item)
-        ? [{ role: item.role, content: item.content }]
-        : [])
+      .map(item => ({ role: item?.role, content: item?.promptContent ?? item?.content }))
+      .filter(isProductHistoryEntry)
   }
 }
 
@@ -481,11 +485,13 @@ export function projectProductHistory(messages, context, roleplayBlocks = new Ma
     const dialogueHistory = previousTurnDialogue(nativeHistory)
     const prefix = productHistory.filter((product, index) => !messagesMatch(product, dialogueHistory[index]))
     const rules = context.replyPromptRules
-    const history = rules?.length ? dialogueHistory.map((message, index) => {
+    const history = rules?.length || roleplayBlocks.size ? dialogueHistory.map((message, index) => {
       if (message.role !== 'assistant') return message
       const source = messageText(message)
-      const text = transformAiReplyPrompt(source, rules, context.regexPromptMacros,
-        dialogueHistory.length - index, roleplayBlocks.get(message.id))
+      const reply = roleplayBlocks.get(message.id)
+      const promptText = reply ? roleplayPromptText(reply.blocks, reply.showSpeakers) : source
+      const text = rules?.length ? transformAiReplyPrompt(promptText, rules, context.regexPromptMacros,
+        dialogueHistory.length - index, reply?.blocks, reply?.showSpeakers) : promptText
       return text === source ? message : freezeMessage({ ...message, content: [{ type: 'text', text }] })
     }) : dialogueHistory
     return [

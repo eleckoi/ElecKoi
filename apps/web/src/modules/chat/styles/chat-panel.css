@@ -389,6 +389,9 @@
 .chat-composer-process .agent-process-inline {
   width: fit-content;
   line-height: var(--chat-process-line-height);
+}
+
+.chat-composer-process button.agent-process-inline {
   pointer-events: auto;
 }
 
@@ -1313,15 +1316,16 @@
   display: flex; align-items: center; gap: 6px; width: 100%; max-width: 100%; min-height: 24px;
   min-width: 0;
   padding: 0; border: 0; background: transparent; color: var(--muted);
-  font: inherit; font-size: var(--dsh-content-font-size, 14px); font-weight: 400; text-align: left; cursor: pointer;
+  font: inherit; font-size: var(--dsh-content-font-size, 14px); font-weight: 400; text-align: left;
 }
-.agent-process-inline:hover { color: var(--text); }
-.agent-process-inline:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+button.agent-process-inline { cursor: pointer; }
+button.agent-process-inline:hover { color: var(--text); }
+button.agent-process-inline:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 .agent-process-inline-leading { position: relative; display: inline-flex; flex: none; align-items: center; justify-content: center; width: 16px; height: 16px; }
 .agent-process-inline-leading > svg { position: absolute; width: 14px; height: 14px; transition: opacity 100ms ease; }
 .agent-process-inline-chevron { opacity: 0; }
-.agent-process-inline:is(:hover, :focus-visible) .agent-process-inline-icon { opacity: 0; }
-.agent-process-inline:is(:hover, :focus-visible) .agent-process-inline-chevron { opacity: 1; }
+button.agent-process-inline:is(:hover, :focus-visible) .agent-process-inline-icon { opacity: 0; }
+button.agent-process-inline:is(:hover, :focus-visible) .agent-process-inline-chevron { opacity: 1; }
 .agent-process-inline-label {
   max-width: 100%;
   min-width: 0;

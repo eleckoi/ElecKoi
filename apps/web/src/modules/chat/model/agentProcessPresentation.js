@@ -56,9 +56,9 @@ export function processItemPresentation(item, tUi = sourceText) {
   return { title, target: targetOf(item), icon: iconOf(item) };
 }
 
-export function liveProcessPresentation(items, tUi = sourceText) {
+export function liveProcessPresentation(items, tUi = sourceText, sessionRunning = false) {
   const roots = rootProcessItems(items || []).filter(Boolean);
-  if (!roots.length) return null;
+  if (!roots.length && !sessionRunning) return null;
   let active;
   for (const item of roots) {
     if (item.status !== 'running' || item.kind === 'reasoning' || item.kind === 'narrative') continue;
@@ -71,7 +71,7 @@ export function liveProcessPresentation(items, tUi = sourceText) {
       target: liveToolDetail(active), running: true };
   }
   const latest = roots.at(-1);
-  if (latest.kind === 'compaction') return { ...processItemPresentation(latest, tUi), running: latest.status === 'running' };
+  if (latest?.kind === 'compaction') return { ...processItemPresentation(latest, tUi), running: latest.status === 'running' };
   const reasoning = roots.findLast(item => item.status === 'running'
     && (item.kind === 'reasoning' || item.toolName === 'reasoning') && (item.detail || item.summary)?.trim());
   const paragraph = (reasoning?.detail || reasoning?.summary || '').split(/\r?\n[\t ]*\r?\n/).findLast(text => text.trim());

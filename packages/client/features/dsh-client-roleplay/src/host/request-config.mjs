@@ -52,7 +52,7 @@ export function installRequestConfig(agentCtx, snapshotRoot, sourceSessionId, re
     if (!readHistory) return dispatch(options.messages)
     return (async function* () {
       const replies = await readHistory(sourceSessionId, options.signal)
-      yield* dispatch(projectRoleplayDialogue(options.messages, replies))
+      yield* dispatch(projectRoleplayDialogue(options.messages, replies, Infinity, { forPrompt: true }))
     })()
   })
   return () => {

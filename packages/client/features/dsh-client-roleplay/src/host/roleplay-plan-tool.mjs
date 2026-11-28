@@ -57,7 +57,7 @@ function canonicalizePlan(args, steps) {
   return {
     status: 'ok',
     message: precedingTasksCompleted
-      ? '本轮必须至少调用一次 eleckoi_roleplay_reply 提交扮演正文。子代理已提交的正文计入本轮要求。直接发送普通正文玩家看不到。'
+      ? '本轮必须至少调用一次 eleckoi_roleplay_reply 提交扮演正文。子代理已提交的正文计入本轮要求。'
       : `角色扮演计划已更新：${counts.completed} 已完成，${counts.inProgress} 进行中，${counts.pending} 待处理。正文输出后完成最终项。`,
     ...(typeof args.explanation === 'string' && args.explanation.trim() ? { explanation: args.explanation.trim() } : {}),
     plan: steps.map((step, index) => ({ step, status: statuses[index] }))

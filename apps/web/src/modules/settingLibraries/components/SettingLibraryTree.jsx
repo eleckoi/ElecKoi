@@ -1,9 +1,9 @@
 import { useProductTranslation } from "../../../app/i18n/ProductLocaleContext.jsx";
 import { createContext, useContext } from "react";
 import { ChatCircleDots, Code } from "../../../ui/icons/interfaceIcons.jsx";
-import { CaretDown, CaretRight } from '@phosphor-icons/react';
 import { DshFolderClosedIcon, DshFolderOpenIcon } from "../../../ui/icons/dshTreeIcons.jsx";
 import { HeadlessTree } from "../../../ui/tree/HeadlessTree.jsx";
+import { TreeDisclosureButton } from "../../../ui/tree/TreeDisclosureButton.jsx";
 import { SETTING_RULE_TYPES, SettingEntryGlyph } from "./SettingEntryFields.jsx";
 import { EditorSelectionCheckbox } from '../../../ui/ui/EditorCollectionControls.jsx';
 import { EditorToggle } from '../../../ui/ui/EditorToggle.jsx';
@@ -41,25 +41,11 @@ export function SettingTreeNode({ item, data, itemProps, style, level, isSelecte
     >
       <div className="setting-library-tree-row-content">
         <EditorSelectionCheckbox selection={actions?.selection} id={data.id} label={data.label} disabled={actions?.saving || data.fixed} />
-        {data.nodeKind === "group" ? <>
-          <button
-            type="button"
-            className="setting-library-tree-expander"
-            aria-label={isExpanded ? tUi("折叠文件夹") : tUi("展开文件夹")}
-            aria-expanded={isExpanded}
-            onDoubleClick={event => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (item.isExpanded()) item.collapse();
-              else item.expand();
-            }}
-          >
-            {isExpanded ? <CaretDown size={13} /> : <CaretRight size={13} />}
-          </button>
-          <span className="setting-library-tree-folder" aria-hidden="true">
+        {data.nodeKind === "group" ? (
+          <TreeDisclosureButton item={item} expanded={isExpanded} label={isExpanded ? tUi("折叠文件夹") : tUi("展开文件夹")} className="setting-library-tree-folder">
             {isExpanded ? <DshFolderOpenIcon /> : <DshFolderClosedIcon />}
-          </span>
-        </> : <span className={`setting-library-tree-entry-icon${data.contentMode === "ejs" ? " is-controller" : ""}`} aria-hidden="true">
+          </TreeDisclosureButton>
+        ) : <span className={`setting-library-tree-entry-icon${data.contentMode === "ejs" ? " is-controller" : ""}`} aria-hidden="true">
           {Icon ? <Icon weight="regular" /> : <SettingEntryGlyph iconId={data.iconId} weight="regular" />}
         </span>}
         <span className="setting-library-tree-label" title={data.label}>{data.label}</span>

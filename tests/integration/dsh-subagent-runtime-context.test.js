@@ -38,7 +38,8 @@ import {
 import { apply as applySettingLibraryTools } from '../../apps/desktop/resources/dsh/setting-library-tools.mjs'
 import { apply as applyVariableTools } from '../../apps/desktop/resources/dsh/variable-tools.mjs'
 import { restoreRuntimeContext } from '../../packages/client/features/dsh-client-roleplay/src/host/runtime-contexts.mjs'
-import { projectRoleplayDialogue, readRoleplayReplies, visibleDialogueHistory } from '../../packages/client/features/dsh-client-roleplay/src/host/conversation-context.mjs'
+import { projectRoleplayDialogue, visibleDialogueHistory } from '../../packages/client/features/dsh-client-roleplay/src/host/conversation-context.mjs'
+import { createRoleplayHistoryReader } from '../../packages/client/features/dsh-client-roleplay/src/host/roleplay-history.mjs'
 import { installRoleplayReply, ROLEPLAY_REPLY_GROUP_ID, ROLEPLAY_REPLY_TOOL } from '../../packages/client/features/dsh-client-roleplay/src/host/roleplay-reply-tool.mjs'
 import { DELEGATED_ROLEPLAY_REPLY_EVENT, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
 
@@ -185,7 +186,7 @@ describe('DSH subagent runtime context inheritance', () => {
         expect(publication.data).toMatchObject({ id: selection.data.id, anchorSeq: selection.seq,
           status: 'complete', blocks: [{ speakerId: 'speaker-b', text: 'Synthetic child closing result' },
             { speakerId: 'speaker-a', text: 'Synthetic second speaker' }] })
-        const replyHistory = await readRoleplayReplies(ctx, rootId)
+        const replyHistory = await createRoleplayHistoryReader(ctx)(rootId)
         const dialogue = visibleDialogueHistory(projectRoleplayDialogue(root.agent.session.deriveMessages(), replyHistory))
         expect(dialogue.some(message => message.content.includes('Synthetic parent closing summary'))).toBe(false)
         expect(dialogue.filter(message => message.content.includes('Synthetic child closing result')))
@@ -210,12 +211,11 @@ describe('DSH subagent runtime context inheritance', () => {
     const runtime = { conversationId: 'synthetic-chat', conversationContext: { history: [], settingLibrary: library },
         variableContext: { versionId: 'synthetic-version', identityJson: JSON.stringify(createVariableIdentities({ score: 7 }, { versionId: 'synthetic-version', objects: [], variables: [] }, 'runtime')), defaultStateJson: '{"score":0}', stateJson: '{"score":7}', schemaCode: '', objects: [], variables: [] } }
     const ctx = { eleckoiRuntimeContexts: contexts,
-      sessionQuery: { observeSession: async () => ({ header: {}, inheritedEventCount: 0, events: [], [Symbol.dispose]() {} }) },
       eleckoiProductData: {
       prepareConversationRuntime: vi.fn(() => runtime), snapshotConversationRuntime: () => ({ variableStateJson: '{"score":7}' }) } }
     contexts.get(id).variables = { enabled: true, state: { score: 99 } }
     contexts.forget(id)
-    await restoreRuntimeContext(ctx, { id, deriveMessages: () => messages }, { conversationId: 'synthetic-chat' })
+    await restoreRuntimeContext(ctx, { id, deriveMessages: () => messages }, { conversationId: 'synthetic-chat' }, async () => [])
     expect(ctx.eleckoiProductData.prepareConversationRuntime).toHaveBeenCalledWith('synthetic-chat', '合成输入一\n合成输入二')
     expect(contexts.get(id).variables.state).toEqual({ score: 7 })
     expect(contexts.get(id).settings.history).toEqual([{ role: 'user', content: '合成输入一\n合成输入二' }, { role: 'assistant', content: '合成回复' }])

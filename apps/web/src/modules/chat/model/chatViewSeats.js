@@ -2,15 +2,31 @@
 // This module does not retain transcript or pending-message state.
 const messageIndices = new WeakMap();
 const userSeats = new WeakMap();
+
+// A streaming publication can replace a message object without moving its seat.
+export function retainRoleplaySeatIndex(messages, previous) {
+  const lookup = messageIndices.get(previous);
+  if (!lookup || messages.length !== previous.length) return;
+  if (messages.every((message, index) => {
+    const before = previous[index];
+    return message === before || (message.runtimeSessionId === before.runtimeSessionId
+      && message.renderKey === before.renderKey && message.sessionEventSeq === before.sessionEventSeq
+      && message.requestId === before.requestId && message.dshNodeKey === before.dshNodeKey
+      && message.role === before.role && message.dshTurn === before.dshTurn);
+  })) messageIndices.set(messages, lookup);
+}
+
 function messageIndex(messages) {
   let lookup = messageIndices.get(messages);
   if (lookup) return lookup;
   lookup = new Map();
   messages.forEach((message, index) => {
-    for (const [field, value] of [['renderKey', message.renderKey], ['sequence', message.sessionEventSeq], ['request', message.requestId], ['nodeKey', message.dshNodeKey]]) {
+    for (const [field, value] of [['renderKey', message.renderKey], ['sequence', message.sessionEventSeq],
+      ['request', message.requestId], ['nodeKey', message.dshNodeKey],
+      ['assistantTurn', message.role === 'assistant' ? message.dshTurn : undefined]]) {
       if (value === undefined || value === '') continue;
       const key = JSON.stringify([typeof message.runtimeSessionId, message.runtimeSessionId, field, value]);
-      if (!lookup.has(key)) lookup.set(key, index);
+      if (field === 'assistantTurn' || !lookup.has(key)) lookup.set(key, index);
     }
   });
   messageIndices.set(messages, lookup);
@@ -19,6 +35,10 @@ function messageIndex(messages) {
 function indexOf(messages, session, field, value) {
   if (value === undefined || value === '') return -1;
   return messageIndex(messages).get(JSON.stringify([typeof session, session, field, value])) ?? -1;
+}
+
+export function roleplayAnswerForTurn(messages, session, turn) {
+  return messages[indexOf(messages, session, 'assistantTurn', turn)];
 }
 function inputAttachments(content = []) {
   return {

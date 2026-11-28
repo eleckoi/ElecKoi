@@ -28,11 +28,15 @@ export function AgentProcessStatus({ presentation, onClick }) {
   const current = presentation.running ? displayed : presentation;
   const Icon = icons[current.icon] || IconSparkleRegular;
   const title = current.target ? `${current.title} · ${current.target}` : current.title;
-  return <button type="button" className="agent-process-inline" onClick={onClick} aria-label={tUi("查看处理过程：{value0}", {value0: current.title})}>
+  const Root = onClick ? 'button' : 'span';
+  const interaction = onClick
+    ? { type: 'button', onClick, 'aria-label': tUi("查看处理过程：{value0}", {value0: current.title}) }
+    : { role: 'status' };
+  return <Root className="agent-process-inline" {...interaction}>
     <span className="agent-process-inline-leading" aria-hidden="true">
       <Icon className="agent-process-inline-icon" size={14} />
-      <IconChevronDownOutlineRegular className="agent-process-inline-chevron" size={14} />
+      {onClick ? <IconChevronDownOutlineRegular className="agent-process-inline-chevron" size={14} /> : null}
     </span>
     <TextShimmer active={current.running} className="agent-process-inline-label" contentClassName="agent-process-inline-text">{title}</TextShimmer>
-  </button>;
+  </Root>;
 }

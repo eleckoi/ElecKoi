@@ -51,8 +51,6 @@ describe('actual request previews retained only by the running Host', { timeout:
     await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
     await ctx.plugin(AgentLoop, { agents: [] })
     const previews = store()
-    ctx.provide('eleckoiRuntimeContexts', contexts)
-    installConversationContext(ctx, root, sessionId, previews)
     const dispatched = []
     class Adapter extends LlmAdapter {
       async resolveModel(provider, id) { return { provider, id, name: id } }
@@ -67,6 +65,7 @@ describe('actual request previews retained only by the running Host', { timeout:
     }
     ctx.llm.registerAdapter(['synthetic'], new Adapter())
     const handle = await ctx.agentLoop.createAgent(ctx, { sessionId, agentOptions: { provider: 'synthetic', model: 'synthetic' } })
+    installConversationContext(handle.agent, root, previews, contexts)
     handle.agent.followup(user('合成原始输入一'))
     await handle.agent.whenIdle()
     write('合成指令二', '合成处理后的输入二')
@@ -100,6 +99,7 @@ describe('actual request previews retained only by the running Host', { timeout:
     rewindDshSession(sessionRoot, sessionId, 2, inputs[1].seq, true)
     write('合成重新生成指令', '合成重新生成输入')
     const regenerated = await ctx.agentLoop.resume(ctx, { resumeSessionId: sessionId, agentOptions: { provider: 'synthetic', model: 'synthetic' } })
+    installConversationContext(regenerated.agent, root, previews, contexts)
     regenerated.agent.continueFromInput(inputs[1].data.id)
     await regenerated.agent.whenIdle()
     await regenerated.dispose()

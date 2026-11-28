@@ -14,7 +14,8 @@ import { AssetLibraryToolbar } from '../../src/modules/characterAssets/AssetLibr
 import { CharacterAssetLibrary } from '../../src/modules/characterAssets/CharacterAssetLibrary.jsx';
 import { NativeFrontendProvider } from '../../src/modules/authorFrontend/hooks/NativeFrontendContext.jsx';
 import '../../src/modules/characterAssets/character-assets.css';
-import { createEntryDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
+import { createEntryDraft, createGroupDraft } from '../../src/modules/settingLibraries/model/settingLibraryEditing.js';
+import { createObjectDraft, createVariableDraft } from '../../src/modules/variables/model/variableConfigEditing.js';
 import { EditorPresentationContext } from '../../src/ui/ui/EditorPresentationContext.jsx';
 import { Input, Button, Switch } from '@deepseek-ai/dsh-client-ui-primitives';
 import { editorCollectionService } from '../helpers/editorCollectionServices.js';
@@ -31,6 +32,7 @@ import '../../src/mobile/mobile-character-editor.css';
 import '../../src/mobile/mobile-preset-editor.css';
 
 const kinds = ['settings', 'variables', 'regex', 'scripts', 'merge', 'prompts', 'tools', 'branches', 'assets', 'asset-items'];
+const checkDirectoryAlignment = new URLSearchParams(location.search).has('directory-alignment');
 const assetService = {
   watchAssets: (characterId, publish) => {
     const createdAt = '2026-11-20T00:00:00.000Z';
@@ -66,6 +68,16 @@ function treeService(kind) {
   }
   const version = kind === 'settings' ? { id: 'synthetic-version', name: '合成版本', entries: [], groups: [], promptPositions: [], expandedGroupIds: [], listAllExpanded: true }
     : { id: 'synthetic-version', name: '合成版本', variables: [], objects: [], initialStateJson: '{}', schemaCode: '', expandedObjectIds: [] };
+  if (checkDirectoryAlignment && kind === 'settings') {
+    version.groups.push({ ...createGroupDraft('', 1, new Set()), id: 'fixture-parent', name: '示例文件夹' });
+    version.entries.push({ ...createEntryDraft('', 2, []), id: 'fixture-root-entry', title: '示例根设定' });
+    version.entries.push({ ...createEntryDraft('fixture-parent', 1, []), id: 'fixture-child', title: '示例设定' });
+    version.listAllExpanded = false;
+  }
+  if (checkDirectoryAlignment && kind === 'variables') {
+    version.objects.push({ ...createObjectDraft(version), id: 'fixture-parent', name: '示例变量组' });
+    version.variables.push({ ...createVariableDraft(version, 'fixture-parent'), id: 'fixture-child', title: '示例变量' });
+  }
   const value = { ...version, characterId: 'synthetic-character', activeVersionId: version.id, versions: [version] };
   return { getSnapshot: () => ({ status: 'ready', value }), subscribe: () => () => {}, read: async () => value, saveViewState: async () => {} };
 }
@@ -75,10 +87,11 @@ function Fixture() {
   const { kind, scope, compact } = address;
   const service = useMemo(() => ['settings', 'variables', 'merge', 'branches'].includes(kind) ? treeService(kind)
     : ['prompts', 'tools'].includes(kind) ? null : editorCollectionService(kind, scope), [kind, scope]);
-  const presentation = useMemo(() => ({ compact, registerSubpage: page => {
+  const characterStudio = checkDirectoryAlignment && !compact && (kind === 'settings' || kind === 'variables');
+  const presentation = useMemo(() => ({ compact, characterStudio, registerSubpage: page => {
     setSubpage(page);
     return () => setSubpage(current => current === page ? null : current);
-  } }), [compact]);
+  } }), [compact, characterStudio]);
   const ownerProps = { [scope === 'preset' ? 'presetId' : 'characterId']: `synthetic-${scope}` };
   return <>
     <div className="setting-library-save-control" data-official-controls style={{ position: 'fixed', top: -2000 }}><Input /><Button variant="outline">操作</Button><Button variant="primary">操作</Button><Switch checked onChange={() => {}} label="官方开启参考" /><Switch checked={false} onChange={() => {}} label="官方关闭参考" />

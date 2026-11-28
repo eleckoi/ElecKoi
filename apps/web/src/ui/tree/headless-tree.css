@@ -24,6 +24,29 @@
   margin-top: 0;
 }
 
+.tree-disclosure-button {
+  display: grid;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  background: transparent;
+  border: 0;
+}
+
+.tree-disclosure-icon { display: grid; place-items: center; }
+.tree-disclosure-arrow { display: none; color: var(--tree-chevron-fg, var(--muted)); }
+.tree-disclosure-button[aria-expanded="true"] .tree-disclosure-arrow { transform: rotate(90deg); }
+
+@media (hover: hover) {
+  [role="treeitem"]:hover .tree-disclosure-icon { display: none; }
+  [role="treeitem"]:hover .tree-disclosure-arrow { display: grid; }
+}
+
+:is([role="treeitem"]:focus-visible, .tree-disclosure-button:focus-visible) .tree-disclosure-icon { display: none; }
+:is([role="treeitem"]:focus-visible, .tree-disclosure-button:focus-visible) .tree-disclosure-arrow { display: grid; }
+
 .headless-tree-drop-cursor {
   position: absolute;
   z-index: 2;

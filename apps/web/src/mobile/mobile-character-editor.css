@@ -83,7 +83,7 @@
 :is(.mobile-character-editor, .mobile-preset-editor) .setting-library-tree-row-content { width: 100%; max-width: 100%; }
 :is(.mobile-character-editor, .mobile-preset-editor) .setting-library-tree-row-content { min-height: 48px; }
 :is(.mobile-character-editor, .mobile-preset-editor) :is(.setting-library-tree-label, .variable-tree-label, .regex-rule-main > span) { min-width: 0; font-size: 13px; }
-:is(.mobile-character-editor, .mobile-preset-editor) :is(.setting-library-tree-expander, .variable-tree-expander) { min-height: 28px; }
+:is(.mobile-character-editor, .mobile-preset-editor) .tree-disclosure-button { min-height: 44px; }
 .mobile-character-editor .variable-inspector-form { grid-template-columns: minmax(0, 1fr); }
 .mobile-character-editor .variable-field { min-width: 0; }
 .mobile-character-editor .variable-field.is-wide { grid-column: 1; }

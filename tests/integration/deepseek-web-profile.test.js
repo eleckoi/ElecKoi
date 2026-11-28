@@ -55,6 +55,9 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   const data = f.ctx.eleckoiProductData
   const preset = data.readAgentPreset(data.readAgentPresetCatalog().activePresetIds.roleplay)
   const defaultPrompt = readFileSync(bundledHiddenToolTimeline, 'utf8').replaceAll('\r\n', '\n').trimEnd()
+  expect(defaultPrompt).toMatch(/^<roleplay_output_protocol>\nreply_phase:\n  output: "[^\n]*eleckoi_roleplay_reply/)
+  expect(defaultPrompt).toMatch(/output: "[^\n]*严禁绕过该工具直接输出任何有关角色的回复内容。/)
+  expect(defaultPrompt.indexOf('eleckoi_roleplay_reply')).toBeLessThan(defaultPrompt.indexOf('eleckoi_glob_setting_files'))
   expect(preset.entries.find(entry => entry.kind === 'hidden_tool_timeline')?.content).toBe(defaultPrompt)
   let activePrompt = defaultPrompt
   const timestamp = new Date().toISOString()
@@ -107,7 +110,7 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   await send(second)
   verifyRequest(second)
   expect(requests.at(-1).filter(message => message.source.kind === 'plugin:eleckoi-product-history')).toEqual([
-    expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: '合成角色：合成回复 1' }] }),
+    expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: '合成回复 1' }] }),
   ])
   expect(requests.at(-1).some(message => message.role === 'tool'
     || message.content.some(block => block.type === 'tool-call' || block.type === 'reasoning'))).toBe(false)
@@ -150,7 +153,7 @@ it.each(['desktop', 'android'])('%s sends preset custom positions while regenera
   expect(rawTrace(edited)).toEqual(rawTrace(beforeEdit))
   await send('合成编辑后的下一轮输入')
   expect(requests.at(-1).filter(message => message.source.kind === 'plugin:eleckoi-product-history').map(message => message.content)).toEqual([
-    [{ type: 'text', text: '合成角色：合成回复 1' }], [{ type: 'text', text: '合成角色：编辑后的扮演正文' }]
+    [{ type: 'text', text: '合成回复 1' }], [{ type: 'text', text: '编辑后的扮演正文' }]
   ])
   expect(requests.at(-1).some(message => message.role === 'tool'
     || message.content.some(block => block.type === 'tool-call' || block.type === 'reasoning'))).toBe(false)
@@ -265,21 +268,26 @@ it.each(['desktop', 'android'])('%s keeps authored removals out of actual model 
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-variable-removal-profile-'))
   cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
   let f = await start(platform, root), ctx = f.ctx, step = 0
+  const checkToolDescription = tool => expect(tool?.description).toMatch(
+    /^eleckoi_roleplay_reply 可用时，务必按 <roleplay_output_protocol> 判断本轮是否需要调用该工具，严禁绕过该工具直接输出任何有关角色的回复内容。/)
   class Adapter extends LlmAdapter {
     async resolveModel(provider, id) { return { provider, id, name: id, context: { contextWindow: 1000000 }, defaultMaxTokens: 8192 } }
     async listModels(provider) { return [await this.resolveModel(provider, 'synthetic-removal-model')] }
     async *stream(options) {
       const calls = [
-        ['eleckoi_glob_variables', {}],
-        ['eleckoi_read_variables', { paths: ['/status'] }],
-        ['eleckoi_apply_variable_patch', { operations: [{ op: 'insert', path: '/status/newRuntime', value: 12 }] }],
+        [['eleckoi_glob_setting_files', {}], ['eleckoi_glob_variables', {}]],
+        [['eleckoi_read_variables', { paths: ['/status'] }]],
+        [['eleckoi_apply_variable_patch', { operations: [{ op: 'insert', path: '/status/newRuntime', value: 12 }] }]],
       ]
       const current = step++
       if (current > 0 && current <= calls.length) {
-        const result = options.messages.findLast(item => item.role === 'tool')
-        const value = JSON.parse(result.content.filter(item => item.type === 'text').map(item => item.text).join(''))
+        const results = options.messages.filter(item => item.role === 'tool')
+        const result = results.find(item => item.toolCallId === `synthetic-removal-${current - 1}-${calls[current - 1].length - 1}`)
+        const value = JSON.parse(result.content.map(block => block.text).join(''))
         expect(JSON.stringify(value)).not.toContain('retired-profile-needle')
         if (current === 1) {
+          const settingsResult = results.find(item => item.toolCallId === 'synthetic-removal-0-0')
+          expect(JSON.parse(settingsResult.content.map(block => block.text).join('')).files).toEqual([])
           expect(value.paths).not.toContain('/status/coins')
           expect(value.paths).toContain('/status/runtime')
         } else if (current === 2) {
@@ -287,10 +295,13 @@ it.each(['desktop', 'android'])('%s keeps authored removals out of actual model 
         } else expect(value.status).toBe('ok')
       }
       if (current < calls.length) {
-        const [name, args] = calls[current], id = `synthetic-removal-${current}`
-        yield { type: 'block-start', index: 0, blockType: 'tool-call' }
-        yield { type: 'tool-call-delta', index: 0, id, name, argumentsDelta: JSON.stringify(args) }
-        yield { type: 'block-end', index: 0, block: { type: 'tool-call', id, name, arguments: JSON.stringify(args) } }
+        for (const [index, [name, args]] of calls[current].entries()) {
+          checkToolDescription(options.tools.find(tool => tool.name === name))
+          const block = { type: 'tool-call', id: `synthetic-removal-${current}-${index}`, name, arguments: JSON.stringify(args) }
+          yield { type: 'block-start', index, blockType: 'tool-call' }
+          yield { type: 'tool-call-delta', index, id: block.id, name, argumentsDelta: block.arguments }
+          yield { type: 'block-end', index, block }
+        }
         yield { type: 'finish', reason: { kind: 'tool-calls' } }
       } else yield* streamRoleplayReply('Synthetic updated reply', options)
     }
@@ -315,6 +326,10 @@ it.each(['desktop', 'android'])('%s keeps authored removals out of actual model 
   agent.followup(createUserMessage({ content: [{ type: 'text', text: '合成变量修改输入' }], source: { kind: 'user' } }))
   await agent.whenIdle(); await ctx.eleckoiConversationLifecycle.drain(chat.conversation.id)
   expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+  const loggedTools = agent.session.requestHeader().tools
+  for (const name of ['eleckoi_glob_setting_files', 'eleckoi_glob_variables']) {
+    checkToolDescription(loggedTools.find(tool => tool.name === name))
+  }
   expect(step).toBe(4)
   expect(JSON.parse(data.readAuthorConversationState(chat.conversation.id).currentVariableStateJson)).toEqual({ status: { ...original.status, newRuntime: 12 } })
   await f.close(); f = await start(platform, root); ctx = f.ctx; install()
@@ -789,14 +804,14 @@ it('desktop compacts image and text history after switching away from an unavail
   expect(requests.at(-1)).toMatchObject({ purpose: 'compaction', provider: previous.provider, model: previous.model, reasoningEffort: 'high' })
   expect(imageBlocks(requests.at(-1))).toEqual([{ type: 'image', attachment: image }])
   expect(requests.at(-1).messages.filter(message => message.source?.kind === 'plugin:eleckoi-product-history')).toEqual([
-    expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'Synthetic character：Synthetic reply.' }] }),
+    expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'Synthetic reply.' }] }),
   ])
   expect(requests.at(-1).messages.some(message => message.role === 'tool'
     || message.content.some(block => block.type === 'tool-call'))).toBe(false)
   await send(control, 'Continue from the retained reply.')
   const continued = requests.at(-1).messages
   expect(continued.filter(message => message.source?.kind === 'plugin:eleckoi-product-history')).toEqual([
-    expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'Synthetic character：Synthetic reply.' }] }),
+    expect.objectContaining({ role: 'assistant', content: [{ type: 'text', text: 'Synthetic reply.' }] }),
   ])
   expect(JSON.stringify(continued)).toContain('Synthetic history summary.')
 

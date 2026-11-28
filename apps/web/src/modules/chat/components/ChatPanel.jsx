@@ -33,7 +33,7 @@ import {
   resolveChatDisplayProfile,
 } from "../../appearance/index.js";
 import { findLatestRegenerateTargetMessageId } from "../model/chatRegeneration.js";
-import { selectRoleplayChatSeat, selectRoleplayPendingInput } from "../model/chatViewSeats.js";
+import { retainRoleplaySeatIndex, roleplayAnswerForTurn, selectRoleplayChatSeat, selectRoleplayPendingInput } from "../model/chatViewSeats.js";
 import { revealChatFile } from "../api/chatApi.js";
 import { MainPageContext } from '../../../app/windows/MainPageContext.jsx';
 import { DshEntryActionsMenu } from '../../../ui/ui/DshEntryActionsMenu.jsx';
@@ -45,6 +45,13 @@ const noAuthorSubscription = () => () => {};
 const noAuthorRuntime = () => null;
 const emptyAuthorUi = { buttons: [], panel: null };
 const noAuthorUi = () => emptyAuthorUi;
+const visibleMessage = new WeakMap();
+
+function hasChatRow(message) {
+  if (!visibleMessage.has(message)) visibleMessage.set(message, message.role !== 'assistant' || message.pending
+    || Boolean(String(message.content || '').trim()) || Boolean(message.process?.length));
+  return visibleMessage.get(message);
+}
 
 const TrajectoryView = lazy(() => import("./TrajectoryDialog.jsx").then((module) => ({
   default: module.TrajectoryView,
@@ -162,6 +169,8 @@ export function ChatPanel({
     nativeAuthorRuntime?.getSnapshot || noAuthorRuntime, noAuthorRuntime);
   const inputStateRef = useRef(input);
   inputStateRef.current = input;
+  const authorPresentation = useRef();
+  authorPresentation.current = { conversationId, title: currentTitle, messages, isGenerating: isSending, persona, chatDisplay };
   useEffect(() => {
     if (!nativeAuthorRuntime || !conversationId) return undefined;
     const handlers = {
@@ -175,9 +184,9 @@ export function ChatPanel({
         if (!onSend) throw new DesktopError(ELECKOI_FAILURE_CODES.internal, '当前对话没有发送入口。', { what: '对话发送入口' });
         return { submitted: await onSend({ preventDefault() {} }, text) !== false };
       },
-      'presentation.current': () => ({ conversationId, title: currentTitle, messages, isGenerating: isSending, persona, chatDisplay }),
+      'presentation.current': () => authorPresentation.current,
       'ui.showProcess': params => {
-        const message = messages.find(value => value.id === params.id);
+        const message = authorPresentation.current.messages.find(value => value.id === params.id);
         if (!message) throw new DesktopError(ELECKOI_FAILURE_CODES.lookupNotFound, `显示消息不存在：${params.id}`, { what: '显示消息' });
         setProcessMessage(message); return null;
       }
@@ -200,13 +209,9 @@ export function ChatPanel({
       }));
     }
     return () => stops.forEach(stop => stop());
-  }, [nativeAuthorRuntime, conversationModel, conversationId, currentTitle, messages, isSending, persona, chatDisplay, setInput, onSend, onOpenChatBackground, onOpenHistory, inputImages.length, inputFiles.length]);
+  }, [nativeAuthorRuntime, conversationModel, conversationId, setInput, onSend, onOpenChatBackground, onOpenHistory, inputImages.length, inputFiles.length]);
 
-  const displayedMessages = useMemo(() => messages.filter((item) => !(
-    item.role === "assistant" && !item.pending && !String(item.content || "").trim() && !(item.process || []).length
-  )), [messages]);
-  const answersByTurn = useMemo(() => new Map(displayedMessages.filter(message => message.role === 'assistant')
-    .map(message => [message.dshTurn, message])), [displayedMessages]);
+  const displayedMessages = useMemo(() => messages.filter(hasChatRow), [messages]);
   const regenerateFrom = useCallback(async (message) => {
     const result = await onRegenerate?.(message);
     if (result !== false) setTrajectoryRevision((revision) => revision + 1);
@@ -269,8 +274,15 @@ export function ChatPanel({
   }, [deleteMode, input, isSending, onSelectOpening, openingMessage, processMessage]);
 
   const { layout: layoutMode, profile } = resolveChatDisplayProfile(chatDisplay);
-  const floorNumbers = useMemo(() => layoutMode === 'roleplay' ? roleplayFloorNumbers(displayedMessages) : null,
-    [layoutMode, displayedMessages]);
+  const previousMessages = useRef();
+  const floorNumbers = useMemo(() => {
+    const previous = previousMessages.current;
+    previousMessages.current = displayedMessages;
+    retainRoleplaySeatIndex(displayedMessages, previous);
+    return layoutMode === 'roleplay' ? roleplayFloorNumbers(displayedMessages, previous) : null;
+  }, [layoutMode, displayedMessages]);
+  const latestAssistantIndex = useMemo(() => displayedMessages.findLastIndex(message =>
+    message.role === 'assistant' && !message.pending), [displayedMessages]);
 
   if (!hasActiveChat) {
     return (
@@ -294,11 +306,14 @@ export function ChatPanel({
     );
   }
 
-  const liveReply = activeView === "chat" && runtimeSessionId && !isSwitchingChat
+  const showChatActivity = activeView === "chat" && Boolean(runtimeSessionId) && !isSwitchingChat;
+  const liveReply = showChatActivity
     ? displayedMessages.findLast(item => item.role === "assistant" && item.pending
       && item.runtimeSessionId === runtimeSessionId && item.process?.length)
     : null;
-  const liveProcess = liveReply ? liveProcessPresentation(liveReply.process, tUi) : null;
+  const sessionRunning = showChatActivity && dshComposerOwner?.sessionId === runtimeSessionId
+    && dshComposerOwner.session?.running === true;
+  const liveProcess = liveProcessPresentation(liveReply?.process, tUi, sessionRunning);
   const roleplayStyle = resolveRoleplayStyle(chatDisplay);
   const avatarShape = resolveChatAvatarShape(layoutMode, profile?.avatar_shape || "portrait");
   const displayStyle = {
@@ -396,7 +411,7 @@ export function ChatPanel({
     onEditCharacter: characterId ? editChatCharacter : undefined,
     showRoleplayTimestamp: chatDisplay?.roleplay_timestamps_enabled !== false,
     showRoleplayFloor: chatDisplay?.roleplay_message_floors_enabled !== false,
-    floorNumbers,
+    floorNumbers, latestAssistantIndex, deleteFromIndex,
     onOpenProcess: setProcessMessage, onEditMessage,
     onEditOpening: isSending ? undefined : onEditOpening,
     onSelectOpening: isSending ? undefined : onSelectOpening,
@@ -415,7 +430,7 @@ export function ChatPanel({
       const seat = selectRoleplayChatSeat(displayedMessages, runtimeSessionId, node);
       if (seat && !seat.item.conversationId) seat.item = { ...seat.item, conversationId };
       const turn = officialProcessTurn(owner);
-      const answer = answersByTurn.get(turn);
+      const answer = roleplayAnswerForTurn(displayedMessages, runtimeSessionId, turn);
       const part = officialProcessPart(owner, answer);
       const waitingForBody = seat?.item.role === "assistant" && seat.item.pending
         && !String(seat.item.displayContent ?? seat.item.content ?? "").trim()
@@ -477,7 +492,8 @@ export function ChatPanel({
               <>
                 <div className="chat-running-seat" data-chat-running-seat="">
                   {liveProcess ? <div className="chat-composer-process">
-                    <AgentProcessStatus presentation={liveProcess} onClick={() => setProcessMessage(liveReply)} />
+                    <AgentProcessStatus key={liveReply ? 'process' : 'waiting'} presentation={liveProcess}
+                      onClick={liveReply ? () => setProcessMessage(liveReply) : undefined} />
                   </div> : null}
                 </div>
                 {dshInputZone ? renderRoleplaySlot?.("eleckoi.roleplay.conversation.input.dock", dshInputZone) : null}
@@ -577,6 +593,8 @@ export function MessageList({
   showRoleplayTimestamp,
   showRoleplayFloor,
   floorNumbers,
+  latestAssistantIndex: knownLatestAssistantIndex,
+  deleteFromIndex: knownDeleteFromIndex,
   onOpenProcess,
   onEditMessage,
   onEditOpening,
@@ -593,13 +611,17 @@ export function MessageList({
   onOpenFile,
 }) {
   const [isEntering, setIsEntering] = useState(Boolean(entering));
-  const latestAssistantIndex = messages.findLastIndex((message) => message.role === "assistant" && !message.pending);
+  const latestAssistantIndex = knownLatestAssistantIndex ?? messages.findLastIndex((message) => message.role === "assistant" && !message.pending);
   const regenerateMessage = useCallback((message) => onRegenerate?.({
     targetMessageId: message.turnId || message.id,
   }), [onRegenerate]);
   const deleteFromIndex = deleteMode
-    ? messages.findIndex((message) => message.id === deleteFromMessageId)
+    ? knownDeleteFromIndex ?? messages.findIndex((message) => message.id === deleteFromMessageId)
     : -1;
+  const openingIndex = openingOnly ? messages.findIndex(message => message.id === 'opening') : -1;
+  const rows = seat ? [seat] : openingOnly
+    ? (openingIndex < 0 ? [] : [{ item: messages[openingIndex], index: openingIndex }])
+    : messages.map((item, index) => ({ item, index }));
 
   useEffect(() => {
     if (!entering) {
@@ -618,8 +640,7 @@ export function MessageList({
         if (event.target === event.currentTarget) setIsEntering(false);
       }}
     >
-      {(seat ? [seat] : messages.map((item, index) => ({ item, index }))
-        .filter(({ item }) => !openingOnly || item.id === "opening")).map(({ item, index }) => {
+      {rows.map(({ item, index }) => {
         const rowKey = item.renderKey || item.id || `${item.role || "message"}-${item.created_at || index}`;
         const selectedForDelete = deleteFromIndex >= 0 && index >= deleteFromIndex;
         const nextRole = messages[index + 1]?.role;

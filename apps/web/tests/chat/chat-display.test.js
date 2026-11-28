@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_CHAT_DISPLAY_PREFERENCES,
   chatDisplayPreferencesSchema,
@@ -224,6 +224,15 @@ describe("chat display preferences", () => {
       .toEqual({ numbers: [5, 6, 8], next: 9 });
     expect(roleplayFloorNumbers([{ id: 'opening' }, { messageIndex: 5 }, reply]))
       .toEqual({ numbers: [0, 5, 6], next: 8 });
+    const readOldText = vi.fn(() => first.text);
+    const old = { messageIndex: 6, roleplayBlocks: [{ ...first, get text() { return readOldText(); } }, second] };
+    const page = [{ messageIndex: 5 }, old, { pending: true, roleplayBlocks: [first] }];
+    expect(roleplayFloorNumbers(page)).toEqual({ numbers: [5, 6, 8], next: 9 });
+    const next = [...page.slice(0, -1), { pending: true, roleplayBlocks: [first, second] }];
+    expect(roleplayFloorNumbers(next, page)).toEqual({ numbers: [5, 6, 8], next: 10 });
+    const prepended = [{ messageIndex: 4 }, ...next];
+    expect(roleplayFloorNumbers(prepended, next)).toEqual({ numbers: [4, 5, 6, 8], next: 10 });
+    expect(readOldText).toHaveBeenCalledTimes(1);
   });
 
   it("refreshes untouched Agent defaults while preserving a customized profile", () => {

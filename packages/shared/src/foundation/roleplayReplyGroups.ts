@@ -24,3 +24,7 @@ export function groupRoleplayReplyBlocks<T extends RoleplayReplyBlock>(blocks: r
 export function roleplayGroupText(blocks: readonly { text: string }[]): string {
   return blocks.filter(block => block.text.trim()).map(block => block.text).join('\n\n')
 }
+
+export function formatRoleplayPromptSpeech(text: string, speakerName?: string): string {
+  return speakerName && text.trim() ? `【发言者 ${JSON.stringify(speakerName)}】\n${text}` : text
+}

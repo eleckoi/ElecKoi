@@ -5,7 +5,7 @@ import { streamRoleplayReply } from '../helpers/tool-call.js'
 import { Context } from '@deepseek-ai/cordis'
 import AgentRegistry from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SessionProjectionCache from '@deepseek-ai/dsh-session-projection-cache'
 import Storage from '@deepseek-ai/dsh-storage'
@@ -29,7 +29,8 @@ import { ConversationRepository } from '../../packages/host/product-data/src/dom
 import { VariableStateRepository } from '../../packages/host/product-data/src/domain/variables/VariableStateRepository'
 import { VariableConfigRepository } from '../../packages/host/product-data/src/domain/variables/VariableConfigRepository'
 import * as roleplayPlugin from '../../packages/client/features/dsh-client-roleplay/src/index.js'
-import { roleplayReplyMessages } from '@eleckoi/dsh-product-api'
+import { DELEGATED_ROLEPLAY_REPLY_EVENT, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
+import { createRoleplayHistoryReader } from '../../packages/client/features/dsh-client-roleplay/src/host/roleplay-history.mjs'
 import { readSessionSnapshot, writeSessionSnapshot } from '../../packages/client/features/dsh-client-roleplay/src/host/session-snapshot.mjs'
 import { readDshSessionLog } from '../../packages/host/runtime/src/trajectory'
 import { rewindDshSession } from '../../packages/host/runtime/src/sessionRewind'
@@ -151,6 +152,9 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     expect(requests).toHaveLength(1);
     const tool = requests[0].tools.find(tool => tool.name === 'eleckoi_roleplay_reply')
     expect(Object.keys(tool.parameters.properties)).toEqual(members.map(member => member.name))
+    expect(tool.description).toContain('当前可发言的角色名单：["合成角色甲","合成角色乙"]。')
+    expect(tool.description).toContain('开头不要加「角色名：」或历史中的发言者标签')
+    expect(tool.description).not.toContain('玩家看不到')
     const systemText = request => request.messages.filter(message => message.role === 'system')
       .flatMap(message => message.content.map(block => block.text)).join('\n')
     expect(systemText(requests[0])).not.toMatch(/合成角色甲|合成角色乙/)
@@ -162,15 +166,67 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     await f.ctx.eleckoiPresetRegistrar.selectForSession(f.conversationId);
     expect(f.ctx.eleckoiRequestPreviews.list(f.conversationId)).toHaveLength(1);
     f.ctx.eleckoiProductData.updateCharacter({ id: character.id, cast: [...character.cast, newMember] });
+    const observeSession = vi.spyOn(f.ctx.sessionQuery, 'observeSession');
     await f.ctx.eleckoiRoleplaySessions.preparePrompt(f.conversationId, 'Synthetic next input');
     await run(f);
     await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId));
+    expect(observeSession.mock.calls.filter(([id]) => id === f.conversationId)).toHaveLength(0);
+    observeSession.mockRestore();
+    expect(f.ctx.eleckoiProductData.captureRuntimeHistory(f.conversationId)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ turn: 2, phase: 'before' }),
+      expect.objectContaining({ turn: 2, phase: 'after' }),
+    ]));
     expect(requests).toHaveLength(2);
+    expect(requests[1].messages.filter(message => message.source.kind === 'plugin:eleckoi-product-history')
+      .flatMap(message => message.content.map(block => block.text))).toEqual([
+      '【发言者 "合成角色甲"】\n合成第一段\n\n第二自然段\n\n【发言者 "合成角色乙"】\n合成另一角色',
+    ]);
     const nextTool = requests[1].tools.find(tool => tool.name === 'eleckoi_roleplay_reply');
     expect(Object.keys(nextTool.parameters.properties)).toEqual([...members, newMember].map(member => member.name));
+    expect(nextTool.description).toContain('当前可发言的角色名单：["合成角色甲","合成角色乙","新角色"]。')
     expect(systemText(requests[1])).not.toMatch(/合成角色甲|合成角色乙|新角色/);
     expect(roleplayReplyMessages(readDshSessionLog(join(f.root, 'sessions'), f.conversationId).events).at(-1)?.blocks)
       .toMatchObject([{ kind: 'speech', text: nextBlocks[0].text, speakerName: newMember.name, speakerId: newMember.id }]);
+  });
+
+  it('reads a long Session once, inserts a late delegation in order, and rebuilds for a rewritten Session', async () => {
+    const ctx = new Context()
+    cleanups.push(() => ctx.fiber.dispose())
+    await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionQuery)
+    const id = SessionId('synthetic-long-roleplay-history')
+    const enter = () => {
+      const session = Session.create(id)
+      const detach = ctx.sessions.enter(session)
+      ctx.sessions.announce(session)
+      cleanups.push(detach)
+      return { session, detach }
+    }
+    const appendReply = (session, index, text, anchorSeq = session.seq) => {
+      session.append(DELEGATED_ROLEPLAY_REPLY_EVENT, { id: `reply-${index}`, status: 'complete',
+        anchorSeq, anchorMessageId: `input-${index}`, speakerName: '合成角色', text }, { ignorable: true })
+    }
+    const first = enter()
+    for (let index = 0; index < 250; index += 1) appendReply(first.session, index, `合成对白 ${index}`)
+    const readHistory = createRoleplayHistoryReader(ctx)
+    const observe = vi.spyOn(ctx.sessionQuery, 'observeSession')
+    const before = await readHistory(id)
+    expect(before).toHaveLength(250)
+    expect(await readHistory(id)).toBe(before)
+    appendReply(first.session, 250, '晚到的子代理对白', 10)
+    const after = await readHistory(id)
+    expect(after).toHaveLength(251)
+    expect(after[0]).toBe(before[0])
+    expect(after[249]).toBe(before[248])
+    expect(after[11].content).toBe('合成角色：晚到的子代理对白')
+    expect(before).toHaveLength(250)
+    expect(observe).toHaveBeenCalledOnce()
+
+    first.detach()
+    const rewritten = enter()
+    appendReply(rewritten.session, 0, '改过的对白')
+    expect(await readHistory(id)).toMatchObject([{ content: '合成角色：改过的对白' }])
+    expect(observe).toHaveBeenCalledTimes(2)
   });
 
   it('reassembles a preview with current standing instructions without duplicating the saved system prompt', async () => {
@@ -192,6 +248,8 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     expect(system).toBe(['Synthetic current {{literal}} instructions',
       'You are an AI agent powered by DeepSeek Harness.'].join('\n\n'))
     expect(JSON.stringify(preview.messages)).not.toContain('Synthetic old instructions')
+    expect(preview.messages.filter(message => message.role === 'assistant').flatMap(message => message.content))
+      .toEqual([{ type: 'text', text: '合成正文' }])
     expect(f.handle.agent.session.seq).toBe(seq)
   })
 
@@ -244,7 +302,7 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     const seq = f.handle.agent.session.seq
     const preview = await f.ctx.eleckoiRoleplaySessions.previewPrompt(f.conversationId, '第二次输入')
     expect(f.handle.agent.session.seq).toBe(seq)
-    const expected = '合成发言甲：供模型续写的正文。\n\n合成发言乙：' + storyboard
+    const expected = '【发言者 "合成发言甲"】\n供模型续写的正文。\n\n【发言者 "合成发言乙"】\n' + storyboard
     const replyText = messages => messages.filter(message => message.role === 'assistant')
       .flatMap(message => message.content.map(block => block.text))
     const latestInput = messages => messages.findLast(message => message.source.kind === 'user').content
@@ -357,12 +415,12 @@ describe('official Session and product save boundary', { timeout: 30_000 }, () =
     rewindDshSession(sessionRoot, f.conversationId, 1, original.seq, true)
     const handle = await f.ctx.agentLoop.resume(f.ctx, { resumeSessionId: SessionId(f.conversationId),
       agentOptions: { provider: 'synthetic', model: 'synthetic' } })
-    const next = { ...f.input, operationId: 'synthetic-regeneration-attempt', turn: 2 }
-    f.ctx.eleckoiConversationLifecycle.begin(next)
-    writeSessionSnapshot(f.root, f.conversationId, { ...readSessionSnapshot(f.root, f.conversationId), operationId: next.operationId })
+    f.ctx.sessionController.resolveAgent = async () => ({ agent: handle.agent })
+    await f.ctx.eleckoiRoleplaySessions.preparePrompt(f.conversationId, '合成原输入', undefined, input.id)
+    const operationId = f.ctx.eleckoiRoleplaySessions.currentOperation(f.conversationId)
     expect(handle.agent.continueFromInput(input.id)).toBe(2)
     await handle.agent.whenIdle()
-    await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, next.operationId)
+    await f.ctx.eleckoiConversationLifecycle.wait(f.conversationId, operationId)
     await handle.dispose()
     const persisted = readDshSessionLog(sessionRoot, f.conversationId)
     expect(persisted.header.id).toBe(f.conversationId)

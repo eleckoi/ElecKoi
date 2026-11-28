@@ -185,7 +185,7 @@ describe('cancelled official Chat projection', () => {
     } finally { f.dispose() }
   })
 
-  it('unlocks the composer after interrupting regeneration in reasoning and deletes that exact reply', async () => {
+  it.each([false, true])('can regenerate and delete without reopening the chat (previous reply missing=%s)', async noRoleplayReply => {
     const f = await fixture()
     const container = document.createElement('div')
     document.body.append(container)
@@ -220,15 +220,23 @@ describe('cancelled official Chat projection', () => {
     const openMenu = () => container.querySelector('.roleplay-menu-trigger').click()
     try {
       for (const turn of [1, 2]) {
+        const withoutReply = noRoleplayReply && turn === 2
         f.setRunning(true)
         f.append('turn/start', { turn })
         f.append('step/start', { turn, step: 1 })
         f.append('user/message', { id: `synthetic-input-${turn}`, role: 'user', source: { kind: 'user' },
           content: [{ type: 'text', text: `合成输入 ${turn}` }] }, { surfaceOp: 'append' })
         if (turn === 2) originalInputSeq = f.lastSeq()
+        if (withoutReply) {
+          f.append('eleckoi/roleplay-output', { turn, toolFields: { 合成角色: { speakerName: '合成角色' } } }, { ignorable: true })
+          f.append('assistant/live-chunk', { turn, step: 1, chunk: { type: 'block-start', index: 0, blockType: 'reasoning' } })
+          f.append('assistant/live-chunk', { turn, step: 1, chunk: { type: 'reasoning-delta', index: 0, text: '合成思考' } })
+          expect(f.model.getStreamSnapshot()).toMatchObject({ status: 'running', dshTurn: turn })
+        }
         f.append('assistant/message', { turn, step: 1, stream: [], message: {
           id: `synthetic-reply-${turn}`, role: 'assistant', source: { provider: 'synthetic', model: 'synthetic' },
-          content: [{ type: 'text', text: '<FINAL>合成原回复</FINAL>' }],
+          content: withoutReply ? [{ type: 'reasoning', text: '合成思考' }, { type: 'text', text: '合成未提交正文' }]
+            : [{ type: 'text', text: '<FINAL>合成原回复</FINAL>' }],
         } }, { surfaceOp: 'append' })
         f.append('step/end', { turn, step: 1 })
         f.append('turn/end', { turn, reason: { kind: 'completed' } })
@@ -236,9 +244,12 @@ describe('cancelled official Chat projection', () => {
       }
       await act(async () => { root.render(React.createElement(Probe)); await new Promise(resolve => setTimeout(resolve, 0)) })
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)) })
-      expect(chat.messages).toHaveLength(4)
+      expect(chat.messages).toHaveLength(noRoleplayReply ? 3 : 4)
       expect(chat.messages.some(message => message.sessionEventSeq === originalInputSeq)).toBe(true)
+      expect(chat.isSending).toBe(false)
       await act(async () => openMenu())
+      expect(menu('重新生成').disabled).toBe(false)
+      expect(menu('删除消息').disabled).toBe(false)
       await act(async () => { menu('重新生成').click(); await Promise.resolve() })
       await act(async () => { f.completePreparation(); await new Promise(resolve => setTimeout(resolve, 0)) })
       await act(async () => {

@@ -20,7 +20,7 @@ export function PresetProfileActions({ active, activating, onActivate, onEdit, a
 }
 
 export function PresetProfileHeader({ preset, active, onActivate, onEdit, showActivate = true, editingAvailable = false,
-  activating = false, showActions = true, headingId }) {
+  activating = false, showActions = true, headingId, closeButton }) {
   const tUi = useProductTranslation();
   const profile = preset.profile;
 
@@ -30,6 +30,7 @@ export function PresetProfileHeader({ preset, active, onActivate, onEdit, showAc
     {showActions && <div className="preset-summary-actions">
       <PresetProfileActions active={active} activating={activating} onActivate={onActivate} onEdit={onEdit} />
     </div>}
+    {closeButton}
   </header>;
 
   return <header className="preset-profile-hero">

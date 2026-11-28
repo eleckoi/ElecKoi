@@ -1,6 +1,7 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import { describeVariableRuleFailure, variableDefaultValue, projectVariableState, reconcileVariableState, createVariableIdentities } from '@eleckoi/dsh-product-data/variables'
 import { readToolResult, resultReadParameter } from '@eleckoi/dsh-client-roleplay/host/tool-result-access.mjs'
+import { withRoleplayReplyProtocolReminder } from './roleplay-reply-tool.mjs'
 import {
   ELECKOI_FAILURE_CODES,
   isCodedFailure,
@@ -15,7 +16,7 @@ export const inject = ['tools', 'eleckoiVariableProcessing', 'eleckoiRuntimeCont
 
 export function apply(ctx) {
   return runRuntimePluginApply(ctx, name, () => {
-    const register = (definition) => ctx.tools.register(withRuntimePluginExit(ctx, name, definition))
+    const register = (definition) => ctx.tools.register(withRuntimePluginExit(ctx, name, withRoleplayReplyProtocolReminder(definition)))
     return [
       register(globTool(ctx)),
       register(grepTool(ctx)),

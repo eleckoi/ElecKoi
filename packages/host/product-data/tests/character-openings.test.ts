@@ -64,13 +64,13 @@ it('leaves a single blank opening silent and uses filled content without the for
   const original = f.openings.get(characterId), primary = original.openingMessages[0]!;
   f.openings.save(characterId, { ...original, enabled: true, openingMessages: [{ ...primary, content: ' \n\t ' }] });
   const blank = repository.create({ metadata: { characterId } }).conversation.id;
-  expect(repository.openingText(blank)).toBe('');
+  expect(repository.openingHistory(blank)).toEqual({ content: '', promptContent: '' });
   const emptyTurns = f.db.native.prepare('SELECT * FROM agent_turns WHERE conversationId = ?').all(blank);
   expect(emptyTurns).toEqual([]);
   f.openings.save(characterId, { ...original, enabled: false, openingMessages: [{ ...primary, content: '合成开场正文' }] });
   const filled = repository.create({ metadata: { characterId } }).conversation.id;
-  expect(repository.openingText(filled)).toBe('合成开场正文');
-  expect(repository.openingText(blank)).toBe('');
+  expect(repository.openingHistory(filled)).toEqual({ content: '合成开场正文', promptContent: '合成开场正文' });
+  expect(repository.openingHistory(blank)).toEqual({ content: '', promptContent: '' });
 }, 30_000)
 
 it('keeps blank alternatives selectable, including a blank primary, after switching and disk reopen', () => {
@@ -118,6 +118,7 @@ it('starts new chats with ordered opening speakers and preserves the snapshot ac
       { id: 'first', kind: 'speech', speakerId: cast[0]!.id, text: longText },
       { id: 'second', kind: 'speech', speakerId: cast[1]!.id, text: '二号发言' },
     ] },
+    { id: 'solo', title: '单人开场', content: '独白正文', segments: [{ id: 'solo-speech', kind: 'speech', speakerId: cast[0]!.id, text: '独白正文' }] },
     { id: 'plain', title: '长篇开场', content: '原样长文' },
   ] })
   const created = repository.create({ metadata: { characterId } }).conversation.id
@@ -125,11 +126,15 @@ it('starts new chats with ordered opening speakers and preserves the snapshot ac
   const initial = read(created)
   expect(initial.content).toBe(scene.openingMessages[0]!.content)
   expect(initial.openingOptions?.[0]?.segments?.map(segment => segment.speakerName)).toEqual(['合成角色', '一号', '二号'])
-  expect(repository.openingText(created)).toContain(`一号：${longText}`)
+  expect(repository.openingHistory(created)).toEqual({ content: `封面正文\n\n一号：${longText}\n\n二号：二号发言`,
+    promptContent: `封面正文\n\n【发言者 "一号"】\n${longText}\n\n【发言者 "二号"】\n二号发言` })
   expect(() => repository.updateOpening(created, '把所有段落改成一段')).toThrow('这条开场白有多个段落')
   expect(read(created).openingOptions).toEqual(initial.openingOptions)
   expect(read(old).openingOptions?.[0]?.segments).toBeUndefined()
   expect(read(old).content).toBe('合成初始开场')
+  repository.selectOpening(created, 'solo')
+  expect(repository.openingHistory(created)).toEqual({ content: '一号：独白正文', promptContent: '独白正文' })
+  expect(repository.openingHistory(created, true).promptContent).toBe('【发言者 "一号"】\n独白正文')
   repository.selectOpening(created, 'plain')
   expect(read(created).content).toBe('原样长文')
   repository.selectOpening(created, original.defaultOpeningMessageId)
@@ -141,7 +146,7 @@ it('starts new chats with ordered opening speakers and preserves the snapshot ac
   repository.restoreImportedOpening(next, { content: initial.content, options: initial.openingOptions!,
     selectedId: initial.selectedOpeningId! })
   expect(read(next).openingOptions).toEqual(initial.openingOptions)
-  expect(repository.openingText(next)).toContain(`一号：${longText}`)
+  expect(repository.openingHistory(next)).toEqual(repository.openingHistory(created))
 }, 30_000)
 
 it('collects every legacy opening into one list and retains all settings and the default opening', () => {

@@ -135,16 +135,17 @@ export function CatalogCardDialog({ title, trigger, artworkSelector, onClose, cl
     animations.current[0].finished.then(onClose, () => {});
   }
 
+  const closeButton = <Button data-dsh-control data-modal-autofocus variant="toolbar" className="catalog-card-dialog-close" aria-label={t('关闭')}
+    icon={<IconCloseOutlineRegular size={18} aria-hidden="true" />} onClick={close} />;
+
   return <Modal open headless backdropBlur={false} title={title} className={`catalog-card-dialog ${className}`} onClose={close}>
-    <Button data-dsh-control data-modal-autofocus variant="toolbar" className="catalog-card-dialog-close" aria-label={t('关闭')}
-      icon={<IconCloseOutlineRegular size={18} aria-hidden="true" />} onClick={close} />
     <section ref={sheetRef} className={`catalog-card-dialog-sheet ${sheetClassName}`} aria-labelledby={labelledBy}
       onClickCapture={event => {
         if (!closing.current) return;
         event.preventDefault();
         event.stopPropagation();
       }}>
-      {children}
+      {children(closeButton)}
     </section>
   </Modal>;
 }

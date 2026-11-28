@@ -364,6 +364,7 @@ describe('DSH ElecKoi conversation client model', () => {
       const fixture = officialChatFixture()
       let snapshot = fixture.replace([])
       const entries: any[] = []
+      let window = { revision: 0, entries, hasMore: false, change: { kind: 'replace', entries } }
       const listeners = new Set<() => void>()
       const subscribe = (listener: () => void) => {
         listeners.add(listener)
@@ -371,10 +372,12 @@ describe('DSH ElecKoi conversation client model', () => {
       }
       return {
         fixture, target: { getSnapshot: () => snapshot, subscribe },
-        eventSource: { getSnapshot: () => ({ entries, hasMore: false }), subscribe },
+        eventSource: { getSnapshot: () => window, subscribe },
         append(type: string, seq: number, data: unknown, surfaceOp?: 'append') {
           const event = { type, seq, time: 1000 + seq, data, ...(surfaceOp ? { surfaceOp } : {}) }
-          entries.push({ type: 'event', event })
+          const entry = { type: type === 'assistant/live-chunk' ? 'transient' : 'event', event }
+          entries.push(entry)
+          window = { ...window, revision: window.revision + 1, change: { kind: 'append', entries: [entry] } }
           snapshot = fixture.append(event)
           for (const listener of [...listeners]) listener()
         }
@@ -423,10 +426,13 @@ describe('DSH ElecKoi conversation client model', () => {
         chunk(2.1, '<合成')
         expect(read()[0].roleplayBlocks[0].text).toBe('')
       }
+      const parentProjection = vi.spyOn(catalog, 'projectOfficialMessages')
       chunk(2.2, format === 'tool fields' ? '先显示' : '角色乙>先显示')
       expect(read()[0].roleplayBlocks[0].text).toBe('先显示')
       chunk(2.3, format === 'tool fields' ? '这一段。"}' : '这一段。</合成')
       expect(read()[0].roleplayBlocks[0].text).toBe('先显示这一段。')
+      expect(parentProjection).not.toHaveBeenCalled()
+      parentProjection.mockRestore()
       const blocks = [{ id: 'selection:0', kind: 'speech', ...speaker, text: '先显示这一段。' }]
       main.append('eleckoi/delegated-roleplay-reply', 3, { ...source, status: 'complete', anchorSeq: 1, text: '先显示这一段。',
         ...(format === 'tool fields' ? { blocks } : {}) })
@@ -849,6 +855,35 @@ describe('DSH ElecKoi conversation client model', () => {
         const reopened = officialChatFixture().replace(durable)
         const history = catalog.projectOfficialMessages(reopened, { messages: [] }, 'synthetic-session', [], false)
         expect(history.at(-1)).toMatchObject({ status: 'complete', sessionEventSeq: 9, roleplayBlocks: latest().roleplayBlocks })
+        running = true
+        append('turn/start', 11, { turn: 2 })
+        append('user/message', 12, { id: 'next-user', role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '然后呢' }] }, 'append')
+        append('eleckoi/roleplay-output', 13, { turn: 2, ...marker })
+        append('step/start', 14, { turn: 2, step: 1 })
+        const previousReply = catalog.getDetailsSnapshot().details.messages[1]
+        const officialChat = officialBinding.target('chat').getSnapshot()
+        const previousTool = [...officialChat.nodes.values()].find(node => node.kind === 'tool-call' && node.data.root.callId === call.id)
+        const readPreviousText = vi.spyOn(previousTool.data.root.args, 'text')
+        try {
+          append('assistant/live-chunk', 14.1, { turn: 2, step: 1, attemptId: 'attempt-next',
+            chunk: { type: 'tool-call-delta', index: 0, id: 'next-call', name: call.name, argumentsDelta: '{"合成发言乙":"新一轮' } })
+          paint()
+          expect(latest()?.roleplayBlocks).toEqual([{ id: 'next-call:0', kind: 'speech', speakerName: '合成发言乙', text: '新一轮' }])
+          const projectWholeChat = vi.spyOn(catalog, 'projectOfficialMessages')
+          const applyWholeDisplay = vi.spyOn(catalog, 'applyDisplayProjection')
+          const buildAllRegexInputs = vi.spyOn(catalog, 'displayProjectionInput')
+          for (const [index, argumentsDelta] of ['继续', '说话', '。'].entries()) {
+            append('assistant/live-chunk', 14.2 + index / 10, { turn: 2, step: 1, attemptId: 'attempt-next',
+              chunk: { type: 'tool-call-delta', index: 0, id: 'next-call', argumentsDelta } })
+            paint()
+          }
+          expect(latest()?.roleplayBlocks[0].text).toBe('新一轮继续说话。')
+          expect(catalog.getDetailsSnapshot().details.messages[1]).toBe(previousReply)
+          expect(projectWholeChat).not.toHaveBeenCalled()
+          expect(applyWholeDisplay).not.toHaveBeenCalled()
+          expect(buildAllRegexInputs).not.toHaveBeenCalled()
+          expect(readPreviousText).not.toHaveBeenCalled()
+        } finally { readPreviousText.mockRestore() }
         return
       }
       const names = ['合成发言乙', '合成发言甲', '合成发言丙']
@@ -1221,15 +1256,15 @@ describe('DSH ElecKoi conversation client model', () => {
       listeners.add(listener); return () => listeners.delete(listener)
     }
     let running = true
-    const values: any[] = []
+    const entries: any[] = []
+    let window = { hasMore: false, revision: 0, entries, change: { kind: 'replace', entries } }
     let chat = chatFixture.replace([]), trajectory = trajectoryFixture.replace([])
     const session = { getSnapshot: () => ({ running }), subscribe: subscribe(sessionListeners) }
     const targets = {
       chat: { getSnapshot: () => chat, subscribe: subscribe(chatListeners) },
       trajectory: { getSnapshot: () => trajectory, subscribe: subscribe(trajectoryListeners) },
     }
-    const binding = { session, eventSource: { getSnapshot: () => ({ hasMore: false, revision: 0,
-      entries: values.map(event => ({ type: 'event', event })) }), subscribe: () => () => {} } }
+    const binding = { session, eventSource: { getSnapshot: () => window, subscribe: () => () => {} } }
     const record = { id: 'synthetic-compact-chat', runtimeSessionId: 'synthetic-compact-session',
       metadata: { characterId: 'synthetic-character', characterName: 'Synthetic character' } }
     const r = mountCatalog(async name => name === 'query.conversations.list' ? { ok: true, data: [record] }
@@ -1241,7 +1276,9 @@ describe('DSH ElecKoi conversation client model', () => {
     catalog.uiConversation = { binding: () => ({ target: (name: keyof typeof targets) => targets[name] }) }
     const append = (type: string, seq: number, data: any, surfaceOp?: any) => {
       const event = { type, seq, time: seq * 100, data, ...(surfaceOp ? { surfaceOp } : {}) }
-      values.push(event)
+      const entry = { type: type === 'assistant/live-chunk' ? 'transient' : 'event', event }
+      entries.push(entry)
+      window = { ...window, revision: window.revision + 1, change: { kind: 'append', entries: [entry] } }
       chat = chatFixture.append(event)
       for (const listener of chatListeners) listener()
       trajectory = trajectoryFixture.append(event)
@@ -1286,6 +1323,17 @@ describe('DSH ElecKoi conversation client model', () => {
         status: outcome === 'complete' ? 'complete' : 'error', completedAtMillis: 1200,
         detail: outcome === 'complete' ? 'Synthetic compacted summary' : 'Synthetic compaction stopped' }])
       append('step/start', 13, { turn: 2, step: 1 })
+      if (outcome === 'complete') {
+        const stream = (seq: number, text: string) => append('assistant/live-chunk', seq,
+          { turn: 2, step: 1, attemptId: 'after-compaction', chunk: { type: 'text-delta', index: 0, text } })
+        stream(13.1, '<FINAL>Synthetic ')
+        const projectWholeChat = vi.spyOn(catalog, 'projectOfficialMessages')
+        stream(13.2, 'reply')
+        expect(catalog.getStreamSnapshot()).toMatchObject({ content: 'Synthetic reply',
+          process: [{ id: processId, status: 'complete' }] })
+        expect(projectWholeChat).not.toHaveBeenCalled()
+        projectWholeChat.mockRestore()
+      }
       if (outcome !== 'interrupted') append('assistant/message', 14, { turn: 2, step: 1, stream: [],
         message: { id: 'new-reply', role: 'assistant', source: { provider: 'synthetic', model: 'synthetic' },
           content: [{ type: 'text', text: '<FINAL>Synthetic reply</FINAL>' }] } }, 'append')
@@ -1300,6 +1348,7 @@ describe('DSH ElecKoi conversation client model', () => {
         expect(reply.process).toMatchObject([{ id: processId, status: outcome === 'complete' ? 'complete' : 'error' }])
         expect(reply.processTiming).toEqual({ startedAtMillis: 700, completedAtMillis: 1600 })
         catalog.releaseOfficialSession()
+        const values = entries.filter(entry => entry.type === 'event').map(entry => entry.event)
         chat = chatFixture.replace(values); trajectory = trajectoryFixture.replace(values)
         await catalog.bindOfficialSession(record.id)
         expect(catalog.getDetailsSnapshot().details.messages.find((item: any) => item.id === reply.id).process)

@@ -1,6 +1,6 @@
 import { recordCharacterEdit } from '@product-data/domain/characterCatalog'
 import { appendCharacterOpeningMessages } from '@shared/foundation/characterOpenings'
-import { groupRoleplayReplyBlocks, roleplayGroupText, type RoleplayReplyBlock } from '@shared/foundation/roleplayReplyGroups'
+import { formatRoleplayPromptSpeech, groupRoleplayReplyBlocks, roleplayGroupText, type RoleplayReplyBlock } from '@shared/foundation/roleplayReplyGroups'
 import { CharacterOpeningRepository } from '@product-data/domain/characterOpenings'
 import type { CharacterOpenings, CharacterOpeningMessage } from '@shared/contracts/characterOpenings/schemas'
 import { renderRegexEjs } from './regex-ejs'
@@ -849,13 +849,15 @@ class ProductDataStore {
           }))
         }
       : macroSettingLibrary
-    const opening = this.conversations!.openingText(conversationId)
-    const history = opening.trim()
-      ? [{
-          role: 'assistant' as const,
-          content: runtimeText(opening, macroValues, regexRules, 'AiOutput')
-        }]
-      : []
+    const cast = readCharacterCastForCharacter(this.store!.db, metadata.characterId)
+    const opening = this.conversations!.openingHistory(conversationId, cast.length > 1)
+    const history = []
+    if (opening.content.trim()) {
+      const content = runtimeText(opening.content, macroValues, regexRules, 'AiOutput')
+      const promptContent = opening.promptContent === opening.content ? content
+        : runtimeText(opening.promptContent, macroValues, regexRules, 'AiOutput')
+      history.push({ role: 'assistant' as const, content, ...(promptContent !== content ? { promptContent } : {}) })
+    }
     const currentPromptText = runtimeText(text, macroValues, regexRules, 'UserInput')
     return {
       conversationId,
@@ -864,7 +866,7 @@ class ProductDataStore {
       conversationContext: {
         characterId: metadata.characterId,
         characterName: metadata.characterName,
-        cast: readCharacterCastForCharacter(this.store!.db, metadata.characterId),
+        cast,
         persona: metadata.characterPersona,
         history,
         historyMode: 'prefix' as const,
@@ -1442,8 +1444,10 @@ function namedReplyText(text: string, name?: string): string {
   return name && text.trim() ? `${name}：${text}` : text
 }
 
+export { formatRoleplayPromptSpeech }
+
 export function transformAiReplyPrompt(source: string, rules: RegexRule[], macros: CharacterCardMacroValues | undefined,
-  depth: number, blocks?: readonly RoleplayReplyBlock[]): string {
+  depth: number, blocks?: readonly RoleplayReplyBlock[], showSpeakers = false): string {
   const transform = (text: string) => transformWithRegexRules(
     macros ? resolveCharacterCardMacros(text, macros) : text, rules, 'AiOutput', {
       depth, expandMacros: (value, escape) => macros ? resolveCharacterCardMacros(value, macros, escape) : value
@@ -1455,7 +1459,7 @@ export function transformAiReplyPrompt(source: string, rules: RegexRule[], macro
     const text = roleplayGroupText(parts)
     const result = transform(text)
     changed ||= result !== text
-    return namedReplyText(result, speaker?.speakerName)
+    return formatRoleplayPromptSpeech(result, showSpeakers ? speaker.speakerName : undefined)
   })
   return changed ? texts.filter(Boolean).join('\n\n') : source
 }

@@ -80,6 +80,7 @@ it('commits one call containing outer strings and ends the turn without another 
   expect(requests).toBe(1)
   expect(outcome).toEqual({ kind: 'completed' })
   expect(replySchemas[0].parameters.properties).toEqual({ 合成角色甲: { type: 'string' } })
+  expect(replySchemas[0].description).toContain('当前可发言的角色名单：["合成角色甲"]。')
   expect(frames.some(frame => frame.chunk?.type === 'tool-call-delta')).toBe(true)
   const results = events.filter(event => event.type === 'tool/result')
   expect(results).toHaveLength(1)
@@ -100,7 +101,9 @@ it('uses the submitted field order and exact string contents in preview and hist
   ], true, () => [...cast, { name: '未出场角色', id: 'absent' }])
   expect(requests).toBe(1)
   expect(advertisedTools[0].filter(name => name === ROLEPLAY_REPLY_TOOL)).toEqual([ROLEPLAY_REPLY_TOOL])
-  expect(replySchemas[0].description).toMatch(/每轮必须至少调用一次.*玩家看不到/)
+  expect(replySchemas[0].description).toMatch(/^提交角色扮演正文。/)
+  expect(replySchemas[0].description).not.toContain('玩家看不到')
+  expect(replySchemas[0].description).toContain('当前可发言的角色名单：["合成角色甲","ScenePartner","未出场角色"]。')
   expect(Object.keys(replySchemas[0].parameters.properties)).toEqual(['合成角色甲', 'ScenePartner', '未出场角色'])
   const replies = roleplayReplyMessages(events)
   const text = 'ScenePartner：' + first + '\n\n合成角色甲：' + second
@@ -111,16 +114,18 @@ it('uses the submitted field order and exact string contents in preview and hist
   expect(catalogPreview).toBe(first + '\n\n' + second)
 })
 
-it('refreshes the roster and accepts a name containing numbers', async () => {
+it.each(['合成角色123', '合成角色"小队长"', '合成角色"小队长""', '合成角色""'])('refreshes the roster and preserves role name %s in a well-formed call', async name => {
   let roster = cast.slice(0, 1)
-  const { replySchemas, events } = await runTurn([{ lookup: true }, { fields: { 合成角色123: '角色发言。' } }], true,
+  const { replySchemas, events } = await runTurn([{ lookup: true }, { fields: { [name]: '角色发言。' } }], true,
     () => {
       const current = roster
-      roster = [{ id: 'new', name: '合成角色123' }]
+      roster = [{ id: 'new', name }]
       return current
     })
-  expect(replySchemas[0].parameters.properties).toEqual({ 合成角色123: { type: 'string' } })
-  expect(roleplayReplyMessages(events)).toMatchObject([{ content: '合成角色123：角色发言。' }])
+  expect(replySchemas[0].parameters.properties).toEqual({ [name]: { type: 'string' } })
+  expect(replySchemas[0].description).toContain(`当前可发言的角色名单：${JSON.stringify([name])}。`)
+  expect(roleplayReplyMessages(events)).toMatchObject([{ content: name + '：角色发言。',
+    blocks: [{ speakerId: 'new', speakerName: name, text: '角色发言。' }] }])
 })
 
 it.each([false, true])('keeps unbound text in the trace and out of dialogue (collaboration=%s)', async collaboration => {

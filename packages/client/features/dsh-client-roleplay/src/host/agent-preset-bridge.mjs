@@ -1,6 +1,7 @@
 /** Restores roleplay Sessions against the single global preset. */
 
-import { installConversationContext, readRoleplayReplies } from './conversation-context.mjs'
+import { installConversationContext } from './conversation-context.mjs'
+import { createRoleplayHistoryReader } from './roleplay-history.mjs'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -22,6 +23,7 @@ export const inject = ['systemPrompt', 'agents', 'agentPresets', 'agentDefaultMo
 
 export async function apply(ctx) {
   const runtimeContexts = new RuntimeContexts(id => ctx.eleckoiProductData.readConversationVariableContext(id))
+  const readHistory = createRoleplayHistoryReader(ctx)
   ctx.provide('eleckoiRuntimeContexts', runtimeContexts)
   const snapshotRoot = process.env.ELECKOI_SESSION_SNAPSHOT_ROOT
   const presetRoot = process.env.ELECKOI_PRESET_ROOT
@@ -200,11 +202,11 @@ export async function apply(ctx) {
         if (!runtimeContexts.has(sourceSessionId)) {
           const resolved = await ctx.sessionController.resolveAgent(sourceSessionId)
           if ('error' in resolved) throw resolved.error
-          await restoreRuntimeContext(ctx, resolved.agent.session, readSessionSnapshot(snapshotRoot, sourceSessionId))
+          await restoreRuntimeContext(ctx, resolved.agent.session, readSessionSnapshot(snapshotRoot, sourceSessionId), readHistory)
         }
         runtimeContexts.inherit(sourceSessionId, agent.id)
       } else {
-        await restoreRuntimeContext(ctx, agent.session, snapshot)
+        await restoreRuntimeContext(ctx, agent.session, snapshot, readHistory)
       }
       await registerActivePreset()
       const replyPolicySessionId = child ? runtimeContexts.get(agent.id).rootSessionId : agent.id
@@ -219,7 +221,6 @@ export async function apply(ctx) {
           if (preparing !== agent) return
           await refreshSessionModelSnapshot(ctx, snapshotRoot, agent.id, agent.model.current(), agent.session)
         }, { prepend: true })
-        const readHistory = (sessionId, signal) => readRoleplayReplies(ctx, sessionId, signal)
         installRequestConfig(agent.ctx, snapshotRoot, agent.id, readHistory)
         installConversationContext(agent, snapshotRoot, ctx.eleckoiRequestPreviews, runtimeContexts, readHistory)
       }
@@ -236,7 +237,7 @@ export async function apply(ctx) {
   }
   ctx.on('agent/created', configureAgent)
   const disposeRuntime = ctx.inject(['attachments', 'eleckoiSessionEditor'],
-    owner => installRoleplaySessionRuntime(owner, presetRegistrar))
+    owner => installRoleplaySessionRuntime(owner, presetRegistrar, readHistory))
   return async () => {
     await disposeRuntime.dispose()
     runtimeContexts.close()

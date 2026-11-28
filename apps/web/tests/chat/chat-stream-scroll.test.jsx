@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ChatView, chatFixture, userNode, turnNode, ManualCompactionNodeView } from '../helpers/officialChatView.jsx'
 import { MessageList } from '../helpers/officialMarkdown.jsx'
-import { selectRoleplayChatSeat, selectRoleplayPendingInput } from '../../src/modules/chat/model/chatViewSeats.js'
+import { retainRoleplaySeatIndex, selectRoleplayChatSeat, selectRoleplayPendingInput } from '../../src/modules/chat/model/chatViewSeats.js'
 import { ChatPanel } from '../../src/modules/chat/components/ChatPanel.jsx'
 import { renderNativeConversationContent } from '../helpers/NativeConversationPresentation.jsx'
 import { officialChatFixture } from '../../../../tests/helpers/officialTrajectory.js'
@@ -563,5 +563,18 @@ describe('official ChatView with roleplay presentation', () => {
       attachments: [{ type: 'image', value: { previewUrl: 'blob:synthetic', width: 20, height: 20 } }],
     })
     expect(echo.item.inputImageAttachments[0]).toMatchObject({ attachmentId: 'pending-request-local-0', previewUrl: 'blob:synthetic', width: 20 })
+    const oldKey = vi.fn(() => 'dsh-reply-session-render-1')
+    const history = { role: 'assistant', runtimeSessionId: 'session-render', get renderKey() { return oldKey() } }
+    const live = { ...messages[0], runtimeSessionId: 'session-render', renderKey: 'dsh-reply-session-render-2' }
+    const first = [history, live]
+    expect(selectRoleplayChatSeat(first, 'session-render', node).index).toBe(0)
+    oldKey.mockClear()
+    const streamed = [history, { ...live, content: '继续说话' }]
+    retainRoleplaySeatIndex(streamed, first)
+    expect(selectRoleplayChatSeat(streamed, 'session-render', turnNode('live', 2)).item).toBe(streamed[1])
+    expect(oldKey).not.toHaveBeenCalled()
+    const prepended = [{ ...live, runtimeSessionId: 'another-session' }, ...streamed]
+    retainRoleplaySeatIndex(prepended, streamed)
+    expect(selectRoleplayChatSeat(prepended, 'session-render', node).index).toBe(1)
   })
 })

@@ -2,6 +2,7 @@
 # target file's indentation; do not report those nested patches as whitespace errors.
 patches/*.patch text eol=lf -whitespace
 native/android-runtime/patches/*.patch text eol=lf -whitespace
+native/android-runtime/session-publication-lock.json text eol=lf
 apps/android/app/src/main/assets/licenses/*.patch text eol=lf -whitespace
 apps/android/app/src/main/assets/licenses/git-tools/*.copyright -text -whitespace
 apps/web/public/licenses/fonts/lxgw-975yuan-OFL.txt -whitespace
