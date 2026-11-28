@@ -47,6 +47,7 @@ patchedDependencies:
   '@deepseek-ai/dsh-client-ui-model-selection@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-model-selection@0.2.2-rc.5.patch
   # RETIRE WHEN: upstream supports shipped product groups with featured entries and More navigation, displays product bundle declarations and developer interface metadata, and provides a header-leading slot with transform-safe, outward-rounded toolbar measurements; remove this patch, registration and lock entry together.
   # RETIRE WHEN: upstream supports an Android file picker for local plugin packages; remove the install-dialog additions and their regression once the picker uses the upstream entry.
+  # RETIRE WHEN: the official header remeasures after being shown and after its stylesheet changes. Remove the measurement guard and stylesheet observer together.
   '@deepseek-ai/dsh-client-ui-plugin-manager@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-plugin-manager@0.2.2-rc.5.patch
   # RETIRE WHEN: official settings exposes reusable, reopenable sidebar updates with portal tooltips and a language-only section sharing its LocaleRuntime.
   '@deepseek-ai/dsh-client-ui-settings-general@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-settings-general@0.2.2-rc.5.patch

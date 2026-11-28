@@ -41,7 +41,9 @@ app.whenReady().then(async()=>{
    await run('window.pluginHeaderFixture.remount()');await settle();
    await run('window.pluginHeaderFixture.setVisible(true)');await settle();await record('reentered');
    await run('window.pluginHeaderFixture.setStylesReady(false);window.pluginHeaderFixture.remount()');await settle();
-   await run('window.pluginHeaderFixture.setStylesReady(true)');await settle();await record('late-styles');
+   if(await run('!!document.querySelector("[data-plugin-bar][data-natural]")'))throw Error('Plugin header measured before its stylesheet was active');
+   await run('window.pluginHeaderFixture.setStylesReady(true)');
+   await wait('!!document.querySelector("[data-plugin-bar][data-natural]")');await settle();await record('late-styles');
    await run('window.pluginHeaderFixture.refreshStyles()');await settle();await record('refreshed');
    await run('window.pluginHeaderFixture.setScale(.95)');await settle();
    await run('window.pluginHeaderFixture.remount()');await settle();

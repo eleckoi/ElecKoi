@@ -29,6 +29,7 @@ app.whenReady().then(async () => {
       if (width === 1360 && zoom === 1 && !dark) writeFileSync(dirname(report) + '/desktop-fixed.png', (await window.webContents.capturePage()).toPNG());
       await run('document.querySelector("[data-plugin-body]").scrollTop=200'); await settle(); await record('scrolled');
       await run('window.pluginHeaderFixture.setVisible(false);window.pluginHeaderFixture.remount()'); await settle();
+      if (await run('!!document.querySelector("[data-plugin-bar][data-natural]")')) throw Error('Plugin header measured while hidden');
       await run('window.pluginHeaderFixture.setVisible(true)'); await settle(); await record('reentered');
     }
     writeFileSync(report, JSON.stringify({ rows, errors }, null, 2));

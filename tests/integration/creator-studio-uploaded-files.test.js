@@ -166,7 +166,7 @@ async function fixture(existing, { productionTemplate = false, stream, legacy = 
     }
   }
   const runtimePlugin = { name: 'synthetic-studio-file-runtime',
-    inject: ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'sessionQuery', 'sessionPersistence', 'sessionProjections', 'eleckoiProductData', 'workspaceRegistry'],
+    inject: ['agents', 'agentPresets', 'agentDefaultModel', 'llm', 'settings', 'sessionController', 'sessionQuery', 'sessionPersistence', 'sessions', 'sessionProjections', 'eleckoiProductData', 'workspaceRegistry'],
     apply: installCreatorStudioRuntime }
   await ctx.plugin(runtimePlugin)
   const service = ctx.eleckoiCreatorStudioRuntime

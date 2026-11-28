@@ -12,6 +12,7 @@ import { Context } from '@deepseek-ai/cordis'
 import TypertGatewayService from '@deepseek-ai/dsh-api-gateway'
 import TypertRegistry, { type TypertContribution } from '@deepseek-ai/dsh-typert-registry'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
+import SessionStore from '@deepseek-ai/dsh-session'
 import ToolRuntime, { defineTool } from '@deepseek-ai/dsh-tools'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RequestPreviewStore } from '../../packages/client/features/dsh-client-roleplay/src/host/request-preview.mjs'
@@ -491,6 +492,7 @@ describe('ElecKoi DSH Remote contract', () => {
     let unregister: (() => void) | undefined
     try {
       await ctx.plugin(TypertRegistry)
+      await ctx.plugin(SessionStore)
       unregister = ctx.typert.register(TYPERT as TypertContribution)
       await ctx.plugin({
         name: 'test-session-controller',

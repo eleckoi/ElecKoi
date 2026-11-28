@@ -50,7 +50,8 @@ window.addEventListener('eleckoi:dsh-plugins:select', event => { event.detail.op
 function Models() {
   const [collapsed, setCollapsed] = useState({ general: true, image: true });
   const [selected, select] = useState(items[0].id);
-  return <ModelProviderSidebar providerItems={items.map((item, n) => ({ ...item, label: item.name, searchText: item.name, section: n < 45 ? 'general' : 'image', initials: 'M', summary: '' }))}
+  return <ModelProviderSidebar providerItems={items.map((item, n) => ({ ...item, label: item.name, searchText: item.name, section: n < 45 ? 'general' : 'image', initials: 'M', summary: '',
+    config: { provider: 'synthetic', model: item.id } }))}
     createProviderItems={[]} activeProviderId={selected} collapsedGroups={collapsed} collapseStateReady
     onToggle={id => setCollapsed(value => ({ ...value, [id]: !value[id] }))} onSelect={select} onCreate={noop} />;
 }
