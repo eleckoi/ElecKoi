@@ -80,6 +80,7 @@ async function fixture({ legacy = false, modelSelection, richInput = false } = {
   }
   const dispose = await installCreatorStudioRuntime({
     sessionPersistence: persistence.sessionPersistence,
+    sessions: { messageProjections: [] },
     workspaceRegistry: { pinnedSessionIds: [] },
     sessionQuery: queryFromInspection(id => controller.inspect(id)),
     sessionController: controller, agents: { get: () => agent },

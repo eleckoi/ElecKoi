@@ -1,4 +1,5 @@
 import { DEEPSEEK_DEFAULT_COUNT } from '@deepseek-ai/dsh-web-deepseek-api'
+import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import { readSessionInspection, roleplayReplyMessages } from '@eleckoi/dsh-product-api'
 import { executeToolCall, hasRoleplayReplyResult, streamRoleplayReply, streamNextRoleplayReply } from '../helpers/tool-call.js'
 import { retireDeepSeekExtensionSelection } from '@eleckoi/dsh-client-web-search/profile'
@@ -443,6 +444,8 @@ it.each(['desktop', 'android'])('%s replaces the edited default Creator once and
 it.each(['desktop', 'android'])('%s keeps Studio APIs and model turns available with optional tools disabled across cold starts', async platform => {
   const root = mkdtempSync(join(tmpdir(), 'eleckoi-studio-disabled-tools-'))
   cleanups.push(() => rm(root, { recursive: true, force: true, maxRetries: 3 }))
+  const stderr = vi.spyOn(process.stderr, 'write')
+  cleanups.push(() => stderr.mockRestore())
   let f = await start(platform, root)
   const preset = f.ctx.eleckoiProductData.readAgentPreset('agent-preset-creator')
   f.ctx.eleckoiProductData.saveAgentPreset({ ...preset, toolGroups: preset.toolGroups.map(group => group.id === 'builtin:workspace'
@@ -473,6 +476,7 @@ it.each(['desktop', 'android'])('%s keeps Studio APIs and model turns available 
     ['builtin:plugin-discovery', ['plugin_manager', 'plugin_market']],
     ['builtin:creator', ['eleckoi_list_toolsets', 'eleckoi_describe_toolset', 'eleckoi_call_capability']],
   ])
+  let lastCompleted
   for (const blocked of [...blockedTools.keys()].map(id => [id]).concat([[...blockedTools.keys()]])) {
     const current = ctx.eleckoiProductData.readAgentPreset(preset.id)
     const saved = ctx.eleckoiProductData.saveAgentPreset({ ...current, toolGroups: preset.toolGroups.map(group => blocked.includes(group.id)
@@ -482,7 +486,9 @@ it.each(['desktop', 'android'])('%s keeps Studio APIs and model turns available 
     if ('error' in resolved) throw resolved.error
     resolved.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'Synthetic tool switch request' }], source: { kind: 'user' } }))
     await resolved.agent.whenIdle()
-    expect(resolved.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason).toEqual({ kind: 'completed' })
+    const completed = resolved.agent.session.snapshotEvents().findLast(event => event.type === 'turn/end')
+    expect(completed.data.reason).toEqual({ kind: 'completed' })
+    lastCompleted = { header: resolved.agent.session.header, seq: completed.seq }
     const tools = requests.at(-1).tools.map(tool => tool.name)
     for (const id of blocked) for (const name of blockedTools.get(id)) expect(tools, id).not.toContain(name)
     expect(tools).toEqual(expect.arrayContaining(['read', 'read_image']))
@@ -492,7 +498,14 @@ it.each(['desktop', 'android'])('%s keeps Studio APIs and model turns available 
   expect(requests).toHaveLength(7)
   const disabledPreset = ctx.eleckoiProductData.readAgentPreset(preset.id)
   await f.close()
+  const diagnostics = stderr.mock.calls.map(([chunk]) => String(chunk)).join('')
+  expect(diagnostics).not.toMatch(/agent\/disposed listener threw|patch: entry "(?:tool-subagent-list-agents|workflow-worker-thread|tool-ralph)" not found/)
+  expect(diagnostics).not.toContain('ElecKoi 会话运行状态提交失败')
+  expect(diagnostics).not.toMatch(/session projection cache: (?:turn\/end|detach) write .*failed/)
   const reopened = await start(platform, root)
+  const cache = reopened.ctx.sessionProjectionCache.cachedSnapshot(lastCompleted.header, ['eleckoiCreatorStudio'])
+  expect(cache?.values.eleckoiCreatorStudio).toEqual({ presetId: preset.id, characterId: '' })
+  expect(cache.asOfSeq).toBeGreaterThanOrEqual(lastCompleted.seq)
   expect(reopened.ctx.eleckoiProductData.readAgentPreset(preset.id)).toEqual(disabledPreset)
   const catalog = await reopened.ctx.typertGateway.invoke({ peer: ownerPeer(reopened.ctx), namespace: 'eleckoiCreatorStudioSessions', method: 'list', args: {} })
   expect(catalog).toHaveLength(7)
@@ -542,13 +555,20 @@ it.each(['desktop', 'android'])('%s keeps Studio available when an interrupted o
   const unreadableDirectory = join(root, 'generated-presets/creator-studio', `eleckoi-creator-${'3'.repeat(64)}`)
   mkdirSync(unreadableDirectory, { recursive: true })
   writeFileSync(join(unreadableDirectory, 'preset.json'), '{')
+  const image = { attachmentId: AttachmentId(`sha256:${'c'.repeat(64)}`), mediaType: 'image/png', bytes: 68, width: 1, height: 1 }
   for (const complete of [true, false]) {
     const id = SessionId(complete ? 'synthetic-complete-old-studio' : 'synthetic-interrupted-old-studio')
     const header = { id, version: SESSION_FORMAT_VERSION, createdAt: 1, isSeeded: false, cwd: join(root, 'workspace'), agentPreset: legacyId }
     const handle = await f.ctx.sessionPersistence.create(header)
     try {
-      const session = Session.create(id, [], header)
-      if (complete) session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: '' }, { ignorable: true })
+      const session = Session.create(id, [], header, undefined, f.ctx.sessions.messageProjections)
+      if (complete) {
+        session.append(CREATOR_STUDIO_EVENT, { presetId: 'agent-preset-creator', characterId: '' }, { ignorable: true })
+        session.append('turn/start', { turn: 1 })
+        const input = session.append('user/message', createUserMessage({ content: [{ type: 'image', attachment: image }], source: { kind: 'user' } }), { surfaceOp: 'append' })
+        session.append('image/offload', { targets: [{ seq: input.seq, imageIndexes: [0] }] })
+        session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+      }
       await handle.append(session.snapshotEvents()); await handle.flush()
     } finally { await handle.close() }
   }
@@ -565,6 +585,8 @@ it.each(['desktop', 'android'])('%s keeps Studio available when an interrupted o
     const log = await complete.read()
     expect(log.events.findLast(event => event.type === 'agent-preset/selected').data.agentPreset).toBe('eleckoi-creator-active')
     expect(log.events.find(event => event.type === CREATOR_STUDIO_EVENT).data).toEqual({ presetId: 'agent-preset-creator', characterId: '' })
+    const restored = Session.fromRestore(complete.id, log.events, complete.header, complete.inheritedEventCount, log.eventState, f.ctx.sessions.messageProjections)
+    expect(restored.deriveMessages()[0].content).toEqual([{ type: 'image', attachment: image, offloaded: true }])
   } finally { await complete.close() }
   const interrupted = await f.ctx.sessionPersistence.open(SessionId('synthetic-interrupted-old-studio'), 'read')
   try {

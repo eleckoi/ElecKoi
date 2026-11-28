@@ -36,6 +36,8 @@ window.__ModuleLoader__.load({
     function isProductRailEntry({ options, registrant }) {
       return builtInBundles.includes(registrant) || options.id === 'plugins' || shellActions.has(options.id)
     }
+    const NO_UNPINNED_PANELS = Object.freeze([])
+    const WORKSPACE_FIXED_PANELS = ['schedules']
     function useSlotVersion(slots, name) {
       return React.useSyncExternalStore(
         listener => slots.subscribe(name, listener),
@@ -250,7 +252,10 @@ window.__ModuleLoader__.load({
                 ...props,
                  usePanels: select => props.usePanels(rows => select(rows.filter(({ id }) =>
                    android ? id === 'schedules' : workspacePanels.has(id)))),
-                useEntryActions: noEntryActions,
+                ...(android ? { useEntryActions: noEntryActions } : {
+                  // RETIRE WHEN: DSH can keep specified panel rows fixed.
+                  fixedPanelIds: WORKSPACE_FIXED_PANELS,
+                }),
                 startSession: visibility.startSession,
                 renderSlot: (key, owner, renderOptions) => key === 'sidebar.settings'
                   ? null : key === 'sidebar.brand.mark' && globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind !== 'android'
@@ -458,20 +463,27 @@ window.__ModuleLoader__.load({
       }, [slots, settingsVersion, localeRevision])
       const navigationItems = React.useMemo(() => {
         const panels = new Set(slots.entriesOfSlot('main').map(entry => entry.options.key))
-        const android = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android'
         return slots.entriesOfSlot('sidebar.panellist')
-          .filter(entry => entry.options.id !== 'schedules' && (android || isProductRailEntry(entry))
+          .filter(entry => !WORKSPACE_FIXED_PANELS.includes(entry.options.id)
             && (panels.has(entry.options.id) || shellActions.has(entry.options.id)))
           .map(entry => ({
             id: entry.options.id,
             order: entry.options.order || 0,
             action: shellActions.has(entry.options.id),
+            productRail: isProductRailEntry(entry),
             productIcon: entry.registrant?.startsWith('@eleckoi/') || shellActions.has(entry.options.id),
             label: typeof entry.options.label === 'function' ? entry.options.label() : entry.options.label || entry.options.id
           }))
           .sort((a, b) => a.order - b.order)
       }, [slots, navigationVersion, mainVersion, localeRevision])
-      const [unpinnedPanels, setUnpinnedPanels] = React.useState([])
+      const sidebarVersion = useSlotVersion(slots, 'sidebar')
+      const sidebarNavigation = React.useMemo(() => slots.entriesOfSlot('sidebar')[0]?.inject?.(), [slots, sidebarVersion])
+      const entryPins = sidebarNavigation?.hooks?.entryPins
+      const unpinnedPanels = React.useSyncExternalStore(
+        listener => entryPins?.subscribe(listener) ?? (() => {}),
+        () => entryPins?.getSnapshot() ?? NO_UNPINNED_PANELS
+      )
+      const androidNavigation = globalThis.__ELECKOI_CLIENT_PLATFORM__?.kind === 'android'
       const hasSidebarEntryActions = React.useSyncExternalStore(
         listener => slots.subscribe('sidebar.panellist.actions', listener),
         () => slots.entriesOfSlot('sidebar.panellist.actions').length > 0
@@ -654,7 +666,8 @@ window.__ModuleLoader__.load({
           slots, subscribeSlots, frontendConnection,
           conversations, characters, characterConfiguration, creatorStudio, models, persona, presets, webSearch, displayPreferences, appearance, settingsSections, rightbar,
           navigation: {
-            items: navigationItems.filter(item => !unpinnedPanels.includes(item.id)),
+            items: navigationItems.filter(item => (androidNavigation || item.productRail)
+              && (!hasSidebarEntryActions || !unpinnedPanels.includes(item.id))),
             hasSidebarEntryActions,
             renderSidebarEntryActions: (renderSidebarSlot, onDismiss) => renderSidebarSlot('sidebar.panellist.actions', {
               entries: navigationItems.filter(item => !item.action && item.id !== 'plugins').map(item => ({
@@ -662,8 +675,9 @@ window.__ModuleLoader__.load({
               })),
               onOpen: id => layout.selectPanel(id),
               onPinnedChange: (id, pinned) => {
-                if (id === 'plugins') return
-                setUnpinnedPanels(current => pinned ? current.filter(value => value !== id) : [...new Set([...current, id])])
+                if (id !== 'plugins' && navigationItems.some(item => item.id === id && !item.action)) {
+                  sidebarNavigation?.setPinned?.(id, pinned)
+                }
               },
               onDismiss
             }),

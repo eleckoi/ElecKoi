@@ -1,4 +1,7 @@
 import { Context } from '@deepseek-ai/cordis'
+import { AttachmentId } from '@deepseek-ai/dsh-attachment'
+import { imageOffloadProjection } from '@deepseek-ai/dsh-compaction-image-offload/projection'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import SessionStore, { Session, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import { acceptedThrough } from '@deepseek-ai/dsh-session-log-deepseek'
 import * as Jsonl from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -39,12 +42,17 @@ it.each([1, 2])('imports native archive v%s into the selected character and reop
     const variables = new VariableStateRepository(db, new VariableConfigRepository(db))
     variables.replaceCurrent(sourceId, '{"score":99}')
     await ctx.plugin(SessionStore);await ctx.plugin(Jsonl, { root, compression: 'none' })
+    ctx.sessions.registerMessageProjection(imageOffloadProjection)
     const source = ctx.sessions.create(SessionId(sourceId), { meta: { cwd: root } })
-    source.append('turn/start', { turn: 1 });source.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
-    source.append('session-log-deepseek/delivery-accepted', { sessionId: source.id, sessionFormatVersion: 4, throughSeq: 1 as any })
+    source.append('turn/start', { turn: 1 })
+    const image = { attachmentId: AttachmentId(`sha256:${'a'.repeat(64)}`), mediaType: 'image/png' as const, bytes: 68, width: 1, height: 1 }
+    const user = source.append('user/message', createUserMessage({ content: [{ type: 'image', attachment: image }], source: { kind: 'user' } }), { surfaceOp: 'append' })
+    source.append('image/offload', { targets: [{ seq: user.seq, imageIndexes: [0] }] })
+    const end = source.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+    source.append('session-log-deepseek/delivery-accepted', { sessionId: source.id, sessionFormatVersion: 4, throughSeq: end.seq })
     const snapshot = archives.parse(archives.export(sourceId))
     db.native.prepare('DELETE FROM characters WHERE id=?').run('synthetic-old-character')
-    const events = [...source.snapshotEvents(), { type: 'synthetic/opaque', seq: 3, time: 1, ignorable: true,
+    const events = [...source.snapshotEvents(), { type: 'synthetic/opaque', seq: source.seq, time: 1, ignorable: true,
       data: { sessionId: source.id, childId: source.id, text: source.id } }]
     const archive = { format: 'eleckoi.desktop-chat-history', version, snapshot,
       sessionLogs: [{ header: source.header, inheritedEventCount: 0, events }] }
@@ -68,8 +76,9 @@ it.each([1, 2])('imports native archive v%s into the selected character and reop
     let restored: Session
     try {
       const log = await opened.read()
-      restored = Session.fromRestore(SessionId(imported), log.events, opened.header, opened.inheritedEventCount, log.eventState)
+      restored = Session.fromRestore(SessionId(imported), log.events, opened.header, opened.inheritedEventCount, log.eventState, ctx.sessions.messageProjections)
       expect(acceptedThrough(restored)).toBe(-1)
+      expect(restored.deriveMessages()[0]?.content).toEqual([{ type: 'image', attachment: image, offloaded: true }])
       expect(log.events.slice(0, events.length)).toEqual(events)
       expect(opened.inheritedEventCount).toBe(events.length)
       expect(log.events.find(event => event.type === 'session-log-deepseek/delivery-accepted')?.data).toMatchObject({ sessionId: source.id })
@@ -81,7 +90,7 @@ it.each([1, 2])('imports native archive v%s into the selected character and reop
     expect(publish).toHaveBeenCalledTimes(1);expect(deleted).toEqual([])
     await expect(importArchive(archive, 'synthetic-missing')).rejects.toMatchObject({ code: 'eleckoi/character/not-found' })
     const corrupt = structuredClone(archive)
-    ;(corrupt.sessionLogs[0]!.events[2]!.data as any).sessionId = 'synthetic-unrelated-session'
+    ;(corrupt.sessionLogs[0]!.events.find(event => event.type === 'session-log-deepseek/delivery-accepted')!.data as any).sessionId = 'synthetic-unrelated-session'
     await expect(importArchive(corrupt)).rejects.toThrow('wrong Session')
     expect(commit).toHaveBeenCalledTimes(1)
     const persistence = owner.sessionPersistence
@@ -102,13 +111,13 @@ it('retains nested inherited receipt owners, remaps known child relationships an
   source.append('session-log-deepseek/delivery-accepted', { sessionId: source.id, sessionFormatVersion: 4, throughSeq: source.seq - 1 as any })
   source.append('turn/start', { turn: 2 })
   const target = importedSession({ header: source.header, inheritedEventCount: source.inheritedEventCount, events: source.snapshotEvents() },
-    'synthetic-imported', new Map([['synthetic-ancestor', 'synthetic-imported-parent'], ['synthetic-child', 'synthetic-imported-child']]))
+    'synthetic-imported', new Map([['synthetic-ancestor', 'synthetic-imported-parent'], ['synthetic-child', 'synthetic-imported-child']]), [])
   expect(target.header.parentSession).toBe('synthetic-imported-parent')
   expect(target.inheritedEventCount).toBe(source.seq)
   expect(acceptedThrough(target)).toBe(-1)
   expect(target.snapshotEvents().filter(event => event.type === 'session-log-deepseek/delivery-accepted').map(event => event.data.sessionId)).toEqual([ancestor.id, source.id])
   expect(target.snapshotEvents().find(event => String(event.type) === 'subagent/catalog')?.data).toMatchObject({ childId: 'synthetic-imported-child' })
   expect(target.snapshotEvents().at(-1)).toMatchObject({ type: 'turn/end', data: { turn: 2, reason: { kind: 'forked' } } })
-  expect(importedSession({ header: ancestor.header, inheritedEventCount: 0, events: [] }, 'synthetic-empty', new Map()).snapshotEvents())
+  expect(importedSession({ header: ancestor.header, inheritedEventCount: 0, events: [] }, 'synthetic-empty', new Map(), []).snapshotEvents())
     .toMatchObject([{ type: 'session/end-seed', data: { inherited: true } }])
 })

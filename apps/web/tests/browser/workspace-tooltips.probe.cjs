@@ -9,6 +9,7 @@ app.whenReady().then(async () => {
   const run = source => win.webContents.executeJavaScript(source);
   const pause = ms => new Promise(resolve => setTimeout(resolve,ms));
   const rows=[], errors=[];
+  let pinning;
   win.webContents.on('console-message', event => { if(event.level==='error') errors.push(event.message); });
   try {
     for(const width of [1440,900,700]) for(const dark of [false,true]) {
@@ -18,6 +19,7 @@ app.whenReady().then(async () => {
       await pause(60);
       const point=await run(`(() => {const r=document.querySelector('[aria-label=视图选项]').getBoundingClientRect();return {x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)}})()`);
       win.webContents.sendInputEvent({type:'mouseMove',...point}); await pause(700);
+      for(let n=0;n<20&&!await run('Boolean(document.querySelector("[role=tooltip]"))');n++) await pause(30);
       const before=await run(`(() => {
         const tip=document.querySelector('[role=tooltip]'),r=tip?.getBoundingClientRect();
         const button=document.querySelector('[aria-label=视图选项]').getBoundingClientRect(),panel=document.querySelector('.native-workspace-sidebar').getBoundingClientRect();
@@ -40,7 +42,24 @@ app.whenReady().then(async () => {
       await run('document.querySelector("[aria-label=展开侧边栏]").click()'); await pause(240);
       const restored=await run('document.querySelector(".native-workspace-sidebar").getBoundingClientRect().width');
       rows.push({width,dark,before,clippedBefore,collapsed,restored});
+      if (width === 900 && !dark) {
+        const unpin = 'button[aria-label="从侧边栏取消固定合成插件"]';
+        const fixed = 'button[aria-label="从侧边栏取消固定自动化任务"]';
+        const before = await run(`({fixedButton: !!document.querySelector(${JSON.stringify(fixed)}), nativeMore: !!document.querySelector('.native-workspace-sidebar button[aria-label="更多"]')})`);
+        await run(`document.querySelector(${JSON.stringify(unpin)}).click()`);
+        await pause(50);
+        const hidden = await run(`!document.querySelector(${JSON.stringify(unpin)})`);
+        const more = 'button[data-plugin-entry-more=sidebar]';
+        const focused = await run(`document.activeElement === document.querySelector(${JSON.stringify(more)})`);
+        await run(`document.querySelector(${JSON.stringify(more)}).click()`);
+        const menuRow = `Array.from(document.querySelectorAll('[role=menuitem]')).find(row => row.textContent.trim() === '固定合成插件')`;
+        for (let n=0;n<20&&!await run(`Boolean(${menuRow})`);n++) await pause(30);
+        await run(`(${menuRow}).click()`);
+        await pause(50);
+        const visible = await run(`!!document.querySelector(${JSON.stringify(unpin)})`);
+        pinning = { ...before, hidden, focused, visible };
+      }
     }
-    writeFileSync(report,JSON.stringify({rows,errors})); win.destroy();app.exit(0);
+    writeFileSync(report,JSON.stringify({rows,errors,pinning})); win.destroy();app.exit(0);
   }catch(error){console.error(error,errors);win.destroy();app.exit(1);}
 });

@@ -156,6 +156,7 @@ describe('ElecKoi DSH client navigation', () => {
     slots.register({ name: 'main', key: 'plugins' }, () => null)
     slots.register({ name: 'sidebar.panellist', id: 'plugins', order: 0 }, () => null)
     const renderSidebar = () => sidebar.component({ renderSlot: renderNativeSlot,
+      useEntryActions: (select: (enabled: boolean) => boolean) => select(true),
       usePanels: (select: any) => select(slots.entriesOfSlot('sidebar.panellist')
         .map(({ options }) => ({ id: options.id, order: options.order }))
         .sort((a, b) => a.order - b.order)), collapsed: false, width: 280 }).children[0].props
@@ -167,7 +168,8 @@ describe('ElecKoi DSH client navigation', () => {
       ? [schedules, { id: 'extension-page', order: 20 }] : [schedules])
     disposeExtensionPage()
     expect(renderSidebar().workspaceSidebar.props.usePanels((rows: any) => rows)).toEqual([schedules])
-    expect(workspace.props.useEntryActions()).toBe(false)
+    expect(workspace.props.useEntryActions((enabled: boolean) => enabled)).toBe(platform === 'desktop')
+    if (platform === 'desktop') expect(workspace.props.fixedPanelIds).toEqual(['schedules'])
     workspace.props.renderSlot('sidebar.settings', {})
     expect(renderNativeSlot).not.toHaveBeenCalled()
     workspace.props.renderSlot('sidebar.workspaces', { wide: true })
@@ -238,13 +240,22 @@ describe('ElecKoi DSH client navigation', () => {
     ]
     const panelEntries = panels.map(({ registrant, ...options }) => ({ options, registrant }))
     const mainEntries = panels.map(({ id, registrant }) => ({ options: { key: id }, registrant }))
+    const entryActions = [{ options: { id: 'entry-customization' } }]
+    let unpinned: string[] = []
+    const setPinned = vi.fn((id: string, pinned: boolean) => {
+      unpinned = pinned ? unpinned.filter(value => value !== id) : [...unpinned, id]
+    })
+    const sidebarEntries = [{ inject: () => ({
+      hooks: { entryPins: { subscribe: () => () => {}, getSnapshot: () => unpinned } }, setPinned,
+    }) }]
+    const selectPanel = vi.fn()
     const slots = {
       subscribe: () => () => {},
       getVersion: () => 1,
       entries: () => [],
       entriesOfSlot: (name: string) => ({
         'sidebar.footer.action': footerEntries, 'settings.section': settingsEntries,
-        'sidebar.panellist': panelEntries, main: mainEntries,
+        'sidebar.panellist': panelEntries, 'sidebar.panellist.actions': entryActions, main: mainEntries, sidebar: sidebarEntries,
       })[name as 'main' | 'sidebar.panellist' | 'settings.section' | 'sidebar.footer.action'] ?? [],
       provideRoot: () => () => {},
       register: (options: any, component: any) => {
@@ -302,6 +313,7 @@ describe('ElecKoi DSH client navigation', () => {
           rightbarInfo,
           setViewportWidth: () => {},
           setRightbar: () => {},
+          selectPanel,
         },
         slots,
         sidebarRight,
@@ -319,6 +331,26 @@ describe('ElecKoi DSH client navigation', () => {
     expect(render().markdownComponent).toBe(uiPrimitives.MarkdownText)
     expect(render().navigation.items.map((item: any) => item.id)).toEqual(platform === 'desktop'
       ? ['messages', 'plugins'] : ['messages', 'plugins', 'extension-page'])
+    const renderMenu = () => {
+      const renderSlot = vi.fn((_name: string, _owner: any) => null)
+      render().navigation.renderSidebarEntryActions(renderSlot, vi.fn())
+      expect(renderSlot.mock.calls[0]?.[0]).toBe('sidebar.panellist.actions')
+      return renderSlot.mock.calls[0]?.[1]
+    }
+    expect(renderMenu().entries.map(({ id, pinned }: any) => [id, pinned])).toEqual([['messages', true], ['extension-page', true]])
+    // The native workspace row and the product More menu share the native pin store.
+    setPinned('extension-page', false)
+    expect(render().navigation.items.map((item: any) => item.id)).toEqual(['messages', 'plugins'])
+    const menu = renderMenu()
+    expect(menu.entries.find(({ id }: any) => id === 'extension-page').pinned).toBe(false)
+    menu.onOpen('extension-page')
+    expect(selectPanel).toHaveBeenLastCalledWith('extension-page')
+    expect(renderMenu().entries.find(({ id }: any) => id === 'extension-page').pinned).toBe(false)
+    menu.onPinnedChange('extension-page', true)
+    expect(setPinned).toHaveBeenLastCalledWith('extension-page', true)
+    expect(renderMenu().entries.find(({ id }: any) => id === 'extension-page').pinned).toBe(true)
+    for (const id of ['plugins', 'schedules', 'missing']) menu.onPinnedChange(id, false)
+    expect(unpinned).toEqual([])
     expect(render().navigation.productPanelIds).toEqual(['messages'])
     expect(render().navigation.hasSidebarFooterActions).toBe(true)
     expect(render().navigation.selectedPanelId).toBe('conversation')

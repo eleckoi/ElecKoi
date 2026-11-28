@@ -100,8 +100,8 @@
       {
         "id": "sidebar.panellist.actions",
         "kind": "contribution",
-        "title": "更多菜单工作区入口",
-        "description": "向官方更多菜单增加进入工作区界面的操作。",
+        "title": "侧栏更多菜单",
+        "description": "向侧栏更多菜单贡献操作，使用菜单提供的面板列表、打开和固定回调。",
         "mode": "append",
         "scope": "root",
         "relation": "contributes",

@@ -1,6 +1,6 @@
 import { hasRegexEjsOutput } from '@eleckoi/dsh-product-data/regex'
 import { renderRequestEjs } from './regex-ejs.mjs'
-import { createSystemMessage, freezeMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm'
+import { createSystemMessage, freezeMessage } from '@deepseek-ai/dsh-llm'
 import { transformAiReplyPrompt, transformReasoningPrompt } from '@eleckoi/dsh-product-data'
 import { createHash } from 'node:crypto'
 import { readSessionSnapshot } from './session-snapshot.mjs'
@@ -14,14 +14,10 @@ export const name = 'eleckoi-conversation-context'
 export const projectionPlugin = 'eleckoi-request-projection'
 
 /** Install product-owned prompt contributions for every root turn. */
-export function installConversationContext(agentCtx, snapshotRoot, sourceSessionId, previews, settings,
-  runtimeContexts = agentCtx.eleckoiRuntimeContexts, readHistory) {
-  let executionStep
+export function installConversationContext(agent, snapshotRoot, previews, runtimeContexts = agent.ctx.eleckoiRuntimeContexts, readHistory) {
+  const { ctx: agentCtx, id: sourceSessionId, session } = agent
   let placedSource, placedContext
   let historyTurn, historyReplies
-  const disposeStep = agentCtx.on('session/event', (session, event) => {
-    if (session.id === sourceSessionId && event.type === 'step/start') executionStep = event.data
-  })
   const read = () => {
     const snapshot = readSessionSnapshot(snapshotRoot, sourceSessionId)
     const conversationContext = runtimeContexts.get(sourceSessionId).conversationContext
@@ -50,62 +46,48 @@ export function installConversationContext(agentCtx, snapshotRoot, sourceSession
       sections: instructions ? [{ name: 'eleckoi:session-instructions', text: instructions, interpolate: false }, ...assembly.sections] : assembly.sections
     }
   })
-  const disposeRequestProjection = agentCtx.on('llm/stream', (options, next) => {
-    if (!isAgentLoopRequest(options) || options.sessionId !== sourceSessionId) return next()
-    const session = agentCtx.sessions.get(options.sessionId)
-    if (!session) return next()
-    const step = executionStep
+  // RETIRE WHEN: DSH passes projected requests to its pressure check and final dispatch.
+  // Replace this registration and remove the paired patch hunks once the roleplay pressure regressions pass on that API.
+  agent.projectModelRequest = async (options, executionStep) => {
     const snapshot = read()
     const prepared = placedSettings(snapshot.conversationContext)
-    if (readHistory && step && historyTurn !== step.turn) {
-      historyTurn = step.turn
+    if (readHistory && historyTurn !== executionStep.turn) {
+      historyTurn = executionStep.turn
       historyReplies = readHistory(session.id, options.signal)
     }
-    const replies = historyReplies
-    if (replies || prepared !== snapshot.conversationContext) return (async function* () {
-      const [conversationContext, toolReplies] = await Promise.all([prepared, replies])
-      yield* streamProjected(options, session, { ...snapshot, conversationContext }, step, toolReplies)
-    })()
-    return streamProjected(options, session, snapshot, step)
-  })
-  function streamProjected(options, session, snapshot, executionStep, replies) {
-    if (!executionStep) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '实际模型请求缺少 Session 步骤。', { what: '实际模型请求的 Session 步骤' })
-    const projection = requestProjectionSnapshot(snapshot.conversationContext)
+    const [conversationContext, replies] = await Promise.all([prepared, historyReplies])
+    const projection = requestProjectionSnapshot(conversationContext)
     const roleplayBlocks = new Map()
-    const surface = projectRoleplayDialogue(session.deriveMessages(), replies, executionStep.turn, roleplayBlocks)
+    const surface = projectRoleplayDialogue(options.messages, replies, executionStep.turn, roleplayBlocks)
     const currentUser = surface.findLast(isDirectUserMessage)
-    const prompt = snapshot.conversationContext.currentPromptText
+    const prompt = conversationContext.currentPromptText
     const transform = {
       roleplayBlocks,
-      currentPromptText: typeof prompt === 'string' && prompt !== messageText(currentUser)
-        ? prompt : null
+      currentPromptText: typeof prompt === 'string' && prompt !== messageText(currentUser) ? prompt : null
     }
-    const messages = projectRequestInput(surface, projection, transform)
+    let messages = projectRequestInput(surface, projection, transform)
     const inputState = agentCtx.sessionProjections.stateOf(session, INPUT_CONTINUATIONS_PROJECTION)
-    if (!inputState) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '实际模型请求缺少正式用户输入投影。', { what: '实际模型请求的用户输入投影' })
-    const inputs = inputState.inputs
-    const inputIndex = currentUser ? inputs.findIndex(input => input.messageId === currentUser.id) : -1
+    if (!inputState) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '实际模型请求缺少正式用户输入投影。', { what: '实际模型请求的用户输入' })
+    const inputIndex = currentUser ? inputState.inputs.findIndex(input => input.messageId === currentUser.id) : -1
     if (currentUser && inputIndex < 0) throw productFailure(ELECKOI_FAILURE_CODES.lookupNotFound, '实际模型请求的用户输入不在 Session 投影中。', { what: '这次请求的用户输入' })
     const step = { ...executionStep, round: currentUser ? inputIndex + 1 : null }
-    if (!messages.some(message => message.content.some(block => ['text', 'reasoning'].includes(block.type) && hasRegexEjsOutput(block.text)))) {
-      previews.capture(session, { ...options, messages }, projection.plan, step)
-      return agentCtx.llm.stream({ ...options, messages })
-    }
-    return (async function* () {
+    if (messages.some(message => message.content.some(block => ['text', 'reasoning'].includes(block.type) && hasRegexEjsOutput(block.text)))) {
       let variables = null
-      if (messages.some(message => message.content.some(block => ['text', 'reasoning'].includes(block.type) && hasRegexEjsOutput(block.text)))) {
-        if (snapshot.variablesEnabled) {
-          const state = runtimeContexts.get(sourceSessionId).variables
-          if (!state.enabled || !state.state || typeof state.state !== 'object' || Array.isArray(state.state)) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '本次请求变量快照无效。', { what: '本次请求变量快照' })
-          variables = state.state
-        }
+      if (snapshot.variablesEnabled) {
+        const state = runtimeContexts.get(sourceSessionId).variables
+        if (!state.enabled || !state.state || typeof state.state !== 'object' || Array.isArray(state.state)) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '实际模型请求变量快照无效。', { what: '实际模型请求的变量快照' })
+        variables = state.state
       }
-      const rendered = await renderRequestEjs(messages, { conversationId: snapshot.conversationId, variables }, options.signal)
-      previews.capture(session, { ...options, messages: rendered }, projection.plan, step)
-      yield* agentCtx.llm.stream({ ...options, messages: rendered })
-    })()
+      messages = await renderRequestEjs(messages, { conversationId: snapshot.conversationId, variables }, options.signal)
+    }
+    return {
+      messages,
+      retainFrom: currentUser?.id,
+      projectSummary: selected => [...selected.filter(message => message.role === 'system'), ...previousTurnDialogue(selected)],
+      onDispatch: request => previews.capture(session, request, projection.plan, step)
+    }
   }
-  return () => { disposeRequestProjection(); disposeInstructions(); disposeStep() }
+  return () => { agent.projectModelRequest = undefined; disposeInstructions() }
 }
 
 export async function readRoleplayReplies(ctx, sessionId, signal) {

@@ -154,9 +154,19 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 
 ### 统一待退役清单
 
+- [Windows 完整安装包续传适配](../apps/desktop/src/main/modules/updates/full-installer-resume.ts) 在完整包下载中，把尚未下完的安装包和校验信息存到更新缓存根目录的 `resume/`，与 `pending/` 并列。完整包校验通过后交回更新器。确认目标已替换、切换渠道或已有可安装的更新时，清理续传缓存。锁定的上游 Windows 完整包下载能在中断和重启后续传，并通过替换目标、完整校验和清理回归后，先清理仍支持升级的安装中残留的旧 `resume/`，再移除此适配、下载和协调器接入、适配专用回归及本条登记。保留更新全流程回归。
+
+- [角色聊天压缩计量适配](../packages/client/features/dsh-client-roleplay/src/host/conversation-context.mjs) 在角色会话发包前，按最终请求估算自动压缩压力，选段时保护当前轮。会话事件格式和旧工具轨迹保持原样。锁定上游可对产品投影后的请求计量、保护当前轮并在摘要后重新生成请求时，迁移投影注册入口，删除三个依赖补丁中的对应段与登记，更新锁文件，保留在上游入口运行的阈值和轨迹回归。
+
 - [酒馆 V1 角色卡导入](../packages/host/product-data/src/domain/characterTransfer/characterCardFormats.ts) 在解析独立 JSON 或 PNG 内嵌角色卡时识别根层角色字段，以共用转换流程生成当前角色、设定和开场白。停止支持 SillyTavern V1 JSON 和 PNG 导入后，删除根层识别、V1 作者备注映射及专项回归。
 
 - [Android 输入框退格补丁](../patches/@deepseek-ai__dsh-client-ui-conversation@0.2.2-rc.5.patch) 只修正会话输入框收到普通 Chromium Android 退格时的事件处理，不转换存档。锁定的官方输入组件可在文字中间和全角括号内各删除一字并保留正确光标后，移除对应补丁段、登记说明和专项回归，再刷新锁文件哈希。符号节点、选区与输入法组字仍沿官方路径。
+
+- [PC 侧栏入口固定适配](../patches/@deepseek-ai__dsh-client-ui-sidebar@0.2.2-rc.5.patch) 在工作区侧栏使用官方固定状态，把「更多」放在产品最左导航，并保留「自动化任务」固定入口。状态只在当前侧栏生命周期内保留。锁定上游支持外置「更多」和指定固定项并通过同一操作回归后，移除两个适配参数、补丁及锁文件登记。
+
+- [会话关闭时的附件引用清理补丁](../patches/@deepseek-ai__dsh-file-reference-local@0.2.2-rc.5.patch) 在 Agent 释放时处理已经释放的提示词作用域，继续记录真实的清理异常，不改写会话日志。锁定上游能在同一 PC／Android profile 关闭回归中正常清理后，移除补丁及锁文件登记。
+
+- [JSONL 并发刷盘和关闭补丁](../patches/@deepseek-ai__dsh-session-persistence-jsonl@0.2.2-rc.5.patch) 让正在刷盘的会话和全局保存等待同一写入句柄的关闭结果，保留真实的写入及关闭失败。缓存仍在会话日志写入后更新。上游通过并发关闭、关闭失败及两端 profile 回归后，移除这段适配及两个调用，删除针对适配的并发故障注入用例，并刷新锁文件哈希。保留两端关停缓存回归。写入租约导出沿其独立条件退役。
 
 新增或修改一次性数据迁移、旧格式兼容或临时适配时，在同一变更登记入口、触发、数据影响、删除条件和连带范围，源代码入口同时保留 `RETIRE WHEN:`。调整旧版支持范围或升级依赖的人负责复查相关条目。清理依据是项目确认的安装升级、备份和导入支持边界。本机已升级只说明本机状态。
 
@@ -177,8 +187,8 @@ v16→v17 在单个原子步骤中为两张原有表增加来源列，保留初�
 | [开发 v2、v6 同版本整理](../packages/host/product-data/src/storage/sqlite/installSchema.ts) | 分别停止支持对应开发基线直接升级 | 对应整理函数、专用入口和 fixture；v2 共享整理函数仍被 `0002` 使用时继续保留 |
 | [模型设置 schema v0/v1 → v2](../packages/client/features/dsh-client-models/src/index.js) | 支持的升级和 profile 恢复入口均已保存至少 schema v2 的设置 | 旧 schema 转换、专用常量与用例；函数和启动调用须等两段整理均退役，保留当前设置合同和插件装配 |
 | [旧子 Agent 占位路由](../packages/client/features/dsh-client-models/src/index.js) | 停止支持 v0.2.3 之前版本直升，且支持的 profile 恢复入口不再携带该路由 | 占位路由过滤、专用常量与用例；与模型设置 schema 转换分别核对 |
-| [旧实体化预设 ID](../packages/client/features/dsh-client-roleplay/src/host/agent-preset-bridge.mjs) | 支持恢复的 Session、快照、导入及历史回退入口均不会再选中实体化预设 ID，且对应旧版本直升已退役 | `migrateStoredPreset`、`legacyPresetId`、启动扫描、准备及关闭写入句柄后的转换调用和专用用例；保留当前预设注册、重组和恢复服务 |
-| [创作工作室旧散列预设 ID](../packages/client/features/dsh-client-creator-studio/src/host/runtime.mjs) | 停止支持会产生旧散列 ID 的版本直升，且受支持的恢复、导入及历史回退入口均不会再选中 `eleckoi-creator-<64位散列>` | `migrateStoredPreset`、`legacyPresetId`、启动扫描、打开与编辑回退的转换调用、失败隔离与文件保留、旧生成文件清理及专用迁移用例；保留当前选择读取、固定 `eleckoi-creator-active` 注册、全局预设重组及正常新旧会话回归 |
+| [旧实体化预设 ID](../packages/client/features/dsh-client-roleplay/src/host/agent-preset-bridge.mjs) | 支持恢复的 Session、快照、导入及历史回退入口均不会再选中实体化预设 ID，且对应旧版本直升已退役 | 启动、准备或关闭写入句柄后的转换用 DSH 已注册的消息规则读取完整历史，仅追加当前选择并更新预设快照。删除 `migrateStoredPreset`、`legacyPresetId`、扫描、相关调用和含图片移出的迁移回归。保留当前预设注册、重组和恢复服务 |
+| [创作工作室旧散列预设 ID](../packages/client/features/dsh-client-creator-studio/src/host/runtime.mjs) | 停止支持会产生旧散列 ID 的版本直升，且受支持的恢复、导入及历史回退入口均不会再选中 `eleckoi-creator-<64位散列>` | 启动、打开和编辑回退时用 DSH 已注册的消息规则重建完整历史，追加当前选择及必要的工作室标记。删除转换、识别、扫描、相关调用、失败隔离、旧生成文件清理和含图片移出的迁移回归。保留当前预设注册、重组和正常恢复 |
 | [profile 内置 bundle 登记](../apps/desktop-host/src/desktopPluginBundles.ts)、[Tavily 首次选择](../apps/desktop-host/src/desktopPluginHost.ts) | 支持的升级和 profile 恢复入口分别已完成 `bundles-v9`、`tavily-bundle-v1` 登记 | 各自的一次性函数、调用及旧 profile 用例；保留新 profile 初始化和用户启停选择 |
 | [Android 前端 bundle 登记](../apps/android-host/src/androidPluginBundles.ts) | 受支持升级及 profile 恢复来源均已完成 `frontend-bundles-v2`、`frontend-bundles-v3`；不能以某台手机已升级为依据 | 删除 `registerAndroidFrontendBundles`、`frontendUpgrades`、启动调用和仅验证旧 profile 的用例；保留新 profile 初始化、用户选择及正常的 `registerAndroidMobileBundle` 平台必需项约束 |
 | [旧 HTML 资源组合替换](../packages/client/features/dsh-client-html-resources/src/profile.ts) | 桌面及 Android 的受支持旧 profile、备份恢复均不再选择两个已移除的资源 bundle | 删除 `replaceHtmlResourceBundles`、`obsoleteBundles`、两端一次性登记中的调用和专用用例；保留当前资源 bundle、正常初始化及用户主动停用选择 |

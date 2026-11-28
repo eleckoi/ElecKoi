@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { createUserMessage, markAgentLoopRequest } from '@deepseek-ai/dsh-llm'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { resolvePlacedSettingTemplates } from '../../src/host/setting-library-tools.mjs'
 import { HIDDEN_TOOL_TIMELINE_PROMPT_POSITION_ID } from '../../../../../shared/src/contracts/presets/builtIns'
 
@@ -89,14 +89,16 @@ describe('DSH conversation context', () => {
     ])
   })
 
-  it('registers prompt assembly and live request middleware without adding setup messages', () => {
+  it('registers prompt assembly and request projection without adding setup messages', () => {
     const release = vi.fn()
     const agentCtx = { on: vi.fn(() => release) }
-    const dispose = installConversationContext(agentCtx, 'unused-root', 'synthetic-session', { capture: vi.fn() })
-    expect(agentCtx.on).toHaveBeenCalledWith('llm/stream', expect.any(Function))
-    expect(agentCtx.on).toHaveBeenCalledWith('session/event', expect.any(Function))
+    const agent = { ctx: agentCtx, id: 'synthetic-session' }
+    const dispose = installConversationContext(agent, 'unused-root', { capture: vi.fn() })
+    expect(agentCtx.on).toHaveBeenCalledWith('system-prompt/assemble', expect.any(Function))
+    expect(agent.projectModelRequest).toEqual(expect.any(Function))
     dispose()
-    expect(release).toHaveBeenCalledTimes(3)
+    expect(agent.projectModelRequest).toBeUndefined()
+    expect(release).toHaveBeenCalledOnce()
   })
 
   it('follows the hidden tool entry’s saved custom anchor and order', () => {
@@ -177,7 +179,7 @@ describe('DSH conversation context', () => {
     ])
   })
 
-  it('sends only product user and assistant history on the next turn request', () => {
+  it('sends only product user and assistant history on the next turn request', async () => {
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-product-history-request-'))
     const sessionId = 'session-product-history-request'
     const requestContextFile = join(root, 'request-context.jsonl')
@@ -223,31 +225,24 @@ describe('DSH conversation context', () => {
       deriveMessages: () => nativeMessages,
       snapshotEvents: () => [{ seq: 9, type: 'step/start', time: 2_345, data: { turn: 2, step: 1 } }]
     }
-    const listeners = new Map()
-    const streamed = vi.fn((options) => options)
     const agentCtx = {
-      get(name) { return this[name] },
-      systemPrompt: { section: vi.fn(() => vi.fn()) },
-      sessions: { get: vi.fn(() => session) },
       sessionProjections: { stateOf: () => ({ inputs: [{ messageId: nativeMessages.findLast(item => item.source.kind === 'user').id }] }) },
-
-      llm: { stream: streamed },
-      on: vi.fn((event, handler) => {
-        listeners.set(event, handler)
-        return vi.fn()
-      })
+      on: vi.fn(() => vi.fn())
     }
     agentCtx.eleckoiRuntimeContexts = contexts
-    const previews = { capture: vi.fn() }; const dispose = installConversationContext(agentCtx, root, sessionId, previews)
-    listeners.get('session/event')(session, { type: 'step/start', data: { turn: 2, step: 1 } })
-    const options = markAgentLoopRequest({
+    const agent = { ctx: agentCtx, id: sessionId, session }
+    const previews = { capture: vi.fn() }
+    const dispose = installConversationContext(agent, root, previews)
+    const options = {
       provider: 'test',
       model: 'test',
       sessionId,
       messages: nativeMessages
-    })
+    }
 
-    const result = listeners.get('llm/stream')(options, vi.fn())
+    const result = await agent.projectModelRequest(options, { turn: 2, step: 1 })
+    expect(previews.capture).not.toHaveBeenCalled()
+    result.onDispatch({ ...options, messages: result.messages })
 
     expect(result.messages.map((item) => [item.role, text(item)])).toEqual([
       ['user', '上一问'],
@@ -260,7 +255,6 @@ describe('DSH conversation context', () => {
     expect(JSON.stringify(result.messages)).not.toContain('上一轮思考')
     expect(JSON.stringify(result.messages)).not.toContain('call-1')
     expect(JSON.stringify(result.messages)).not.toContain('旧工具结果')
-    expect(streamed).toHaveBeenCalledOnce()
     expect(recordedEvents.some(event => event.type === 'eleckoi/request-context')).toBe(false)
     expect(recordedEvents).toEqual([])
     expect(existsSync(requestContextFile)).toBe(false)
@@ -282,7 +276,7 @@ describe('DSH conversation context', () => {
         source: { kind: 'tool', callId: 'call-2' }
       }
     )
-    const continuation = listeners.get('llm/stream')(options, vi.fn())
+    const continuation = await agent.projectModelRequest(options, { turn: 2, step: 2 })
     expect(continuation.messages.map((item) => [item.role, text(item)])).toEqual([
       ['user', '上一问'],
       ['assistant', '上一答'],

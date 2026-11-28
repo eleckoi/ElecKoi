@@ -17,7 +17,7 @@ import { inputContinuationsProjection } from '../../packages/client/features/dsh
 import { officialTrajectoryFixture } from '../helpers/officialTrajectory.js'
 import { adaptTrajectorySnapshot } from '../../apps/web/src/modules/chat/model/trajectorySnapshotAdapter.js'
 import { findRegenerateBranchUserIndex } from '../../apps/web/src/modules/chat/model/chatRegeneration.js'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const contexts = []
 const temporaryRoots = []
@@ -63,6 +63,45 @@ async function fixture({ persistenceRoot, appendInput = true } = {}) {
 }
 
 describe('explicit existing-input continuation in the pinned official loop', () => {
+  it.each([false, true])('joins a retiring JSONL writer at the durability barrier (close failure: %s)', async failClose => {
+    const root = mkdtempSync(join(tmpdir(), 'eleckoi-jsonl-retirement-'))
+    temporaryRoots.push(root)
+    const ctx = new Context()
+    contexts.push(ctx)
+    await ctx.plugin(SessionStore)
+    await ctx.plugin(JsonlSessionPersistence, { root, compression: 'none' })
+    const session = ctx.sessions.create(SessionId('synthetic-retiring-session'))
+    const writer = await ctx.sessionPersistence.create(session.header)
+    session.append('turn/start', { turn: 1 })
+    session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+
+    const closeFailure = new Error('Synthetic writer retirement failure')
+    const lease = JsonlSessionPersistence.SessionWriteLease.prototype
+    const release = lease.release
+    const releaseSpy = failClose ? vi.spyOn(lease, 'release').mockImplementationOnce(async function () {
+      await release.call(this)
+      throw closeFailure
+    }) : undefined
+    try {
+      const [sessionFlush, backendFlush, close] = await Promise.allSettled([
+        ctx.sessions.flush(session), ctx.sessionPersistence.flush(), writer.close(),
+      ])
+      if (failClose) {
+        expect(sessionFlush).toEqual({ status: 'rejected', reason: closeFailure })
+        expect(backendFlush).toMatchObject({ status: 'rejected', reason: { errors: [closeFailure] } })
+        expect(close).toEqual({ status: 'rejected', reason: closeFailure })
+      } else {
+        expect(sessionFlush).toEqual({ status: 'fulfilled', value: true })
+        expect(backendFlush.status).toBe('fulfilled')
+        expect(close.status).toBe('fulfilled')
+      }
+      await expect(writer.flush()).rejects.toMatchObject({ name: 'SessionHandleClosedError' })
+      expect(readDshSessionLog(root, session.id).events).toEqual(session.snapshotEvents())
+    } finally {
+      releaseSpy?.mockRestore()
+    }
+  })
+
   it('edits, rewinds, reopens and regenerates twice on the same durable Session input', async () => {
     const root = mkdtempSync(join(tmpdir(), 'eleckoi-existing-input-'))
     temporaryRoots.push(root)

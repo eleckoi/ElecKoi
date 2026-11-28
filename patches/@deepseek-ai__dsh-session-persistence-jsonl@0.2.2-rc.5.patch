@@ -1,12 +1,119 @@
+diff --git a/src/storage.ts b/src/storage.ts
+index 197dcbc2..bdc6297b 100644
+--- a/src/storage.ts
++++ b/src/storage.ts
+@@ -291,6 +291,17 @@ export class JsonlSessionHandle implements SessionHandle {
+     })
+   }
+ 
++  /** Await the live log's durability, including a concurrent writer retirement. */
++  async flushLive(): Promise<void> {
++    await this.drainLive()
++    try {
++      await this.flush()
++    } catch (error: unknown) {
++      if (!(error instanceof SessionHandleClosedError) || this.closing === undefined) throw error
++      await this.closing
++    }
++  }
++
+   private async drainBuffered(): Promise<void> {
+     if (this.batchTimer !== undefined) {
+       clearTimeout(this.batchTimer)
+@@ -510,12 +521,8 @@ export class JsonlBackendTracker {
+     for (const writer of [...this.writers.values()]) {
+       if (writer === null) continue // a claim mid-construction routes nothing yet
+       try {
+-        await writer.drainLive()
+-        await writer.flush()
++        await writer.flushLive()
+       } catch (error: unknown) {
+-        // A handle closed during the sweep counts as flushed: close itself
+-        // drained the routed buffer durably before refusing this flush.
+-        if (error instanceof SessionHandleClosedError) continue
+         errors.push(error)
+       }
+     }
+@@ -552,12 +559,7 @@ export class JsonlBackendTracker {
+         })
+       })
+       yield ctx.on('session/flush', (session: Session) => {
+-        const writer = writers.get(session.id)
+-        if (writer === null || writer === undefined) return undefined
+-        return (async () => {
+-          await writer.drainLive()
+-          await writer.flush()
+-        })()
++        return writers.get(session.id)?.flushLive()
+       })
+       yield ctx.on('session/disposed', (session: Session) => {
+         const writer = writers.get(session.id)
 diff --git a/lib/index.js b/lib/index.js
+index aeb4b364..4298d575 100644
 --- a/lib/index.js
 +++ b/lib/index.js
-@@ -3647,4 +3647,4 @@
+@@ -202,6 +202,16 @@ var JsonlSessionHandle = class {
+ 			this.draining = void 0;
+ 		});
+ 	}
++	/** Await the live log's durability, including a concurrent writer retirement. */
++	async flushLive() {
++		await this.drainLive();
++		try {
++			await this.flush();
++		} catch (error) {
++			if (!(error instanceof SessionHandleClosedError) || this.closing === void 0) throw error;
++			await this.closing;
++		}
++	}
+ 	async drainBuffered() {
+ 		if (this.batchTimer !== void 0) {
+ 			clearTimeout(this.batchTimer);
+@@ -387,10 +397,8 @@ var JsonlBackendTracker = class {
+ 		for (const writer of [...this.writers.values()]) {
+ 			if (writer === null) continue;
+ 			try {
+-				await writer.drainLive();
+-				await writer.flush();
++				await writer.flushLive();
+ 			} catch (error) {
+-				if (error instanceof SessionHandleClosedError) continue;
+ 				errors.push(error);
+ 			}
+ 		}
+@@ -424,12 +432,7 @@ var JsonlBackendTracker = class {
+ 				});
+ 			});
+ 			yield ctx.on("session/flush", (session) => {
+-				const writer = writers.get(session.id);
+-				if (writer === null || writer === void 0) return void 0;
+-				return (async () => {
+-					await writer.drainLive();
+-					await writer.flush();
+-				})();
++				return writers.get(session.id)?.flushLive();
+ 			});
+ 			yield ctx.on("session/disposed", (session) => {
+ 				const writer = writers.get(session.id);
+@@ -3647,4 +3650,4 @@ async function apply(ctx, config) {
  	await service.await();
  }
  //#endregion
 -export { Config, JsonlCompressionSchema, apply, name };
 +export { Config, JsonlCompressionSchema, SessionWriteLease, apply, name };
+diff --git a/lib/types/storage.d.ts b/lib/types/storage.d.ts
+index 8d1e0d22..83d58ef2 100644
+--- a/lib/types/storage.d.ts
++++ b/lib/types/storage.d.ts
+@@ -127,6 +127,8 @@ export declare class JsonlSessionHandle implements SessionHandle {
+      * order so `session/flush` can retry and reject loudly.
+      */
+     drainLive(): Promise<void>;
++    /** Await the live log's durability, including a concurrent writer retirement. */
++    flushLive(): Promise<void>;
+     private drainBuffered;
+     /** The shared durable-append body: contiguity, ownership, torn-tail repair, storage write, state advance. */
+     private persistContiguous;
 diff --git a/lib/types/index.d.ts b/lib/types/index.d.ts
 --- a/lib/types/index.d.ts
 +++ b/lib/types/index.d.ts

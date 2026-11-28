@@ -306,8 +306,11 @@ export async function installRoleplaySessionRuntime(ctx, presetRegistrar) {
     if (event.type !== 'turn/end') return
     let snapshot
     try {
-      snapshot = readSessionSnapshot(snapshotRoot, session.id)
-      if (snapshot.inheritedFromSessionId || !snapshot.operationId) return
+      // Workspace turns share this event stream and have no roleplay snapshot.
+      snapshot = ctx.eleckoiRuntimeContexts.has(session.id)
+        ? readSessionSnapshot(snapshotRoot, session.id)
+        : readOptionalSnapshot(snapshotRoot, session.id)
+      if (!snapshot?.operationId || snapshot.inheritedFromSessionId) return
       const turn = Number(event.data?.turn)
       if (!Number.isSafeInteger(turn) || turn < 1) {
         throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, 'DSH 完成事件缺少有效轮次。', { what: 'DSH 完成事件的轮次' })

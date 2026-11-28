@@ -10,7 +10,7 @@ import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
-import ToolRuntime from '@deepseek-ai/dsh-tools'
+import ToolRuntime, { defineTool } from '@deepseek-ai/dsh-tools'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic'
 import * as JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -20,6 +20,9 @@ import { describe, expect, it, vi } from 'vitest'
 import { materializeAgentPreset, requestSnapshot } from '../../src/host/session-runtime.mjs'
 import { currentRequestSnapshot, refreshSessionModelSnapshot } from '../../src/host/model-request-snapshot.mjs'
 import { writeSessionSnapshot } from '../../src/host/session-snapshot.mjs'
+import { installConversationContext } from '../../src/host/conversation-context.mjs'
+import { inputContinuationsProjection } from '../../src/host/input-continuations-projection.mjs'
+import { runtimeContextsFor } from '../../../../../../tests/helpers/runtime-contexts.js'
 
 describe('model request parameters', () => {
   it('uses the saved default selection directly without persisting another selection', async () => {
@@ -146,6 +149,106 @@ describe('model request parameters', () => {
         expect(calls.at(-1).purpose).not.toBe('compaction')
       }
       expect(agent.status).toBe('idle')
+    } finally {
+      await ctx.fiber.dispose()
+      rmSync(root, { recursive: true, force: true })
+    }
+  }, 30_000)
+
+  it('keeps an 11% roleplay request below threshold and compacts when its current tool result crosses the threshold', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'eleckoi-projected-compaction-'))
+    const ctx = new Context()
+    const sessionId = SessionId('synthetic-roleplay-compaction')
+    const selection = { provider: 'synthetic', model: 'synthetic-model' }
+    const requests = []
+    const visibleHistory = 'First turn. ' + 'h'.repeat(470_000)
+    const oldResult = 'Old result. ' + 'o'.repeat(2_520_000)
+    const anotherOldResult = 'Another old result. ' + 'p'.repeat(1_900_000)
+    const currentResult = 'Current result. ' + 'c'.repeat(2_460_000)
+    const threshold = 1_048_576 - 256_000 - 65_536
+    let toolResult = oldResult
+    try {
+      for (const plugin of [LlmRuntime, SessionStore, SessionProjectionRegistry, SystemPrompt, ToolRuntime, NativeToolExecutor, AgentRegistry, TokenMeter]) {
+        await ctx.plugin(plugin)
+      }
+      await ctx.sessionProjections.register(inputContinuationsProjection)
+      await ctx.plugin(JsonlSessionPersistence, { root: join(root, 'sessions'), compression: 'none' })
+      class Adapter extends LlmAdapter {
+        async resolveModel(provider, model) {
+          return { provider, id: model, name: 'Synthetic model', context: { contextWindow: 1_048_576 }, defaultMaxTokens: 256_000 }
+        }
+        async *stream(request) {
+          requests.push(request)
+          const user = request.messages.findLast(message => message.source?.kind === 'user')
+          const wantsTool = ['First turn.', 'Third turn.', 'Fourth turn.'].some(prefix => user?.content[0]?.text?.startsWith(prefix))
+          const isCompaction = request.purpose === 'compaction'
+          const inputTokens = ctx.tokenMeter.measureRequest(request)
+          if (isCompaction && inputTokens + request.maxTokens > 1_048_576) throw new Error('Synthetic summary exceeds the model window')
+          if (!isCompaction && wantsTool && request.messages.at(-1).source?.kind !== 'tool') {
+            yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+            yield { type: 'block-end', index: 0, block: { type: 'tool-call', id: 'lookup-' + requests.length, name: 'lookup_scene', arguments: '{}' } }
+          } else {
+            yield { type: 'block-start', index: 0, blockType: 'text' }
+            yield { type: 'block-end', index: 0, block: { type: 'text', text: isCompaction ? 'Synthetic checkpoint.' : 'Synthetic reply.' } }
+          }
+          yield { type: 'usage', usage: { inputTokens, outputTokens: 12 } }
+          yield { type: 'finish', reason: { kind: 'stop' } }
+        }
+      }
+      ctx.llm.registerAdapter(['synthetic'], new Adapter())
+      await ctx.plugin(BasicCompactionEngine, { thresholdRatio: 0.8, retainTokens: 0, maxTokens: 8192, compactionRetries: 1 })
+      await ctx.plugin(AgentLoop, { agents: [] })
+      const { agent } = await ctx.agentLoop.createAgent(ctx, { sessionId, agentOptions: selection })
+      const contexts = runtimeContextsFor(sessionId, { conversationContext: { historyMode: 'prefix', history: [] } })
+      writeSessionSnapshot(root, sessionId, { conversationId: 'synthetic-roleplay-chat' })
+      const capture = vi.fn()
+      installConversationContext(agent, root, { capture }, contexts)
+      agent.ctx.tools.register(defineTool({ name: 'lookup_scene', description: 'Synthetic scene lookup', parameters: {},
+        output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+        async execute() { return toolResult } }))
+      const send = async text => {
+        agent.followup(createUserMessage({ content: [{ type: 'text', text }], source: { kind: 'user' } }))
+        await agent.whenIdle()
+        expect(agent.session.snapshotEvents().findLast(event => event.type === 'turn/end').data.reason.kind).toBe('completed')
+      }
+      const hasToolResult = (request, text) => request.messages.some(message =>
+        message.source?.kind === 'tool' && message.content.some(block => block.text === text))
+
+      await send(visibleHistory)
+      expect(ctx.tokenMeter.measure(agent.session).totalTokens).toBeGreaterThan(threshold)
+      const beforeSecond = requests.length
+      await send('Second turn.')
+      expect(requests.slice(beforeSecond).map(request => request.purpose)).toEqual([undefined])
+      const second = requests[beforeSecond]
+      expect(Math.round(ctx.tokenMeter.measureRequest(second) / 1_048_576 * 100)).toBe(11)
+      expect(hasToolResult(second, oldResult)).toBe(false)
+      expect(agent.session.snapshotEvents().filter(event => event.type === 'compaction/start')).toHaveLength(0)
+
+      toolResult = anotherOldResult
+      await send('Third turn.')
+      expect(ctx.tokenMeter.measure(agent.session).totalTokens).toBeGreaterThan(1_048_576)
+      expect(requests.every(request => request.purpose !== 'compaction')).toBe(true)
+
+      toolResult = currentResult
+      const beforeFourth = requests.length
+      await send('Fourth turn.')
+      expect(requests.slice(beforeFourth).map(request => request.purpose)).toEqual([undefined, 'compaction', undefined])
+      const summary = requests[beforeFourth + 1]
+      expect(hasToolResult(summary, oldResult)).toBe(false)
+      expect(hasToolResult(summary, anotherOldResult)).toBe(false)
+      const final = requests.at(-1)
+      const events = agent.session.snapshotEvents()
+      const compactionErrors = events.filter(event => event.type === 'compaction/end').flatMap(event => event.data.error ?? [])
+      expect(compactionErrors).toEqual([])
+      expect(ctx.tokenMeter.measureRequest(final)).toBeLessThan(threshold)
+      expect(ctx.tokenMeter.measureRequest(final) + ctx.tokenMeter.measureRequest(second)).toBeGreaterThan(threshold)
+      expect(hasToolResult(final, currentResult)).toBe(true)
+      expect(hasToolResult(final, oldResult)).toBe(false)
+      expect(final.messages.some(message => message.content.some(block => block.text?.includes('Synthetic checkpoint.')))).toBe(true)
+      expect(capture.mock.calls.at(-1)[1].messages).toBe(final.messages)
+      expect(events.filter(event => event.type === 'compaction/summary')).toHaveLength(1)
+      expect(events.filter(event => event.type === 'tool/result').map(event => event.data.message.content[0].text.length))
+        .toEqual([oldResult.length, anotherOldResult.length, currentResult.length])
     } finally {
       await ctx.fiber.dispose()
       rmSync(root, { recursive: true, force: true })

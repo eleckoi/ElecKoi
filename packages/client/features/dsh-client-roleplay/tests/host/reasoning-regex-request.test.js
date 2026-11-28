@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { freezeMessage, markAgentLoopRequest } from '@deepseek-ai/dsh-llm';
+import { freezeMessage } from '@deepseek-ai/dsh-llm';
 import { installConversationContext, projectRequestInput, requestProjectionSnapshot } from '../../src/host/conversation-context.mjs';
 
 const rule = (patch = {}) => ({ id: 'synthetic-reasoning', name: 'Synthetic reasoning', pattern: '/SYNTHETIC/g',
@@ -15,7 +15,7 @@ const assistant = (id, content, replayState) => freezeMessage({ id, role: 'assis
 }, content });
 
 describe('reasoning regex in the actual roleplay request projection', () => {
-  it('applies the real llm/stream contribution before submission and captures the same transformed request without writing to Session', () => {
+  it('projects the request before submission and captures the same transformed request without writing to Session', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'eleckoi-reasoning-request-'));
     try {
       const sessionId = 'synthetic-session';
@@ -24,17 +24,20 @@ describe('reasoning regex in the actual roleplay request projection', () => {
       const messages = [user('synthetic-input', 'New input'), assistant('synthetic-step', [{ type: 'reasoning', text: 'SYNTHETIC' },
         { type: 'tool-call', id: 'synthetic-call', name: 'synthetic-tool', arguments: '{}' }])];
       const session = { id: sessionId, deriveMessages: () => messages, append: vi.fn() };
-      const listeners = new Map(), capture = vi.fn(), stream = vi.fn(options => options);
-      const dispose = installConversationContext({ get(name) { return this[name]; }, eleckoiRuntimeContexts: contexts, on: (type, listener) => { listeners.set(type, listener); return () => listeners.delete(type); },
-        sessions: { get: () => session }, sessionProjections: { stateOf: () => ({ inputs: [{ messageId: messages[0].id }] }) },
-        llm: { stream } }, directory, sessionId, { capture });
-      listeners.get('session/event')(session, { type: 'step/start', data: { turn: 1, step: 2 } });
-      const sent = listeners.get('llm/stream')(markAgentLoopRequest({ sessionId, provider: 'synthetic', model: 'synthetic', messages }), vi.fn());
+      const capture = vi.fn();
+      const agent = { id: sessionId, session, ctx: {
+        eleckoiRuntimeContexts: contexts, on: () => () => {},
+        sessionProjections: { stateOf: () => ({ inputs: [{ messageId: messages[0].id }] }) }
+      } };
+      const dispose = installConversationContext(agent, directory, { capture });
+      const request = { sessionId, provider: 'synthetic', model: 'synthetic', messages };
+      const projected = await agent.projectModelRequest(request, { turn: 1, step: 2 });
+      const sent = { ...request, messages: projected.messages };
+      projected.onDispatch(sent);
       expect(sent.messages[1].content[0].text).toBe('CHANGED');
       expect(capture.mock.calls[0][1].messages).toBe(sent.messages);
       expect(messages[1].content[0].text).toBe('SYNTHETIC');
       expect(session.append).not.toHaveBeenCalled();
-      expect(stream).toHaveBeenCalledOnce();
       dispose();
     } finally { rmSync(directory, { recursive: true, force: true }); }
   });

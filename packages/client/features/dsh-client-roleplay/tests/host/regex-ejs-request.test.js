@@ -1,6 +1,6 @@
 import { runtimeContextsFor } from '../../../../../../tests/helpers/runtime-contexts.js'
 import { describe, expect, it } from 'vitest';
-import { createUserMessage, markAgentLoopRequest } from '@deepseek-ai/dsh-llm';
+import { createUserMessage } from '@deepseek-ai/dsh-llm';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,7 +20,7 @@ describe('regex EJS actual request computation', () => {
     expect(message.content[0].text).toBe(source);
   }, 30000);
 
-  it('finishes EJS before the real llm/stream submission and captures the same evaluated request', async () => {
+  it('finishes EJS before the projected request is dispatched and captures the same evaluated request', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'eleckoi-regex-ejs-'));
     let dispose;
     try {
@@ -29,16 +29,17 @@ describe('regex EJS actual request computation', () => {
       const contexts = runtimeContextsFor(sessionId, { conversationContext: { currentPromptText: template }, variables: { enabled: true, state: { score: 12 } } });
       writeSessionSnapshot(directory, sessionId, { conversationId: 'synthetic-chat', variablesEnabled: true });
       const original = createUserMessage({ content: [{ type: 'text', text: 'Synthetic original' }], source: { kind: 'user' } });
-      const session = { deriveMessages: () => [original] }, listeners = new Map();
-      let sent, captured;
-      dispose = installConversationContext({ get(name) { return this[name]; }, eleckoiRuntimeContexts: contexts, on: (event, handler) => { listeners.set(event, handler); return () => listeners.delete(event); },
-        sessions: { get: () => session }, sessionProjections: { stateOf: () => ({ inputs: [{ messageId: original.id }] }) },
-        llm: { stream: async function* (options) { sent = options; yield { type: 'synthetic-accepted' }; } },
-      }, directory, sessionId, { capture: (_session, options) => { captured = options; } });
-      listeners.get('session/event')({ id: sessionId }, { type: 'step/start', data: { turn: 1, step: 1 } });
-      const events = [];
-      for await (const event of listeners.get('llm/stream')(markAgentLoopRequest({ sessionId, messages: [original], signal: new AbortController().signal }), () => {})) events.push(event);
-      expect(events).toEqual([{ type: 'synthetic-accepted' }]);
+      const session = { deriveMessages: () => [original] };
+      let captured;
+      const agent = { id: sessionId, session, ctx: {
+        eleckoiRuntimeContexts: contexts, on: () => () => {},
+        sessionProjections: { stateOf: () => ({ inputs: [{ messageId: original.id }] }) }
+      } };
+      dispose = installConversationContext(agent, directory, { capture: (_session, options) => { captured = options; } });
+      const request = { sessionId, messages: [original], signal: new AbortController().signal };
+      const projected = await agent.projectModelRequest(request, { turn: 1, step: 1 });
+      const sent = { ...request, messages: projected.messages };
+      projected.onDispatch(sent);
       expect(sent.messages[0].content[0].text).toBe('Score 12');
       expect(captured.messages).toBe(sent.messages);
       expect(original.content[0].text).toBe('Synthetic original');

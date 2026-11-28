@@ -182,7 +182,7 @@
 | `sidebar.brand.mark` | 品牌图标 | 贡献点 | 接入 | `replace` | `root` | 向官方侧边栏提供品牌图标。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
 | `sidebar.brand.name` | 品牌名称 | 贡献点 | 接入 | `replace` | `root` | 向官方侧边栏提供品牌名称。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
 | `sidebar.panellist` | 导航入口 | 贡献点 | 接入 | `append` | `root` | 向侧边栏增加主导航入口。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
-| `sidebar.panellist.actions` | 更多菜单工作区入口 | 贡献点 | 接入 | `append` | `root` | 向官方更多菜单增加进入工作区界面的操作。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
+| `sidebar.panellist.actions` | 侧栏更多菜单 | 贡献点 | 接入 | `append` | `root` | 向侧栏更多菜单贡献操作，使用菜单提供的面板列表、打开和固定回调。 | 所属：`@deepseek-ai/dsh-client-ui-sidebar` |
 | `sidebar` | 侧边栏 | 界面插槽 | 提供 | `replace` | `root` | 替换桌面侧边栏。 | — |
 | `main` | 主面板 | 界面插槽 | 提供 | `register` | `root` | 按面板键注册桌面主页面。 | — |
 | `rightbar` | 右侧面板 | 界面插槽 | 提供 | `replace` | `root` | 提供桌面右侧面板。 | — |

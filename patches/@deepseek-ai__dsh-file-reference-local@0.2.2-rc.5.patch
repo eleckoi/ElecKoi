@@ -1,0 +1,39 @@
+diff --git a/src/index.ts b/src/index.ts
+index a179ceba..0ee09baa 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -81,7 +81,7 @@ export class LocalFileReferenceService extends FileReferenceService {
+       const fiber = this.promptFibers.get(agent)
+       if (fiber === undefined) return
+       this.promptFibers.delete(agent)
+-      const task = fiber.dispose().catch((error: unknown) => {
++      const task = Promise.resolve(fiber.dispose()).catch((error: unknown) => {
+         ctx.logger.warn(`file-reference-local: prompt cleanup failed: ${error instanceof Error ? error.message : String(error)}`)
+       })
+       this.promptDisposals.add(task)
+diff --git a/lib/index.js b/lib/index.js
+index 39efdb1d..f43a8342 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -353,7 +353,7 @@ var LocalFileReferenceService = class extends FileReferenceService {
+ 			const fiber = this.promptFibers.get(agent);
+ 			if (fiber === void 0) return;
+ 			this.promptFibers.delete(agent);
+-			const task = fiber.dispose().catch((error) => {
++			const task = Promise.resolve(fiber.dispose()).catch((error) => {
+ 				ctx.logger.warn(`file-reference-local: prompt cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
+ 			});
+ 			this.promptDisposals.add(task);
+diff --git a/lib/types/index.js b/lib/types/index.js
+index 7ff9cf97..0c88c8db 100644
+--- a/lib/types/index.js
++++ b/lib/types/index.js
+@@ -48,7 +48,7 @@ export class LocalFileReferenceService extends FileReferenceService {
+             if (fiber === undefined)
+                 return;
+             this.promptFibers.delete(agent);
+-            const task = fiber.dispose().catch((error) => {
++            const task = Promise.resolve(fiber.dispose()).catch((error) => {
+                 ctx.logger.warn(`file-reference-local: prompt cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
+             });
+             this.promptDisposals.add(task);

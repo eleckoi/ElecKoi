@@ -25,6 +25,7 @@ overrides:
 allowUnusedPatches: true
 patchedDependencies:
   # RETIRE WHEN: upstream can continue the exact durable input and await per-turn preset preparation before model/tool capture.
+  # RETIRE WHEN: upstream exposes final model input to automatic pressure and rebuilds the request after compaction.
   '@deepseek-ai/dsh-agent-loop@0.2.2-rc.5': patches/@deepseek-ai__dsh-agent-loop@0.2.2-rc.5.patch
   # RETIRE WHEN: upstream exposes owned factory activation admission before writer acquisition and returns the owned handle to the admission owner; remove this patch, bridge call and lock hash together.
   '@deepseek-ai/dsh-agent@0.2.2-rc.5': patches/@deepseek-ai__dsh-agent@0.2.2-rc.5.patch
@@ -49,6 +50,8 @@ patchedDependencies:
   '@deepseek-ai/dsh-client-ui-plugin-manager@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-plugin-manager@0.2.2-rc.5.patch
   # RETIRE WHEN: official settings exposes reusable, reopenable sidebar updates with portal tooltips and a language-only section sharing its LocaleRuntime.
   '@deepseek-ai/dsh-client-ui-settings-general@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-settings-general@0.2.2-rc.5.patch
+  # RETIRE WHEN: upstream supports placing More in host navigation and keeping specific panel rows fixed; remove this patch, the shell options and the lock hash together.
+  '@deepseek-ai/dsh-client-ui-sidebar@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-sidebar@0.2.2-rc.5.patch
   # RETIRE WHEN: official theme exposes an always-expanded font settings group; use that option and remove this patch, registration and lock entry.
   '@deepseek-ai/dsh-client-ui-theme@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-theme@0.2.2-rc.5.patch
   # RETIRE WHEN: retained inputs keep their execution/display identity and complete tool trees through the official trajectory contracts; remove this patch, registration and lock hash together.
@@ -56,7 +59,12 @@ patchedDependencies:
   # RETIRE WHEN: upstream offers an explicit setting disabling automatic session selection and creation.
   '@deepseek-ai/dsh-client-ui-workspace@0.2.2-rc.5': patches/@deepseek-ai__dsh-client-ui-workspace@0.2.2-rc.5.patch
   # RETIRE WHEN: official DSH can summarize on the explicitly selected route when the previous provider is unregistered, in both /compact and pre-switch automatic compaction.
+  # RETIRE WHEN: official DSH can check projected input pressure and protect the active dialogue turn.
   '@deepseek-ai/dsh-compaction-basic@0.2.2-rc.5': patches/@deepseek-ai__dsh-compaction-basic@0.2.2-rc.5.patch
+  # RETIRE WHEN: official DSH prices final request messages and tools with route attachment pricing.
+  '@deepseek-ai/dsh-token-meter@0.2.2-rc.5': patches/@deepseek-ai__dsh-token-meter@0.2.2-rc.5.patch
+  # RETIRE WHEN: upstream accepts an already-disposed prompt fiber during Agent teardown; remove this patch and lock hash after the profile shutdown regression passes without it.
+  '@deepseek-ai/dsh-file-reference-local@0.2.2-rc.5': patches/@deepseek-ai__dsh-file-reference-local@0.2.2-rc.5.patch
   # RETIRE WHEN: official adapter forwards topP through both supported protocols.
   '@deepseek-ai/dsh-llm-deepseek@0.2.2-rc.5': patches/@deepseek-ai__dsh-llm-deepseek@0.2.2-rc.5.patch
   # RETIRE WHEN: official adapter forwards topP and follows all configured Google model-list pages.
@@ -70,6 +78,7 @@ patchedDependencies:
   # RETIRE WHEN: supported released logs with the late system head replay through the official codec without this stage.
   '@deepseek-ai/dsh-session-format-v3-to-v4@0.2.2-rc.5': patches/@deepseek-ai__dsh-session-format-v3-to-v4@0.2.2-rc.5.patch
   # RETIRE WHEN: upstream publicly exposes the writer lease needed by coordinated editing.
+  # RETIRE WHEN: the official live JSONL durability barrier joins a concurrent writer close and propagates its failure. Remove those hunks independently of the writer lease export and refresh the lock hash.
   '@deepseek-ai/dsh-session-persistence-jsonl@0.2.2-rc.5': patches/@deepseek-ai__dsh-session-persistence-jsonl@0.2.2-rc.5.patch
   # RETIRE WHEN: supported product event identities can be appended as ignorable records without renaming persisted events.
   '@deepseek-ai/dsh-session@0.2.2-rc.5': patches/@deepseek-ai__dsh-session@0.2.2-rc.5.patch

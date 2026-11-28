@@ -5,7 +5,7 @@ import css from './DshEntryActionsMenu.module.css';
 import { NavigationFill } from '../icons/navigationFill.jsx';
 
 /** Region-owned launcher for the official plugin entry actions slot. */
-export function DshEntryActionsMenu({ region, renderActions, className, showLabel = false }) {
+export function DshEntryActionsMenu({ region, renderActions, triggerRef, className, showLabel = false }) {
   const tUi = useProductTranslation();
   const [open, setOpen] = useState(false);
   const sidebar = region === 'sidebar';
@@ -13,7 +13,7 @@ export function DshEntryActionsMenu({ region, renderActions, className, showLabe
     'aria-expanded': open, 'data-plugin-entry-more': region, onClick: () => setOpen(value => !value) };
   return <Menu open={open} onClose={() => setOpen(false)} portal compact autoFocus
     className={css.anchor}
-    anchor={sidebar ? <button {...props} className={`${className || ''}${open ? ' active' : ''}`}>
+    anchor={sidebar ? <button {...props} ref={triggerRef} className={`${className || ''}${open ? ' active' : ''}`}>
       <span className="rail-icon-layer base"><IconAppsAddOutlineRegular size={24} /></span>
       <span className="rail-icon-layer active-fill" aria-hidden="true"><NavigationFill glyph="apps-add-outline" /></span>
       {showLabel ? <span className="rail-navigation-label">{tUi("更多")}</span> : null}

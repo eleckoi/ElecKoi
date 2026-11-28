@@ -6,7 +6,7 @@ import { app } from 'electron'
 import electronUpdater, { type AppUpdater, type ProgressInfo, type UpdateInfo, type UpdateCheckResult } from 'electron-updater'
 import { gt, valid } from 'semver'
 import type { DesktopUpdateState } from '@shared/contracts/desktopNative'
-import { DesktopUpdateHttpExecutor } from './update-http-executor.js'
+import { DesktopUpdateHttpExecutor, reconcileUpdaterResume } from './update-http-executor.js'
 import { DesktopUpdatePreparationError, downloadFailureDetails } from '../../../platform/electron/dsh/update-error.js'
 import type { DesktopUpdateChannel } from '@shared/contracts/desktopNative'
 import { selectUpdateChannel } from './updates/electron-updater/channel.js'
@@ -131,7 +131,10 @@ export class DesktopUpdateCoordinator {
       this.assertLive()
       this.release = { kind: 'none' }
       this.cancellation = undefined
-      try { await this.discard(this.updater) } catch (error) {
+      try {
+        await reconcileUpdaterResume(this.updater)
+        await this.discard(this.updater)
+      } catch (error) {
         this.suspendConfiguration('desktop update: could not retire the previous update', 'cleanup')
         throw error
       }
@@ -184,6 +187,7 @@ export class DesktopUpdateCoordinator {
       this.setState({ phase: 'downloading', version, percent: 0 })
       try {
         await this.updater.downloadUpdate(this.cancellation)
+        await reconcileUpdaterResume(this.updater)
         if (generation !== this.generation || this.disposed) return this.current
         if (!this.downloaded) throw new Error('desktop update: platform preparation did not report readiness')
         this.downloadResult?.(true)
@@ -279,6 +283,9 @@ export class DesktopUpdateCoordinator {
       if (this.channel === 'latest' && version.includes('-')) throw new Error('desktop update: latest feed contains a prerelease')
       this.release = result.isUpdateAvailable && gt(version, this.currentVersion())
         ? { kind: 'checked', version } : { kind: 'none' }
+      const checksums = result.updateInfo.files?.map(file => file.sha512) ?? [result.updateInfo.sha512]
+      await reconcileUpdaterResume(this.updater, this.candidate === undefined ? [] : checksums)
+      if (generation !== this.generation || this.disposed) return this.current
       return this.setState(this.candidate === undefined ? { phase: 'idle' } : { phase: 'available', version })
     } catch (error) {
       if (generation !== this.generation || this.disposed) return this.current

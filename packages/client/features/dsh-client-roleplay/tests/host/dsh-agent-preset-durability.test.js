@@ -4,6 +4,8 @@ import { join, resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import { AttachmentId } from '@deepseek-ai/dsh-attachment'
+import { imageOffloadProjection } from '@deepseek-ai/dsh-compaction-image-offload/projection'
 import Loader from '@deepseek-ai/cordis-plugin-loader'
 import AgentPresetRegistry from '@deepseek-ai/dsh-agent-preset-registry'
 import SessionStore, { Session, SessionId } from '@deepseek-ai/dsh-session'
@@ -47,15 +49,17 @@ describe('DSH Agent preset durability', () => {
     let dispose
     try {
       await ctx.plugin(SessionStore)
+      ctx.sessions.registerMessageProjection(imageOffloadProjection)
       await ctx.plugin(SessionProjectionRegistry)
       await ctx.plugin(JsonlSessionPersistence, { root: sessionRoot, compression: 'none' })
       await ctx.plugin(Loader)
       await ctx.plugin(AgentPresetRegistry, { default: 'eleckoi-active' })
       ctx.provide('agents', { create: vi.fn(), resume: vi.fn(), get: vi.fn(), admitActivation: vi.fn(() => () => {}) })
-      const prepared = ctx.sessions.prepare(id, { meta: { cwd: directory, agentPreset: legacyId } })
-      const session = Session.create(id, [], prepared.header)
+      const session = ctx.sessions.create(id, { meta: { cwd: directory, agentPreset: legacyId } })
       session.append('turn/start', { turn: 1 })
-      const input = session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'Synthetic retained input' }], source: { kind: 'user' } }), { surfaceOp: 'append' })
+      const attachment = { attachmentId: AttachmentId(`sha256:${'b'.repeat(64)}`), mediaType: 'image/png', bytes: 68, width: 1, height: 1 }
+      const input = session.append('user/message', createUserMessage({ content: [{ type: 'text', text: 'Synthetic retained input' }, { type: 'image', attachment }], source: { kind: 'user' } }), { surfaceOp: 'append' })
+      session.append('image/offload', { targets: [{ seq: input.seq, imageIndexes: [0] }] })
       session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
       session.append('session/title', { title: 'Synthetic retained title', messageSeqs: [], source: { kind: 'user' } })
       const original = session.snapshotEvents()
@@ -65,10 +69,11 @@ describe('DSH Agent preset durability', () => {
       writeFileSync(snapshotFile, JSON.stringify({ conversationId: 'synthetic-conversation', mountedPresetId: legacyId, mountedPresetRevision: 'old' }))
       const read = async () => {
         const h = await ctx.sessionPersistence.open(id, 'read')
-        try { return { ...(await h.read()), header: h.header } } finally { await h.close() }
+        try { return { ...(await h.read()), header: h.header, inheritedEventCount: h.inheritedEventCount } } finally { await h.close() }
       }
       const originalStored = await read()
-      const bridge = ctx.plugin({ name: 'synthetic-preset-bridge', inject: ['agents', 'agentPresets', 'sessionPersistence'], apply: applyAgentPresetBridge })
+      const plugin = { name: 'synthetic-preset-bridge', inject: ['agents', 'agentPresets', 'sessions', 'sessionPersistence'], apply: applyAgentPresetBridge }
+      const bridge = ctx.plugin(plugin)
       await bridge
       dispose = () => bridge.dispose()
       await ctx.agentPresets.register({ id: 'synthetic-user-preset', name: 'Synthetic preset', plugins: [] })
@@ -77,6 +82,8 @@ describe('DSH Agent preset durability', () => {
       const migrated = await read()
       expect(migrated.header).toEqual(originalStored.header)
       expect(migrated.events.slice(0, original.length)).toEqual(original)
+      expect(Session.fromRestore(id, migrated.events, migrated.header, migrated.inheritedEventCount, migrated.eventState, ctx.sessions.messageProjections)
+        .deriveMessages()[0].content).toContainEqual({ type: 'image', attachment, offloaded: true })
       expect(migrated.events.at(-1)).toMatchObject({ type: 'agent-preset/selected', data: { agentPreset: 'eleckoi-active' } })
       expect(JSON.parse(readFileSync(snapshotFile, 'utf8'))).toMatchObject({ conversationId: 'synthetic-conversation', mountedPresetId: 'eleckoi-active' })
       await ctx.eleckoiPresetRegistrar.prepareForSession(id)
@@ -99,13 +106,13 @@ describe('DSH Agent preset durability', () => {
             await writer.append(next.snapshotEvents(events.length)); await writer.flush()
           } finally { await writer.close() }
         }
-        await ctx.eleckoiSessionHandles.withClosed(id, () => rewindDshSession(sessionRoot, id, 1, inputSeq, false))
+        await ctx.eleckoiSessionHandles.withClosed(id, () => rewindDshSession(sessionRoot, id, 1, inputSeq, false, ctx.sessions.messageProjections))
         expect((await read()).events.filter(event => event.type === 'agent-preset/selected')).toMatchObject([{ data: { agentPreset: 'eleckoi-active' } }])
         expect((await read()).events.some(event => event.type === 'user/message')).toBe(false)
       }
       const beforeRestart = await read()
       await dispose()
-      const restarted = ctx.plugin({ name: 'synthetic-preset-bridge', inject: ['agents', 'agentPresets', 'sessionPersistence'], apply: applyAgentPresetBridge })
+      const restarted = ctx.plugin(plugin)
       await restarted
       dispose = () => restarted.dispose()
       expect((await read()).events).toEqual(beforeRestart.events)

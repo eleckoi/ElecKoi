@@ -18,15 +18,21 @@ it('qualifies update recovery with real Electron HTTP, checksum and NSIS prepara
       outfile: entry, bundle: true, platform: 'node', format: 'cjs',
       alias: { '@shared': join(project, 'packages/shared/src') },
       external: ['electron', 'electron-updater', 'electron-updater/*'], logLevel: 'silent' })
-    const env = { ...process.env, ELECKOI_UPDATE_TEST_ROOT: directory }
+    const env = { ...process.env, ELECKOI_UPDATE_TEST_ROOT: directory, ELECKOI_UPDATE_TEST_RESTART: '0' }
     delete env.ELECTRON_RUN_AS_NODE
-    await promisify(execFile)(require('electron'), [entry], {
+    const run = promisify(execFile)
+    const executable = require('electron')
+    await run(executable, [entry], {
       env, cwd: project, windowsHide: true, timeout: 25_000, maxBuffer: 1024 * 1024
     })
     const result = JSON.parse(await readFile(join(directory, 'results.json'), 'utf8'))
-    expect(result.cases).toHaveLength(6)
+    expect(result.cases).toHaveLength(18)
+    await run(executable, [entry], {
+      env: { ...env, ELECKOI_UPDATE_TEST_RESTART: '1' }, cwd: project, windowsHide: true, timeout: 10_000, maxBuffer: 1024 * 1024
+    })
+    expect(JSON.parse(await readFile(join(directory, 'restarted.json'), 'utf8'))).toEqual({ resumed: true })
   } finally {
     if (dirname(directory) !== output) throw new Error('Unexpected update fixture directory')
     await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
   }
-}, 30_000)
+}, 40_000)

@@ -1,5 +1,5 @@
 diff --git a/lib/index.js b/lib/index.js
-index b1970a744502d15e5e18782c485b9dfbe2ae9cc4..db76673e4da3db01955a8f21811c61cffaa97fc9 100644
+index b1970a7..6246847 100644
 --- a/lib/index.js
 +++ b/lib/index.js
 @@ -278,6 +278,14 @@ const COMPACTION_INSTRUCTION = [
@@ -17,7 +17,7 @@ index b1970a744502d15e5e18782c485b9dfbe2ae9cc4..db76673e4da3db01955a8f21811c61cf
  /**
  * Run the default cache-reusing `ctx.llm.stream()` summarization call: replay
  * the conversation prefix, then append the compaction instruction as the final
-@@ -287,9 +295,10 @@ const CHECKPOINT_PREAMBLE = "This is an automatically generated checkpoint conde
+@@ -287,10 +295,11 @@ const CHECKPOINT_PREAMBLE = "This is an automatically generated checkpoint conde
  * @param input - replayed conversation prefix (system, tools, and leading messages) to condense.
  * @param agent - supplies routed-model history, fallback model, and session id.
  * @param signal - optional cancellation forwarded to the adapter.
@@ -25,10 +25,12 @@ index b1970a744502d15e5e18782c485b9dfbe2ae9cc4..db76673e4da3db01955a8f21811c61cf
  * @returns safe text-only summary blocks and the exact call envelope and output.
  */
 -async function summarizeWithLlm(ctx, config, input, agent, signal) {
-+async function summarizeWithLlm(ctx, config, input, agent, signal, selected) {
- 	const latest = agent.session.requestHeader()?.config;
+-	const latest = agent.session.requestHeader()?.config;
++async function summarizeWithLlm(ctx, config, input, agent, signal, selected, previous) {
++	const latest = previous ?? agent.session.requestHeader()?.config;
  	const configured = config.summarizationProvider.length === 0 ? void 0 : {
  		provider: config.summarizationProvider,
+ 		model: config.summarizationModel
 @@ -299,7 +308,8 @@ async function summarizeWithLlm(ctx, config, input, agent, signal) {
  		provider: agent.options.provider,
  		model: agent.options.model
@@ -47,12 +49,34 @@ index b1970a744502d15e5e18782c485b9dfbe2ae9cc4..db76673e4da3db01955a8f21811c61cf
  		messages,
  		toolHistory: agent.session.toolHistory(),
  		...input.tools === void 0 ? {} : { tools: [...input.tools] },
-@@ -836,8 +847,11 @@ var BasicCompactionEngine = class extends CompactionEngine {
+@@ -407,7 +418,7 @@ function systemHead(session, headSeq) {
+ * @param retainTokens - minimum recent tail budget retained verbatim.
+ * @returns the inclusive positional seq range to compact, or `null`.
+ */
+-function selectCompactableRange(session, measurement, retainTokens) {
++function selectCompactableRange(session, measurement, retainTokens, retainFrom) {
+ 	const pricedNodes = measurement.nodes;
+ 	if (pricedNodes.length === 0) return null;
+ 	const surfaceNodes = session.surface.nodes;
+@@ -420,6 +431,11 @@ function selectCompactableRange(session, measurement, retainTokens) {
+ 		keepFromIdx = index;
+ 		if (accumulated >= retainTokens) break;
+ 	}
++	if (retainFrom !== void 0) {
++		const retainedIdx = surfaceNodes.findLastIndex(seq => session.deriveEventMessage(session.eventAt(seq))?.id === retainFrom);
++		if (retainedIdx === -1) return null;
++		keepFromIdx = Math.min(keepFromIdx, retainedIdx);
++	}
+ 	if (keepFromIdx <= firstIdx) return null;
+ 	while (keepFromIdx > firstIdx) {
+ 		if (toolPairingBalancedBefore(session, surfaceNodes[keepFromIdx])) break;
+@@ -836,8 +852,12 @@ var BasicCompactionEngine = class extends CompactionEngine {
  		const logResult = (result, trigger) => {
  			ctx.logger.info(`compaction (${trigger}): shadowed ${result.shadowedSeqs.length} surface nodes (seqs ${result.shadowedRange.start}-${result.shadowedRange.end}, ~${result.shadowedTokenCount} tokens)`);
  		};
 -		ctx.on("agent/pre-step", async ({ agent, signal }, next) => {
 +		ctx.on("agent/pre-step", async ({ agent, modelSelection, signal }, next) => {
++			if (agent.projectModelRequest !== void 0) return next();
  			if (!signal.aborted) try {
 +				const previous = routedTarget(agent.session);
 +				// The request waterfall will price the resolved selection when the old route is gone.
@@ -60,40 +84,122 @@ index b1970a744502d15e5e18782c485b9dfbe2ae9cc4..db76673e4da3db01955a8f21811c61cf
  				const result = await this.compactIfNeeded(agent, "pressure", signal);
  				if (result !== null) logResult(result, "step pressure");
  			} catch (error) {
-@@ -914,10 +928,10 @@ var BasicCompactionEngine = class extends CompactionEngine {
+@@ -855,6 +875,7 @@ var BasicCompactionEngine = class extends CompactionEngine {
+ 		});
+ 		ctx.on("agent/request", async ({ agent, signal }, next) => {
+ 			const config = await next();
++			if (agent.projectModelRequest !== void 0) return config;
+ 			const previous = agent.session.requestHeader();
+ 			if (signal.aborted || previous === void 0 || config.provider === "" || config.model === "" || previous.config.provider === config.provider && previous.config.model === config.model) return config;
+ 			try {
+@@ -871,6 +892,31 @@ var BasicCompactionEngine = class extends CompactionEngine {
+ 			}
+ 			return config;
+ 		}, { prepend: true });
++		// RETIRE WHEN: DSH bases automatic compaction on the final request projection.
++		ctx.on("agent/model-request-pressure", async ({ agent, request, previous, retainFrom, projectSummary, reproject, signal }) => {
++			const header = agent.session.requestHeader();
++			if (header === void 0 || retainFrom === void 0 || signal.aborted) return;
++			const lastRoute = previous?.config;
++			const switching = lastRoute !== void 0 && (lastRoute.provider !== request.provider || lastRoute.model !== request.model);
++			try {
++				const result = await this.compactPressure(agent, header, signal, switching, {
++					request,
++					retainFrom,
++					projectSummary,
++					reproject,
++					previous: switching ? lastRoute : void 0
++				});
++				if (result !== null) logResult(result, switching ? "model switch" : "step pressure");
++			} catch (error) {
++				signal.throwIfAborted();
++				if (switching) throw new LlmError("Cannot switch model: projected context compaction failed: " + (error instanceof Error ? error.message : String(error)), "MODEL_SWITCH_COMPACTION_FAILED", { cause: error });
++				if (error instanceof TargetPressureConfigError) {
++					if (this.warnedPressureConfigTargets.has(error.targetKey)) return;
++					this.warnedPressureConfigTargets.add(error.targetKey);
++				}
++				ctx.logger.warn("step compaction failed: " + (error instanceof Error ? error.message : String(error)) + "; continuing the turn");
++			}
++		});
+ 		ctx.on("session/event", (session, event) => {
+ 			if (event.type !== "assistant/message") return;
+ 			const agent = this.overflowAgents.get(session);
+@@ -914,10 +960,10 @@ var BasicCompactionEngine = class extends CompactionEngine {
  	* @param signal - optional cancellation forwarded to the adapter.
  	* @returns safe text summary blocks and the exact auxiliary call envelope and output.
  	*/
 -	async summarize(input, agent, signal) {
-+	async summarize(input, agent, signal, selected) {
- 		const target = conversationTarget(agent);
+-		const target = conversationTarget(agent);
++	async summarize(input, agent, signal, selected, previous) {
++		const target = previous ?? conversationTarget(agent);
  		const config = target === void 0 ? this.config : resolveTargetPolicy(this.config, target);
 -		return summarizeWithLlm(this.ctx, config, input, agent, signal);
-+		return summarizeWithLlm(this.ctx, config, input, agent, signal, selected);
++		return summarizeWithLlm(this.ctx, config, input, agent, signal, selected, previous);
  	}
  	/**
  	* Compact for replayed step-boundary pressure or one provider-confirmed context
-@@ -970,7 +984,7 @@ var BasicCompactionEngine = class extends CompactionEngine {
+@@ -946,35 +992,38 @@ var BasicCompactionEngine = class extends CompactionEngine {
+ 		}
+ 	}
+ 	/** Price the proposed header; switch checks require history below its threshold. */
+-	async compactPressure(agent, header, signal, requireBelowThreshold) {
++	async compactPressure(agent, header, signal, requireBelowThreshold, projected) {
+ 		const target = header.config;
+ 		const policy = resolveTargetPolicy(this.config, target);
+ 		const meter = this.ctx.tokenMeter;
+-		let measurement = meter.measure(agent.session, header);
++		let tokens = projected === void 0 ? meter.measure(agent.session, header).totalTokens : meter.measureRequest(projected.request);
+ 		const prune = this.ctx.get("toolResultPruner");
+ 		const info = await this.ctx.llm.resolveModelInfo(target.provider, target.model, signal);
+ 		assertNoActiveCompaction(agent.session, "automatic pressure compaction");
+ 		const targetKey = `${target.provider}/${target.model}`;
+ 		if (info.context === void 0) throw new TargetPressureConfigError(targetKey, `compaction-basic: no context capacity for ${targetKey}; configure contextWindow on that adapter model`);
+ 		const spec = resolveCompactSpec(policy, info.context.contextWindow, reservedCompletionTokens(header, info.defaultMaxTokens));
+-		if (measurement.totalTokens < spec.thresholdTokens) return null;
++		if (tokens < spec.thresholdTokens) return null;
++		const remeasure = async () => projected === void 0
++			? meter.measure(agent.session, header).totalTokens
++			: meter.measureRequest({ ...projected.request, messages: await projected.reproject() });
+ 		if (prune !== void 0) {
+ 			prune.pruneSession(agent.session);
+-			measurement = meter.measure(agent.session, header);
++			tokens = await remeasure();
+ 		}
+-		if (measurement.totalTokens < spec.thresholdTokens) return null;
++		if (tokens < spec.thresholdTokens) return null;
+ 		let result = null;
+ 		for (let attempt = 0; attempt <= spec.compactionRetries; attempt += 1) {
+-			const range = selectCompactableRange(agent.session, measurement, spec.retainTokens);
++			const range = selectCompactableRange(agent.session, meter.measure(agent.session, header), spec.retainTokens, projected?.retainFrom);
+ 			if (range === null) {
  				if (result === null && !requireBelowThreshold) return null;
- 				throw new Error(`no safe compaction range can reduce context below threshold (${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`);
+-				throw new Error(`no safe compaction range can reduce context below threshold (${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`);
++				throw new Error(`no safe compaction range can reduce context below threshold (${tokens} estimated tokens >= threshold ${spec.thresholdTokens})`);
  			}
 -			result = await this.compactRegion(range.start, range.end, agent, signal);
-+			result = await this.compactRegion(range.start, range.end, agent, signal, requireBelowThreshold ? target : void 0);
- 			measurement = meter.measure(agent.session, header);
- 			if (measurement.totalTokens < spec.thresholdTokens) return result;
+-			measurement = meter.measure(agent.session, header);
+-			if (measurement.totalTokens < spec.thresholdTokens) return result;
++			result = await this.compactRegion(range.start, range.end, agent, signal, requireBelowThreshold ? target : void 0, projected);
++			tokens = await remeasure();
++			if (tokens < spec.thresholdTokens) return result;
  		}
-@@ -985,8 +999,8 @@ var BasicCompactionEngine = class extends CompactionEngine {
+-		throw new Error(`compaction still above threshold after ${spec.compactionRetries + 1} compaction attempts (${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`);
++		throw new Error(`compaction still above threshold after ${spec.compactionRetries + 1} compaction attempts (${tokens} estimated tokens >= threshold ${spec.thresholdTokens})`);
+ 	}
+ 	/**
+ 	* Compact one inclusive positional range from the agent-owned surface using
+@@ -985,8 +1034,8 @@ var BasicCompactionEngine = class extends CompactionEngine {
  	* @param signal - optional summarization cancellation signal.
  	* @returns the successful durable compaction result.
  	*/
 -	async compactRegion(start, end, agent, signal) {
 -		return compactSurfaceRegion(this.regionDependencies(), agent.session, start, end, agent, {
-+	async compactRegion(start, end, agent, signal, selected) {
-+		return compactSurfaceRegion(this.regionDependencies(selected), agent.session, start, end, agent, {
++	async compactRegion(start, end, agent, signal, selected, projected) {
++		return compactSurfaceRegion(this.regionDependencies(selected, projected), agent.session, start, end, agent, {
  			owner: "current-turn",
  			stability: "whole-surface"
  		}, signal);
-@@ -1008,7 +1022,7 @@ var BasicCompactionEngine = class extends CompactionEngine {
+@@ -1008,7 +1057,7 @@ var BasicCompactionEngine = class extends CompactionEngine {
  					operationSignal.throwIfAborted();
  					const range = selectCompactableRange(agent.session, this.ctx.tokenMeter.measure(agent.session), 0);
  					if (range === null) return null;
@@ -102,21 +208,24 @@ index b1970a744502d15e5e18782c485b9dfbe2ae9cc4..db76673e4da3db01955a8f21811c61cf
  						owner: null,
  						stability: "selected-span",
  						...sourceCommandId === void 0 ? {} : { sourceCommandId },
-@@ -1027,10 +1041,10 @@ var BasicCompactionEngine = class extends CompactionEngine {
+@@ -1027,10 +1076,13 @@ var BasicCompactionEngine = class extends CompactionEngine {
  		}
  	}
  	/** Bind the effective token meter and dynamically dispatched summarizer hook. */
 -	regionDependencies() {
-+	regionDependencies(selected) {
++	regionDependencies(selected, projected) {
  		return {
  			meter: this.ctx.tokenMeter,
 -			summarize: (input, owner, abort) => this.summarize(input, owner, abort),
-+			summarize: (input, owner, abort) => this.summarize(input, owner, abort, selected),
++			summarize: (input, owner, abort) => {
++				const envelope = projected === void 0 ? input : { ...input, messages: projected.projectSummary(input.messages) };
++				return this.summarize(envelope, owner, abort, selected, projected?.previous);
++			},
  			recover: (error, agent, sourceEventSeqs, signal) => this.ctx.waterfall("compaction/summary-error", {
  				session: agent.session,
  				sourceEventSeqs,
 diff --git a/lib/types/index.d.ts b/lib/types/index.d.ts
-index b1d59fe7ce069a10397566478999effc14ef98fb..775e3800a3dea59c54df34c7205a0d2d9395f6cd 100644
+index b1d59fe..72fb9ba 100644
 --- a/lib/types/index.d.ts
 +++ b/lib/types/index.d.ts
 @@ -8,7 +8,7 @@ import z from '@deepseek-ai/schemastery';
@@ -153,7 +262,7 @@ index b1d59fe7ce069a10397566478999effc14ef98fb..775e3800a3dea59c54df34c7205a0d2d
       * Force one useful idle-session compaction below the pressure threshold, and
       * resolve only after its standalone marker pair is durably checkpointed.
 diff --git a/lib/types/summarizer.d.ts b/lib/types/summarizer.d.ts
-index 1d1c8c8d4acb8b8190836a51aeef248fd389cbc1..d3081270520b59b052cb93f998380e12321a352e 100644
+index 1d1c8c8..4e0e692 100644
 --- a/lib/types/summarizer.d.ts
 +++ b/lib/types/summarizer.d.ts
 @@ -5,7 +5,7 @@
@@ -187,7 +296,7 @@ index 1d1c8c8d4acb8b8190836a51aeef248fd389cbc1..d3081270520b59b052cb93f998380e12
   * Wrap raw summary blocks in the durable checkpoint framing.
   * @param summary - safe text-only model output.
 diff --git a/src/index.ts b/src/index.ts
-index 096fa72fe46a1a715a3a34a2a109b4dc379de42b..8778cdeb668f28d50c42603d409fc907aa3a4bae 100644
+index 096fa72..8778cde 100644
 --- a/src/index.ts
 +++ b/src/index.ts
 @@ -12,7 +12,7 @@ import type { EpochHeader, Session, SessionSeq } from '@deepseek-ai/dsh-session'
@@ -297,7 +406,7 @@ index 096fa72fe46a1a715a3a34a2a109b4dc379de42b..8778cdeb668f28d50c42603d409fc907
          session: agent.session,
          sourceEventSeqs,
 diff --git a/src/summarizer.ts b/src/summarizer.ts
-index 6220a53b255abda122be6aca711991c3a1654401..41d3113d1240e07e29419874f3c9d69f303d2060 100644
+index 6220a53..41d3113 100644
 --- a/src/summarizer.ts
 +++ b/src/summarizer.ts
 @@ -10,7 +10,7 @@ import { deepFreeze } from '@deepseek-ai/dsh-util-values'

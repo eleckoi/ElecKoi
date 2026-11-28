@@ -1,7 +1,8 @@
 diff --git a/lib/index.js b/lib/index.js
+index cdd4b73..18f7fef 100644
 --- a/lib/index.js
 +++ b/lib/index.js
-@@ -541,6 +541,8 @@
+@@ -541,6 +541,8 @@ var ReactLoopAgent = class {
  	systemPrompt;
  	/** Identities fully frozen by this loop; weak references do not retain replaced history. */
  	frozenMessages = /* @__PURE__ */ new WeakSet();
@@ -10,7 +11,7 @@ diff --git a/lib/index.js b/lib/index.js
  	constructor(loopCtx, id, options, session, projections, lastTurn, lifetimeSignal) {
  		this.loopCtx = loopCtx;
  		this.id = id;
-@@ -579,6 +581,18 @@
+@@ -579,6 +581,18 @@ var ReactLoopAgent = class {
  	followup(input) {
  		this.send(input, "next-turn", true);
  	}
@@ -29,7 +30,7 @@ diff --git a/lib/index.js b/lib/index.js
  	steer(input) {
  		this.send(input, "next-step", true);
  	}
-@@ -665,6 +679,7 @@
+@@ -665,6 +679,7 @@ var ReactLoopAgent = class {
  		try {
  			while (await this.turn());
  		} catch (_error) {} finally {
@@ -37,7 +38,7 @@ diff --git a/lib/index.js b/lib/index.js
  			/* v8 ignore next -- kick owns a running phase until this driver boundary */
  			if (this.phase.kind === "running") {
  				const { turn, wakeRequested } = this.phase;
-@@ -680,7 +695,12 @@
+@@ -680,7 +695,12 @@ var ReactLoopAgent = class {
  		/* v8 ignore next -- private callers establish the running phase before proposing a step */
  		if (this.phase.kind !== "running") throw new Error(`agent "${this.id}": pre-step outside running phase`);
  		const signal = this.phase.abort.signal;
@@ -50,7 +51,7 @@ diff --git a/lib/index.js b/lib/index.js
  		const selection = this.model.current();
  		if (selection === void 0) throw new Error(`agent "${this.id}" has no provider/model: set AgentOptions.provider and AgentOptions.model or record a model selection`);
  		const toolSet = await this.loopCtx.tools.resolve({
-@@ -713,8 +733,13 @@
+@@ -713,8 +733,13 @@ var ReactLoopAgent = class {
  				toolSet.dispose();
  				return decision;
  			}
@@ -64,7 +65,17 @@ diff --git a/lib/index.js b/lib/index.js
  				assembly,
  				selection,
  				toolSet
-@@ -875,7 +900,7 @@
+@@ -851,7 +876,9 @@ var ReactLoopAgent = class {
+ 		const { assembly } = decision;
+ 		const renderedPrompt = renderPrompt(assembly);
+ 		let firstAttempt = true;
++		let pressureChecked = false;
+ 		while (true) {
++			const previous = this.session.requestHeader();
+ 			const { config, preparedCall } = await this.prepareRequest(turn, step, decision.selection, signal);
+ 			const sections = renderContextSections(this.loopCtx.systemPrompt.refreshContext(assembly, {
+ 				...assembleContextFor(this, signal),
+@@ -875,13 +902,36 @@ var ReactLoopAgent = class {
  					this.session.append("user/message", context, { surfaceOp: "append" });
  					contextAdmitted = true;
  				}
@@ -72,11 +83,64 @@ diff --git a/lib/index.js b/lib/index.js
 +			} else if (message.id !== decision.existingInputId) this.session.append("user/message", message, { surfaceOp: "append" });
  			if (context !== void 0 && !contextAdmitted) this.session.append("user/message", context, { surfaceOp: "append" });
  			firstAttempt = false;
- 			const request = this.buildRequest(config, preparedCall, assembly.tools, {
+-			const request = this.buildRequest(config, preparedCall, assembly.tools, {
++			let request = this.buildRequest(config, preparedCall, assembly.tools, {
+ 				turn,
+ 				step
+ 			}, startsRequestSeries, signal);
++			// RETIRE WHEN: DSH can check pressure on the final projected input and rebuild after compaction.
++			const project = this.projectModelRequest;
++			if (project !== void 0) {
++				const generation = this.session.surface.contentGeneration;
++				const position = { turn, step };
++				const projected = await project(request, position);
++				request = markAgentLoopRequest(Object.freeze({ ...request, messages: Object.freeze(projected.messages) }));
++				if (!pressureChecked) {
++					pressureChecked = true;
++					await this.dispatch.serial("agent/model-request-pressure", {
++						request,
++						previous,
++						retainFrom: projected.retainFrom,
++						projectSummary: projected.projectSummary,
++						reproject: async () => (await project({ ...request, messages: this.session.deriveMessages() }, position)).messages,
++						signal
++					});
++					signal.throwIfAborted();
++					if (this.session.surface.contentGeneration !== generation) continue;
++				}
++				signal.throwIfAborted();
++				projected.onDispatch(request);
++			}
+ 			const live = new AssistantStreamAttempt(this.session.id, ++this.assistantAttemptCounter, () => ++this.assistantStreamRevision, turn, step, (frame) => {
+ 				this.dispatch.emit("agent/assistant-stream", { frame });
+ 			});
 diff --git a/lib/types/agent.d.ts b/lib/types/agent.d.ts
+index 0e736d4..d9b0894 100644
 --- a/lib/types/agent.d.ts
 +++ b/lib/types/agent.d.ts
-@@ -49,6 +49,8 @@
+@@ -5,6 +5,7 @@
+  */
+ import type { Agent, AgentCancelCause, AgentOptions, AgentStatus, CancelOptions, ModelSelectionProjectionState, InboxTarget, InboxState } from '@deepseek-ai/dsh-agent';
+ import { AgentModel } from '@deepseek-ai/dsh-agent';
++import type { GenerateOptions } from '@deepseek-ai/dsh-llm';
+ import type { Scope } from '@deepseek-ai/dsh-scope';
+ import type { Session, SessionId, UserMessage } from '@deepseek-ai/dsh-session';
+ import type { Context } from '@deepseek-ai/cordis';
+@@ -30,6 +31,13 @@ export declare class ReactLoopAgent implements Agent {
+     /** The agent-scoped registration boundary; the lifecycle owner unwinds it after the driver exits. */
+     readonly scope: Scope;
+     readonly ctx: Context;
++    /** Project model-visible input before pressure compaction and observe the final dispatch. */
++    projectModelRequest?: (request: GenerateOptions, position: { turn: number; step: number }) => Promise<{
++        messages: GenerateOptions['messages'];
++        retainFrom?: string;
++        projectSummary(messages: GenerateOptions['messages']): GenerateOptions['messages'];
++        onDispatch(request: GenerateOptions): void;
++    }>;
+     /** Fused dispatcher, built once in the constructor so hot-path dispatches never allocate. */
+     private readonly dispatch;
+     /** Whether this loop instance has appended its initial/resume request anchor. */
+@@ -49,6 +57,8 @@ export declare class ReactLoopAgent implements Agent {
      private setPhase;
      send(message: UserMessage, target: InboxTarget, wakeup: boolean): void;
      followup(input: UserMessage): void;

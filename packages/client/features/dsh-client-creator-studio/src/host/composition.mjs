@@ -14,7 +14,7 @@ export function creatorComposition(document, product, disabledIds) {
     ['tool-fs', 'builtin:workspace'], ['tool-fs-search', 'builtin:workspace'],
     ['tool-plugin-manager', 'builtin:plugin-discovery'], ['tool-plugin-market', 'builtin:plugin-discovery'],
     ['tool-web', 'builtin:web'], ['tool-subagent-control', 'builtin:collaboration'],
-    ['tool-subagent-list-agents', 'builtin:collaboration'], ['tool-subagent', 'builtin:collaboration'],
+    ['tool-subagent', 'builtin:collaboration'],
     ['tool-subagent-fork', 'builtin:collaboration'], ['workflow-ptc', 'builtin:workflow'],
     ['tool-workflow', 'builtin:workflow'], ['tool-todo', 'builtin:workflow'],
     ['tool-jobs', 'builtin:workflow'], ['tool-schedule', 'builtin:workflow'],

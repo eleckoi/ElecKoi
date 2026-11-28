@@ -1,0 +1,30 @@
+diff --git a/lib/index.js b/lib/index.js
+index 25e1980..7b5ad72 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -907,6 +907,12 @@ var TokenMeter = class extends Service {
+ 	estimateMessage(message) {
+ 		return estimateMessage(message);
+ 	}
++	// RETIRE WHEN: DSH prices a projected request independently of the durable Session surface.
++	measureRequest(request) {
++		const nodes = request.messages.map((message, index) => analyzeNode(SessionSeq(index), message));
++		const { surfaceTokens } = priceSurface(nodes, this._routeImagePricing({ config: request }), this._fileRequestText());
++		return estimateToolsTokens(request) + surfaceTokens;
++	}
+ 	/** Resolve one of the two header payloads retained by the rebuildable price cache. */
+ 	_cachedHeader(state, seq) {
+ 		if (seq === null) return void 0;
+diff --git a/lib/types/index.d.ts b/lib/types/index.d.ts
+index 931e595..826f0b1 100644
+--- a/lib/types/index.d.ts
++++ b/lib/types/index.d.ts
+@@ -62,6 +62,8 @@ export declare class TokenMeter extends Service {
+      * @returns content and role-framing tokens under the fixed service heuristic.
+      */
+     estimateMessage(message: Message): number;
++    /** Estimate the final model input with the same attachment and tool pricing as surface measurement. */
++    measureRequest(request: import('@deepseek-ai/dsh-llm').GenerateOptions): number;
+     /** Resolve one of the two header payloads retained by the rebuildable price cache. */
+     private _cachedHeader;
+     /** Catch rebuildable prices up to the current durable tail. */

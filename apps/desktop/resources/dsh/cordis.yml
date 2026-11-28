@@ -109,17 +109,11 @@
   disabled: true
 - id: tool-subagent-control
   disabled: true
-- id: tool-subagent-list-agents
-  disabled: true
 - id: tool-subagent
   disabled: true
 - id: tool-subagent-fork
   disabled: true
-- id: workflow-worker-thread
-  disabled: true
 - id: tool-workflow
-  disabled: true
-- id: tool-ralph
   disabled: true
 - id: agent-instructions
   disabled: true

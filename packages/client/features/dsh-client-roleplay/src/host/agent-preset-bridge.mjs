@@ -108,8 +108,9 @@ export async function apply(ctx) {
 
   // RETIRE WHEN: supported upgrade, import and rewind sources no longer select
   // materialized roleplay preset IDs. Remove this conversion, legacyPresetId,
-  // startup scan and its prepare/closed-edit calls together. Keep the active
-  // registration and normal restoration; legacy generated files are not deleted.
+  // startup scan, prepare/closed-edit calls and projection replay regression
+  // together. Keep active registration and normal restoration. Conversion
+  // preserves projected message history and only updates preset selection.
   const migrateStoredPreset = async (sessionId, allowMissing = false) => {
     if (!ctx.sessionPersistence) return
     let reader, legacySelection, snapshot
@@ -132,7 +133,7 @@ export async function apply(ctx) {
       try {
         const { events } = await writer.read()
         if (legacyPresetId(storedPresetForInspection({ meta: writer.header, events }))) {
-          const session = Session.create(writer.id, events, writer.header, writer.inheritedEventCount)
+          const session = Session.create(writer.id, events, writer.header, writer.inheritedEventCount, ctx.sessions.messageProjections)
           session.append('agent-preset/selected', { agentPreset: ACTIVE_RUNTIME_PRESET_ID })
           await writer.append(session.snapshotEvents(events.length))
           await writer.flush()
@@ -220,7 +221,7 @@ export async function apply(ctx) {
         }, { prepend: true })
         const readHistory = (sessionId, signal) => readRoleplayReplies(ctx, sessionId, signal)
         installRequestConfig(agent.ctx, snapshotRoot, agent.id, readHistory)
-        installConversationContext(agent.ctx, snapshotRoot, agent.id, ctx.eleckoiRequestPreviews, ctx.settings, runtimeContexts, readHistory)
+        installConversationContext(agent, snapshotRoot, ctx.eleckoiRequestPreviews, runtimeContexts, readHistory)
       }
       applyDisabledPolicy(agent.ctx, snapshot.disabledToolGroupIds, ctx.get('tools'))
       configuredAgents.add(agent)

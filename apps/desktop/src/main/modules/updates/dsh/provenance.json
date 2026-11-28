@@ -10,9 +10,10 @@
       "sha256": "bae3b1073f99563a9a768e30df6174a46d4f8f7f37c468392e9790bab4857375",
       "changes": [
         "Relative TypeScript import suffixes use .js for the local compiler.",
-        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter.",
+        "Reconcile the product's Windows full-installer resume cache after successful feed checks, prepared downloads and settled channel changes."
       ],
-      "localSha256": "97176e9aa33310b95626236db8a2bd80051443f0ac8604f2060200b7ae37a784",
+      "localSha256": "6f150948ef01f96a91eae433248979193cb7243fa9d1c7d79a16e3089f1898ed",
       "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {
@@ -20,9 +21,10 @@
       "source": "apps/desktop/src/updates/electron-updater/http-executor.ts",
       "sha256": "7230d88ece24770bb45ddac28ff6b9a0ed60f1b20a4361da44fc5265a1cc4eb8",
       "changes": [
-        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter."
+        "Native channels and renderer-only bridge types are shared as pure contracts; native implementations stay in the Electron platform adapter.",
+        "Expose the verified Windows full-installer transfer to the product resume adapter using the current session, timeout, cancellation and upstream redirect policy."
       ],
-      "localSha256": "7230d88ece24770bb45ddac28ff6b9a0ed60f1b20a4361da44fc5265a1cc4eb8",
+      "localSha256": "cee46f7200fd6a2515611429ba6ffa2a5040c02db2878d590c5a9fb58b491923",
       "commit": "9c2670d3bce5275e0d1610272958121af87787bb"
     },
     {

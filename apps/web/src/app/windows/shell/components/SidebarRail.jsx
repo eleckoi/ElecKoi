@@ -76,7 +76,7 @@ function RailSettingsButton({ active, onOpenSettings, expanded }) {
   );
 }
 
-export function SidebarRail({ activeSection, navigationItems = [], renderEntryActions, renderSidebarSlot, profileActive, onSectionChange, onNavigationAction, persona, onOpenProfile, onOpenSettings, expanded = false, compactAccount = false, onCollapse, footerActions }) {
+export function SidebarRail({ activeSection, navigationItems = [], renderEntryActions, entryActionsTriggerRef, renderSidebarSlot, profileActive, onSectionChange, onNavigationAction, persona, onOpenProfile, onOpenSettings, expanded = false, compactAccount = false, onCollapse, footerActions }) {
   const tUi = useProductTranslation();
   const brand = <span className="rail-brand-seat" aria-hidden="true">
     {renderSidebarSlot?.("sidebar.brand.mark", { size: 30, content: <img src={logoIcon} alt="" draggable="false" /> }) || <img src={logoIcon} alt="" draggable="false" />}
@@ -110,7 +110,7 @@ export function SidebarRail({ activeSection, navigationItems = [], renderEntryAc
       {!expanded && brand}
       <div className="rail-nav-group">
         {navigationItems.map(renderItem)}
-        {renderEntryActions ? <DshEntryActionsMenu region="sidebar" className="rail-nav-button is-plugin-icon" showLabel={expanded} renderActions={renderEntryActions} /> : null}
+        {renderEntryActions ? <DshEntryActionsMenu region="sidebar" triggerRef={entryActionsTriggerRef} className="rail-nav-button is-plugin-icon" showLabel={expanded} renderActions={renderEntryActions} /> : null}
       </div>
       <div className="rail-bottom-zone">
         {footerActions && <div className="rail-footer-actions" aria-label={tUi("侧边栏插件操作")}>{footerActions}</div>}

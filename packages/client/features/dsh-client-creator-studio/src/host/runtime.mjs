@@ -60,7 +60,8 @@ export async function installCreatorStudioRuntime(ctx) {
   // select hashed Studio preset IDs. Remove this conversion, legacyPresetId,
   // its open/edit calls, failure retention and generated-directory cleanup together; keep the
   // current-selection helper and global binding. Session identities and history
-  // stay; only append the official selection before retiring generated files.
+  // stay, including history interpreted by message projections. Remove the
+  // conversion-specific projection replay regression with these calls.
   // First-turn edits can remove every event. Only their already validated
   // pre-edit state may restore a missing Studio marker before Agent resolution.
   const migrateStoredPreset = async (sessionId, restoredState) => {
@@ -71,7 +72,7 @@ export async function installCreatorStudioRuntime(ctx) {
       const previous = events.findLast(event => event.type === CREATOR_STUDIO_EVENT)
       if (!previous && !restoredState) throw productFailure(ELECKOI_FAILURE_CODES.stateMismatch, '旧创作配置缺少工作室会话标记。', { what: '旧创作工作室会话标记' })
       const state = creatorStudioStateSchema.parse(restoredState ?? previous.data)
-      const session = Session.create(handle.id, events, handle.header, handle.inheritedEventCount)
+      const session = Session.create(handle.id, events, handle.header, handle.inheritedEventCount, ctx.sessions.messageProjections)
       session.append('agent-preset/selected', { agentPreset: CREATOR_RUNTIME_PRESET_ID })
       const presetId = currentPreset().preset.id
       if (!previous || previous.data.presetId !== presetId || previous.data.characterId !== state.characterId) {

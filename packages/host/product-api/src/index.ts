@@ -477,7 +477,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
     'typert',
     'agents',
     'sessionController', 'sessionQuery',
-    'sessionPersistence',
+    'sessionPersistence', 'sessions',
     'eleckoiProductData',
     'eleckoiVariableProcessing',
     'eleckoiConversationLifecycle',
@@ -831,7 +831,7 @@ export class ElecKoiConversationsApi extends TypertRemoteService {
       for (const log of logs) {
         const id = ids.get(log.header.id as string)
         if (!id) throw productFailure(ELECKOI_FAILURE_CODES.dataShapeInvalid, '聊天记录缺少 DSH 会话映射。', { what: '聊天记录里的 DSH 会话映射' })
-        const session = importedSession(log, id, ids, process.env.ELECKOI_WORKSPACE_ROOT)
+        const session = importedSession(log, id, ids, this.ownerContext.sessions.messageProjections, process.env.ELECKOI_WORKSPACE_ROOT)
         const handle = await this.ownerContext.sessionPersistence.create(session.header, {
           inheritedEventCount: session.inheritedEventCount
         })
